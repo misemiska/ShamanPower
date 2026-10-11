@@ -8559,6 +8559,59 @@ function ShamanPower:FlyoutResortHelper(element, parent)
 	return h
 end
 
+-- Flyout order (3.0.9, a user's ask): an element's totems fly out in the player's order, dragged
+-- on Totem Bar > Bar > Totems In The Flyouts. opt.flyoutOrder[element] = { totemIndex, ... } in
+-- that order; a totem not in it (learned since) follows, in the game's order. Nothing saved: the
+-- game's order. The flyout buttons carry their rank (flyoutRank, and the secure relayout's
+-- myTotemIndex), so the hover flyout, the Grid's rows and the box in a fight all follow it.
+function ShamanPower:FlyoutOrder(element, out)
+	out = out or {}
+	wipe(out)
+	local totems = self.Totems and self.Totems[element] or {}
+	local saved = self.opt and self.opt.flyoutOrder and self.opt.flyoutOrder[element]
+	local seen = {}
+	if type(saved) == "table" then
+		for _, idx in ipairs(saved) do
+			if totems[idx] and not seen[idx] then seen[idx] = true; out[#out + 1] = idx end
+		end
+	end
+	local last = self.GetTotemIndexLimit and self:GetTotemIndexLimit(element) or 10
+	for idx = 1, math.max(last, 10) do
+		if totems[idx] and not seen[idx] then seen[idx] = true; out[#out + 1] = idx end
+	end
+	return out
+end
+-- the game's own order: the same walk with nothing saved
+function ShamanPower:FlyoutOrderIsUsual(element)
+	local saved = self.opt and self.opt.flyoutOrder and self.opt.flyoutOrder[element]
+	if type(saved) ~= "table" then return true end
+	local order = self:FlyoutOrder(element)
+	local totems = self.Totems and self.Totems[element] or {}
+	local last = self.GetTotemIndexLimit and self:GetTotemIndexLimit(element) or 10
+	local i = 0
+	for idx = 1, math.max(last, 10) do
+		if totems[idx] then
+			i = i + 1
+			if order[i] ~= idx then return false end
+		end
+	end
+	return true
+end
+-- list: the totem indexes in the new order (nil: back to the game's order). The flyouts are
+-- built again by the caller (RecreateTotemFlyouts, out of a fight).
+function ShamanPower:SetFlyoutOrder(element, list)
+	if not self.opt then return end
+	if type(list) == "table" and #list > 0 then
+		if type(self.opt.flyoutOrder) ~= "table" then self.opt.flyoutOrder = {} end
+		local copy = {}
+		for i, idx in ipairs(list) do copy[i] = idx end
+		self.opt.flyoutOrder[element] = copy
+	elseif type(self.opt.flyoutOrder) == "table" then
+		self.opt.flyoutOrder[element] = nil
+		if next(self.opt.flyoutOrder) == nil then self.opt.flyoutOrder = nil end
+	end
+end
+
 function ShamanPower:CreateTotemFlyout(element)
 	if self.totemFlyouts[element] then return self.totemFlyouts[element] end
 
@@ -8597,6 +8650,9 @@ function ShamanPower:CreateTotemFlyout(element)
 	-- Element names for flyout settings lookup
 	local elementKeys = { [1] = "earth", [2] = "fire", [3] = "water", [4] = "air" }
 	local elementKey = elementKeys[element]
+	-- (3.0.9) each totem's rank in the player's flyout order (FlyoutOrder)
+	local rankOf = {}
+	for i, idx in ipairs(self:FlyoutOrder(element)) do rankOf[idx] = i end
 
 	for totemIndex, spellID in pairs(totems) do
 		-- Ask knowledge by ID; the localized name below is used for casting.
@@ -8653,7 +8709,7 @@ function ShamanPower:CreateTotemFlyout(element)
 			-- Store spell info as attributes for secure snippets
 			btn:SetAttribute("mySpell", spellName)
 			btn:SetAttribute("myElement", element)
-			btn:SetAttribute("myTotemIndex", totemIndex)
+			btn:SetAttribute("myTotemIndex", rankOf[totemIndex] or totemIndex)   -- (its rank: the secure relayout orders by it)
 			btn:SetAttribute("isFlyoutButton", true)  -- Mark as flyout button for relayout handler
 
 			-- Check if buttons are swapped
@@ -8840,6 +8896,7 @@ function ShamanPower:CreateTotemFlyout(element)
 			end)
 
 			btn.totemIndex = totemIndex
+			btn.flyoutRank = rankOf[totemIndex] or totemIndex
 			btn.spellID = spellID
 			btn.talentSpellID = isTalentTotem and spellID or nil
 
@@ -8963,14 +9020,15 @@ function ShamanPower:CreateTotemFlyout(element)
 		end)
 
 		btn.totemIndex = 0
+		btn.flyoutRank = 0
 		btn.isDisabledInFlyout = false
 		table.insert(flyout.allButtons, btn)
 		table.insert(flyout.buttons, btn)
 	end
 
-	-- Sort buttons by totemIndex for consistent ordering
-	table.sort(flyout.allButtons, function(a, b) return a.totemIndex < b.totemIndex end)
-	table.sort(flyout.buttons, function(a, b) return a.totemIndex < b.totemIndex end)
+	-- Sort buttons by their rank in the player's flyout order (the game's, unless dragged)
+	table.sort(flyout.allButtons, function(a, b) return (a.flyoutRank or a.totemIndex) < (b.flyoutRank or b.totemIndex) end)
+	table.sort(flyout.buttons, function(a, b) return (a.flyoutRank or a.totemIndex) < (b.flyoutRank or b.totemIndex) end)
 	self:RefreshTotemBarHelpers()
 
 	-- Initial layout
@@ -9225,7 +9283,7 @@ function ShamanPower:RescueFilteredFlyout(flyout)
 		for _, btn in ipairs(flyout.allButtons) do
 			if not btn.isDisabledInFlyout then table.insert(flyout.buttons, btn) end
 		end
-		table.sort(flyout.buttons, function(a, b) return a.totemIndex < b.totemIndex end)
+		table.sort(flyout.buttons, function(a, b) return (a.flyoutRank or a.totemIndex) < (b.flyoutRank or b.totemIndex) end)
 	end
 end
 
@@ -10281,6 +10339,17 @@ function ShamanPower:RecreateTotemFlyouts()
 			-- Rebuild the active buttons list based on current settings
 			local elementKey = elementKeys[element]
 			flyout.buttons = {}
+			-- (3.0.9) the player's flyout order may have changed: each button's rank again (the
+			-- secure relayout's myTotemIndex with it), and the list in that order
+			local rankOf = {}
+			for i, idx in ipairs(self:FlyoutOrder(element)) do rankOf[idx] = i end
+			for _, btn in ipairs(flyout.allButtons) do
+				if btn.totemIndex ~= 0 then
+					btn.flyoutRank = rankOf[btn.totemIndex] or btn.totemIndex
+					btn:SetAttribute("myTotemIndex", btn.flyoutRank)
+				end
+			end
+			table.sort(flyout.allButtons, function(a, b) return (a.flyoutRank or a.totemIndex) < (b.flyoutRank or b.totemIndex) end)
 
 			for _, btn in ipairs(flyout.allButtons) do
 				local totemIdx = btn.totemIndex
@@ -10306,7 +10375,7 @@ function ShamanPower:RecreateTotemFlyouts()
 			end
 
 			-- Sort buttons by totemIndex for consistent ordering
-			table.sort(flyout.buttons, function(a, b) return a.totemIndex < b.totemIndex end)
+			table.sort(flyout.buttons, function(a, b) return (a.flyoutRank or a.totemIndex) < (b.flyoutRank or b.totemIndex) end)
 
 			-- Re-layout the flyout
 			self:LayoutFlyoutButtons(flyout)

@@ -293,6 +293,7 @@ SHAMANPOWER_DEFAULT_VALUES = {
             scale = 1.0,               -- Size
             bgOpacity = 0.8,           -- Background Opacity (the panel only; the markers stay)
             breakUp = false,           -- Break Up Totem List: each picked totem a strip of its own
+            onlyDown = false,          -- Only While The Totem Is Down: a totem's line only while you have it down
             -- position = { anchor, x, y } once moved (SP:SavePositionRecord)
             -- totems = { ["element:index"] = true }: the Totems row's picks. No default: until the
             --   first pick the strip shows the old Buff to Watch (buff above) alone

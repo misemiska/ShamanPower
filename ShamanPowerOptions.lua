@@ -10732,6 +10732,17 @@ do
 			if SP.db and SP.db.global then SP.db.global.oldLookSeen = true end
 		end,
 	}
+	-- 3.0.9 (sheet A30): a click on an icon opens that item's own screen, every choice a
+	-- picture of what you get (ShamanPower_Config/IconScreen.lua). Off to start; right-click
+	-- keeps the menu either way.
+	main.iconScreens = {
+		order = 1.53, type = "toggle", name = "Click an Icon Opens Its Screen", width = "full",
+		desc = "On the icon pages, a click on an icon opens a screen of everything about it, with a picture of what each choice does: click the picture you want. Right-click still opens the menu. Off: a click turns the icon on or off, as before.",
+		get = function() return SP.opt.iconScreens == true end,
+		set = function(_, value)
+			SP.opt.iconScreens = value and true or nil
+		end,
+	}
 	SP.OptionRowLit = {
 		[main.oldSettingsLook] = function()
 			local g = SP.db and SP.db.global
@@ -11180,6 +11191,18 @@ do
 					Changed("breakup")
 				end,
 			},
+			partystrip_onlydown = {
+				order = 6.5, type = "toggle", width = "full",
+				name = "Only While The Totem Is Down",
+				desc = "A totem's line shows only while you have that totem down, and goes when it is not. Off: the line"
+					.. " stays on screen whether the totem is down or not, so you always see who has your buff.",
+				hidden = Off,
+				get = function() return O().onlyDown == true end,
+				set = function(_, val)
+					O().onlyDown = val and true or false
+					Changed("totems")
+				end,
+			},
 			partystrip_reports_note = {
 				order = 7, type = "description",
 				name = "|cffffa040Windfury: each party member's own ShamanPower (or the Windfury WeakAura) reports it. Anyone who doesn't report it shows a gray question mark.|r",
@@ -11280,7 +11303,7 @@ do
 		{ keys = { "partystrip_desc", "partystrip_module_missing" } },
 		{ keys = { "partystrip_enabled", "partystrip_combat_note" } },
 		{ header = "totems_header", name = "Totems", keys = {
-			"partystrip_totems", "partystrip_none_note", "partystrip_breakup", "partystrip_reports_note",
+			"partystrip_totems", "partystrip_none_note", "partystrip_breakup", "partystrip_onlydown", "partystrip_reports_note",
 		} },
 		{ header = "look_header", name = "Look", keys = {
 			"partystrip_icon", "partystrip_icon_note", "partystrip_names", "partystrip_layout", "partystrip_size", "partystrip_opacity",

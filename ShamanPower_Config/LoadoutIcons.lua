@@ -133,19 +133,23 @@ end
 
 local function TotemChoices(lo, e)
 	local cur = lo[e] or 0
-	local out = { { text = "None", selected = cur == 0, onClick = function() return SetTotem(lo, e, 0) end } }
+	-- the pictures (the icon's own screen): None is an empty plate; a totem is its own icon in the loadout's place
+	local out = { { text = "None", selected = cur == 0, pic = { kind = "hidden" },
+		onClick = function() return SetTotem(lo, e, 0) end } }
 	for _, idx in ipairs(TotemIndexes(e)) do
 		local name = SP:GetTotemName(e, idx) or ("Totem " .. idx)
 		-- a totem this character hasn't learned stays pickable, marked (the game won't drop it yet)
 		local learned = not SP.KnowsTotem or SP:KnowsTotem(e, idx)
 		out[#out + 1] = { text = learned and name or (name .. "  |cff8A94A6(not learned)|r"), icon = SP:GetTotemIcon(e, idx),
-			selected = idx == cur, onClick = function() return SetTotem(lo, e, idx) end }
+			selected = idx == cur, pic = { kind = "swap", icon = SP:GetTotemIcon(e, idx) },
+			onClick = function() return SetTotem(lo, e, idx) end }
 	end
 	return out
 end
 
 local function DropAllRows(lo)
 	local r = {}
+	-- on, its picture: the icon grayed (left out), as Not Dropped draws on the Totem Bar page
 	for e = 1, 4 do
 		r[#r + 1] = Menu.OnOff("Leave Out " .. ELEMENTS[e], function()
 			local i = IndexOf(lo)
@@ -156,7 +160,8 @@ local function DropAllRows(lo)
 			if i then SP:SetDropAllExclude(e, v and true or false, i) end
 			Row:Changed(true)
 			return true
-		end, "Leaves " .. ELEMENTS[e] .. " out of Drop All and Call of the Elements while this loadout is in use.")
+		end, "Leaves " .. ELEMENTS[e] .. " out of Drop All and Call of the Elements while this loadout is in use.",
+			{ kind = "gray" })
 	end
 	return r
 end
@@ -191,7 +196,8 @@ local function SetRows(lo)
 			return true
 		end, "Choose a Blizzard totem set for this loadout. Each set can hold one loadout: choosing a set replaces its"
 			.. " previous loadout. Call of the Elements follows your assignments. None: switch loadouts as usual. Saved"
-			.. " choices stay saved if their set is unavailable."),
+			.. " choices stay saved if their set is unavailable.",
+			{ kind = "none" }),   -- (no picture says a totem set: the captions alone)
 		{ text = "Send to Set Now", disabled = SetPageOf(lo) == 0,
 			tip = "Put all four saved totems in the chosen set. None leaves that element empty. Changes made in combat"
 				.. " take effect when the fight ends.",
@@ -270,6 +276,7 @@ local function MenuItems(item)
 	for e = 1, 4 do
 		r[#r + 1] = { text = ELEMENTS[e], subMaxHeight = 260,
 			icon = (lo[e] or 0) > 0 and SP:GetTotemIcon(e, lo[e]) or nil,
+			words = "the " .. ELEMENTS[e] .. " totem your bar takes when you switch to it",
 			value = function()
 				local cur = lo[e] or 0
 				return cur > 0 and (SP:GetTotemName(e, cur) or "?") or "None", false
@@ -279,14 +286,14 @@ local function MenuItems(item)
 	end
 	r[#r + 1] = Menu.Group("Drop All", function() return DropAllRows(lo) end,
 		"What Drop All and Call of the Elements leave out while this loadout is in use.",
-		function() return DropAllValue(lo) end)
+		function() return DropAllValue(lo) end, "what it leaves out while in use")
 	if HasSetControls() then
 		local known = KnownPages()
 		if known[2] or known[3] then
 			r[#r + 1] = Menu.Group("Blizzard Totem Set", function() return SetRows(lo) end, nil, function()
 				local p = SetPageOf(lo)
 				return PAGE_NAMES[p] or "None", p ~= 0
-			end)
+			end, "the set this loadout fills")
 		end
 	end
 	r[#r + 1] = SEP

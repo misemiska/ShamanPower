@@ -169,6 +169,20 @@ local function Kind(entry, sub)
 	return "value"
 end
 
+-- the reader, for the icon's own screen (IconScreen.lua, 3.0.9): the same reading of the same menus
+local function OnlyButtons(sub)
+	local n = 0
+	for _, e in ipairs(sub or {}) do
+		if type(e) == "table" and not e.separator then
+			if e.sub or e.slider or e.swatch or e.selected ~= nil or not e.onClick then return false end
+			n = n + 1
+		end
+	end
+	return n >= 3
+end
+ListLook.Menu = { Of = MenuOf, Sub = SubOf, Resolve = Resolve, Choices = Choices, Kind = Kind,
+	Disabled = ChoiceDisabled, Invalidate = Invalidate, Call = Call, OnlyButtons = OnlyButtons }
+
 -- ---------------------------------------------------------------------------
 -- A card's rows, packed as Window.lua packs a section card: two columns, a thin line
 -- between the lines, the divider through a run of two-column lines, a label that does

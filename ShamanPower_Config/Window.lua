@@ -1599,6 +1599,7 @@ local function BuildWindow()
 	-- clip; it must not outlive the window.
 	frame:SetScript("OnHide", function(self)
 		Core:MonoClear()   -- (D42) a gray page's regions are pooled: their colors back
+		if ns.IconScreen then ns.IconScreen:Close(true) end   -- (3.0.9) an icon's screen goes with the window
 		Widgets:HidePopup()
 		SPConfig:HoverStyle(nil)
 		SPConfig:ReleasePreview()
@@ -1956,6 +1957,7 @@ local function ClearPage()
 	if ns.ThemesPage then ns.ThemesPage:Release() end
 	if ns.PatchNotesPage then ns.PatchNotesPage:Release() end
 	if ns.ListLook then ns.ListLook:Release() end
+	if ns.IconScreen then ns.IconScreen:Release() end
 	for _, row in pairs(ns.CustomRows) do
 		if row.Release then row:Release() end
 	end
@@ -2355,6 +2357,26 @@ local function RenderPageInner(self, entry, query, keepScroll)
 	local buttonTones = spNow and spNow.OptionButtonTone   -- [option] = "help": a gold button
 	local actionThrough = 0
 	SPConfig:HoverStyle(nil)   -- a rebuild under the mouse gets no OnLeave
+
+	-- 3.0.9: an icon's own screen (IconScreen.lua) in place of the page's rows; an item that left its
+	-- row (placed onto another), or an error: the screen is dropped and the page's rows draw as usual
+	if ns.IconScreen and ns.IconScreen:Takes(entry, query, frame._activeTab) then
+		local ok, cf, ch = pcall(ns.IconScreen.Render, ns.IconScreen, body, fullW, element, onChanged)
+		if ok and cf then
+			pageWidgets[#pageWidgets + 1] = cf
+			y = ch or 0
+			Widgets:SetElement(nil)
+			self:UpdateCombatLock()
+			body:SetHeight(math.max(y + 20, 1))
+			local maxScroll = math.max(0, body:GetHeight() - frame.bodyScroll:GetHeight())
+			frame.bodyScroll:SetVerticalScroll(math.max(0, math.min(keepScroll or 0, maxScroll)))
+			frame.emptyText:Hide()
+			return
+		end
+		if not ok then geterrorhandler()(cf) end
+		ns.IconScreen:Close(true)
+		ClearPage()   -- (whatever the screen took before it gave up)
+	end
 
 	for index, e in ipairs(list) do
 		-- Skip actions already drawn together on the preceding row.

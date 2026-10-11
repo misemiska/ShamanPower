@@ -522,11 +522,21 @@ function Proto:GapAt(cx, cy)
 	local n = #self.list
 	local gap
 	if self.slotX then
-		-- a laid-out row: the line nearest the cursor, then the first plate whose middle is right of it
+		-- a laid-out row: the line nearest the cursor, then the first plate whose middle is right of it;
+		-- a grouped row (the totems by element): only the lines of the lifted item's own group
+		local def = self.def
+		local lg
+		if def.group and self.liftKey then
+			for _, item in ipairs(self.list) do
+				if item.key == self.liftKey then lg = Call(def.group, item) break end
+			end
+		end
 		local lineY, best
 		for i = 1, n do
-			local d = math.abs(cy - (self.slotY[i] + PLATE / 2))
-			if not best or d < best then best, lineY = d, self.slotY[i] end
+			if lg == nil or Call(def.group, self.list[i]) == lg then
+				local d = math.abs(cy - (self.slotY[i] + PLATE / 2))
+				if not best or d < best then best, lineY = d, self.slotY[i] end
+			end
 		end
 		local lastOnLine
 		for i = 1, n do
@@ -565,6 +575,7 @@ function Proto:StartDrag(b)
 	if ns.ContextMenu:IsOpen() then ns.ContextMenu:Close() end
 	local key = b.item.key
 	b.dragging = true
+	self.liftKey = key   -- (GapAt keeps a grouped row's drag in the item's own group from the first frame)
 	local row = self
 	local df = self.dragFrame
 	if not df then df = CreateFrame("Frame", nil, self.frame); self.dragFrame = df end
@@ -610,6 +621,11 @@ end
 local function ButtonClick(b, button)
 	local row, item = b.row, b.item
 	if not (row and item) or b.dragging then return end
+	-- 3.0.9: Click an Icon Opens Its Screen (General > Main): the item's own screen (IconScreen.lua)
+	if button == "LeftButton" and ns.IconScreen and ns.IconScreen:Wants(row) then
+		ns.IconScreen:Open(row, item.key)
+		return
+	end
 	if button == "RightButton" or row.def.clickMenu then
 		row:OpenMenu(item.key)
 		return
@@ -1026,9 +1042,11 @@ function Menu.LabelOf(list, v)
 end
 
 -- get() -> value, own;  set(v) -> keep the menu open (true) or close it
-function Menu.Choice(text, list, get, set, tip)
+-- 3.0.9: `pic` / `words` are picture hints for the icon's own screen (IconScreen.lua): a list
+-- entry's 4th field is that choice's picture, `pic` the fallback; the menus ignore them
+function Menu.Choice(text, list, get, set, tip, pic)
 	return {
-		text = text, tip = tip,
+		text = text, tip = tip, pic = pic,
 		value = function()
 			local v, own = get()
 			return Menu.LabelOf(list, v), own and true or false
@@ -1038,21 +1056,24 @@ function Menu.Choice(text, list, get, set, tip)
 			local items = {}
 			for _, c in ipairs(list) do
 				local v = c[1]
-				items[#items + 1] = { text = c[2], selected = cur == v, tip = c[3], onClick = function() return set(v) end }
+				items[#items + 1] = { text = c[2], selected = cur == v, tip = c[3], pic = c[4], onClick = function() return set(v) end }
 			end
 			return items
 		end,
 	}
 end
 
-function Menu.OnOff(text, get, set, tip)
-	return Menu.Choice(text, { { true, "On" }, { false, "Off" } },
+-- pic: the picture when ON (the screen shows the plain icon, its check corner off, when OFF)
+function Menu.OnOff(text, get, set, tip, pic)
+	local e = Menu.Choice(text, { { true, "On" }, { false, "Off" } },
 		function() local v, own = get(); return v and true or false, own end, set, tip)
+	e.pic = pic
+	return e
 end
 
-function Menu.Slider(text, lo, hi, step, get, set, format, isPercent, tip)
+function Menu.Slider(text, lo, hi, step, get, set, format, isPercent, tip, pic)
 	return {
-		text = text, tip = tip,
+		text = text, tip = tip, pic = pic,
 		slider = {
 			min = lo, max = hi, step = step, isPercent = isPercent,
 			get = function() return (get()) end,
@@ -1062,8 +1083,9 @@ function Menu.Slider(text, lo, hi, step, get, set, format, isPercent, tip)
 	}
 end
 
-function Menu.Group(text, rows, tip, value)
-	return { text = text, tip = tip, value = value, sub = function() return rows() end }
+-- words: a short line after the card's title on the icon's screen
+function Menu.Group(text, rows, tip, value, words)
+	return { text = text, tip = tip, value = value, words = words, sub = function() return rows() end }
 end
 
 Menu.OnOffText = OnOffText

@@ -46,6 +46,7 @@ local BTN_CAPTION = "|cff3FA9F5CLICK|r a button to show or hide it on the bar. |
 local BTN_CAPTION_NATIVE = "|cff3FA9F5RIGHT-CLICK|r Drop All for its drop order and Blizzard Totem Sets. You use Blizzard's"
 	.. " Totem Bar (Totem Bar > Style), so its own buttons are on screen instead of ShamanPower's."
 local TOT_CAPTION = "|cff3FA9F5CLICK|r a totem to show or hide it in its flyout. |cff3FA9F5RIGHT-CLICK|r it for its settings."
+	.. " |cff3FA9F5DRAG|r it along its line to change the order they fly out in."
 	.. " |cff3FA9F5Dark|r totems aren't learned yet: set them up now, they show once learned."
 local TOT_CAPTION_NATIVE = "|cff3FA9F5RIGHT-CLICK|r a totem for its settings. Blizzard's Totem Bar shows its own flyouts,"
 	.. " so a click here doesn't change them."
@@ -87,9 +88,11 @@ end
 local function KeybindMode() Run("SetKeybindMode", true) end
 
 -- a choice from a list ({ value, label } or "-" for a separator); get() -> value, own; set(v) keeps it open
-local function Choice(text, list, get, set, tip, disabled)
+-- 3.0.9: a list entry's 4th field is that choice's picture on the icon's own screen (IconScreen.lua),
+-- `pic` the fallback (an On / Off row: its ON picture); the menus ignore them
+local function Choice(text, list, get, set, tip, disabled, pic)
 	return {
-		text = text, tip = tip, disabled = disabled,
+		text = text, tip = tip, disabled = disabled, pic = pic,
 		value = function()
 			local v, own = get()
 			for _, c in ipairs(list) do
@@ -105,7 +108,8 @@ local function Choice(text, list, get, set, tip, disabled)
 					items[#items + 1] = SEP
 				else
 					local v = c[1]
-					items[#items + 1] = { text = c[2], selected = cur == v, tip = c[3], onClick = function() return set(v) end }
+					items[#items + 1] = { text = c[2], selected = cur == v, tip = c[3], pic = c[4],
+						onClick = function() return set(v) end }
 				end
 			end
 			return items
@@ -368,8 +372,15 @@ local function Totems()
 	if TOTEMS[1] then return TOTEMS end
 	for e = 1, 4 do
 		local t = SP.Totems and SP.Totems[e] or {}
-		local last = SP.GetTotemIndexLimit and SP:GetTotemIndexLimit(e) or 10
-		for idx = 1, math.max(last, 10) do
+		-- in the flyout's order (3.0.9: the player's, dragged here; else the game's)
+		local order
+		if SP.FlyoutOrder then order = SP:FlyoutOrder(e) end
+		if not order then
+			order = {}
+			local last = SP.GetTotemIndexLimit and SP:GetTotemIndexLimit(e) or 10
+			for idx = 1, math.max(last, 10) do if t[idx] then order[#order + 1] = idx end end
+		end
+		for _, idx in ipairs(order) do
 			local id = t[idx]
 			if id and (not (SPCompat and SPCompat.SpellExists) or SPCompat.SpellExists(id)) then
 				TOTEMS[#TOTEMS + 1] = { key = id, e = e, idx = idx, name = SP.GetTotemName and SP:GetTotemName(e, idx) or tostring(id) }
@@ -378,6 +389,7 @@ local function Totems()
 	end
 	return TOTEMS
 end
+local function TotemsChanged() wipe(TOTEMS) end   -- (the order changed: listed again)
 local function TotemLearned(item) return not SP.KnowsTotem or SP:KnowsTotem(item.e, item.idx) end
 local function TotemIcon(item)
 	return SpellTexture(item.key) or (SP.GetTotemIcon and SP:GetTotemIcon(item.e, item.idx)) or 134400
@@ -388,6 +400,56 @@ end
 -- ---------------------------------------------------------------------------
 local BtnRow, TotRow
 local function Changed(row) row:Changed(true) return true end
+
+-- (3.0.9) the flyout order: a totem's new place among its element's totems (position: 1 = first).
+-- The flyouts are built again in it, the row lists it again; the menu stays open on the totem.
+local function SetTotemPlace(item, position)
+	local order = {}
+	for _, t in ipairs(Totems()) do
+		if t.e == item.e and t.key ~= item.key then order[#order + 1] = t.idx end
+	end
+	if position < 1 then position = 1 elseif position > #order + 1 then position = #order + 1 end
+	table.insert(order, position, item.idx)
+	SP:SetFlyoutOrder(item.e, order)
+end
+local function OrderChanged()
+	TotemsChanged()
+	if not InCombatLockdown() then Run("RecreateTotemFlyouts") end
+	if TotRow:ListChanged() then
+		-- the row drawn again in the new order; the menu opens again on the totem (Release keeps it
+		-- while the row is writing)
+		TotRow.writing = true
+		local cfg = _G.ShamanPowerConfig
+		if cfg and cfg.RefreshCurrent then cfg:RefreshCurrent() end
+		TotRow.writing = false
+		return true
+	end
+	return Changed(TotRow)
+end
+-- a totem dragged along its line (IconRow's move: `to` is its place in the whole list): its place in
+-- its element's order; a drop past the element's line lands at that end
+local function MoveTotem(item, to)
+	local first, last
+	for i, t in ipairs(Totems()) do
+		if t.e == item.e then first = first or i; last = i end
+	end
+	if not first then return end
+	if to < first then to = first elseif to > last then to = last end
+	SetTotemPlace(item, to - first + 1)
+	TotemsChanged()
+	if not InCombatLockdown() then Run("RecreateTotemFlyouts") end
+end
+-- where a totem sits in its element's order, and how many there are
+local function TotemPlace(item)
+	local pos, n = 1, 0
+	for _, t in ipairs(Totems()) do
+		if t.e == item.e then
+			n = n + 1
+			if t.key == item.key then pos = n end
+		end
+	end
+	return pos, n
+end
 
 local function LockedSay()
 	Say("|cffe64a4aThe Totem Bar's settings can't change in combat - try again after the fight.|r")
@@ -419,9 +481,10 @@ end
 local function DropPlaceRow(row, e, text, icon)
 	local n = DroppedCount() + (Excluded(e) and 1 or 0)
 	local list = {}
-	for p = 1, n do list[#list + 1] = { p, ORD[p] } end
+	-- the pictures: its place as a number on the icon; Not Dropped: the icon grayed (Drop All skips it)
+	for p = 1, n do list[#list + 1] = { p, ORD[p], nil, { kind = "number", text = tostring(p) } } end
 	list[#list + 1] = "-"
-	list[#list + 1] = { "not", "Not Dropped" }
+	list[#list + 1] = { "not", "Not Dropped", nil, { kind = "gray" } }
 	local r = Choice(text, list, function()
 		return DropPlace(e) or "not", ElementOwn(e)
 	end, function(v)
@@ -432,7 +495,8 @@ local function DropPlaceRow(row, e, text, icon)
 	return r
 end
 
-local function Keybind(rows) return { text = "Keybind", sub = function() return rows() end } end
+-- words: its card's line on the icon's own screen
+local function Keybind(rows, words) return { text = "Keybind", words = words, sub = function() return rows() end } end
 local function KeyRows(button, flyout)
 	local r = {}
 	if button then r[#r + 1] = { text = "Button Key", value = function() return KeyText(button), false end } end
@@ -444,8 +508,10 @@ end
 
 local function ElementMenu(e)
 	local r = {}
-	r[#r + 1] = DropPlaceRow(BtnRow, e, "Drop All")
-	r[#r + 1] = Keybind(function() return KeyRows(BIND_BUTTON[e], BIND_FLYOUT[e]) end)
+	local place = DropPlaceRow(BtnRow, e, "Drop All")
+	place.words = "its place in Drop All, or left out of it"
+	r[#r + 1] = place
+	r[#r + 1] = Keybind(function() return KeyRows(BIND_BUTTON[e], BIND_FLYOUT[e]) end, "its button key and its flyout key")
 	r[#r + 1] = SEP
 	local on = ElementShown(e)
 	r[#r + 1] = { text = on and "Hide This Button" or "Show This Button", onClick = function()
@@ -468,7 +534,7 @@ local function ElementMenu(e)
 	return r
 end
 
-local function SetsRow(text, key, tip, needsKnown, apply)
+local function SetsRow(text, key, tip, needsKnown, apply, pic)
 	local dis = needsKnown and not SetsKnown()
 	if dis then tip = tip .. "\n\n|cffffa040Once you know Call of the Elements.|r" end
 	return Choice(text, { { true, "On" }, { false, "Off" } }, function()
@@ -478,7 +544,7 @@ local function SetsRow(text, key, tip, needsKnown, apply)
 		O()[key] = v
 		if apply then apply(v) end
 		return Changed(BtnRow)
-	end, tip, dis or nil)
+	end, tip, dis or nil, pic)
 end
 
 local function DropAllMenu()
@@ -492,6 +558,7 @@ local function DropAllMenu()
 			.. " element's menu > Drop All." .. (SetsOwnDropAll() and ("\n\n|cffffa040\"Drop All Casts Call of the Elements\" is"
 			.. " on, and that spell drops all four totems at once, so the order is not used by the button. It still orders the"
 			.. " SP_DropAll macro.|r") or ""),
+		words = "the drop order, and the ones left out",
 		sub = function()
 			local o = {}
 			for e = 1, 4 do o[#o + 1] = DropPlaceRow(BtnRow, e, ELEM[e], AssignedIcon(e)) end
@@ -499,29 +566,42 @@ local function DropAllMenu()
 		end }
 	if SetsBar() then
 		r[#r + 1] = { text = "Blizzard Totem Sets", tip = "WoW: Forever's totem sets: Call of the Elements drops the four totems"
-			.. " Blizzard's totem bar holds.", sub = function()
+			.. " Blizzard's totem bar holds.", words = "Drop All with Blizzard's sets", sub = function()
+			-- the pictures: On, the button shows Call of the Elements; no picture says the two that keep Blizzard's bar in step
 			return {
 				SetsRow("Drop All Casts Call of the Elements", "dropAllUsesTotemSets", "With totem sets available, Drop All casts"
 					.. " Call of the Elements instead of one totem per click. Shift casts Call of the Ancestors. Ctrl casts Call of"
 					.. " the Spirits. Right-click casts Totemic Recall. The SP_DropAll macro still drops one totem per press."
 					.. (O().showDropAllButton == false and "\n\n|cffffa040\"Show Drop All Button\" is off, so there is no button"
 					.. " for this to change.|r" or ""), true,
-					function() if not InCombatLockdown() then Run("UpdateDropAllButton") end end),
+					function() if not InCombatLockdown() then Run("UpdateDropAllButton") end end,
+					{ kind = "swap", icon = SpellTexture(COTE) or GENERIC_DROPALL }),
 				SetsRow("Call of the Elements Follows My Assignments", "totemSetsSyncAssignments", "Whenever your totem"
 					.. " assignments change, the four totems in Call of the Elements are updated to match (out of combat). Use"
 					.. " /spl set 2 <loadout> and /spl set 3 <loadout> to fill Call of the Ancestors and Call of the Spirits from"
 					.. " saved loadouts.", true,
-					function(v) if v and not InCombatLockdown() then Run("SyncTotemSetFromAssignments") end end),
+					function(v) if v and not InCombatLockdown() then Run("SyncTotemSetFromAssignments") end end, { kind = "none" }),
 				SetsRow("My Assignments Follow Blizzard's Totem Bar", "totemSetsAdoptFromBar", "Pick a totem on Blizzard's own"
 					.. " totem bar and the matching ShamanPower button takes it (clearing a slot there un-assigns it here)."
 					.. " Elements kept out of Drop All are left alone. Out of combat; a change made during a fight is picked up"
 					.. " when it ends.", false,
-					function(v) if v then Run("AdoptTotemBarAssignments") end end),
+					function(v) if v then Run("AdoptTotemBarAssignments") end end, { kind = "none" }),
 			}
 		end }
 	end
 	-- Icon (a player's request): the button's usual icon, or one picked in the icon picker
 	local ownIcon = SP.DropAllOwnIcon and SP:DropAllOwnIcon()
+	-- Next Totem's picture while an icon is picked: the icon the button shows without one (Call of the
+	-- Elements with Blizzard's totem sets, else the first totem in its drop order)
+	local function usualIcon()
+		if SetsBar() and (not SetsKnown() or O().dropAllUsesTotemSets ~= false) then
+			return SpellTexture(COTE) or GENERIC_DROPALL
+		end
+		for _, e in ipairs(DropOrder()) do
+			if not Excluded(e) then return AssignedIcon(e) end
+		end
+		return GENERIC_DROPALL
+	end
 	local function pick()
 		SP:OpenIconPicker({ icon = SP:DropAllOwnIcon() }, function(selected)
 			if BtnRow:RefuseLocked() then return end   -- (the picker was open when a fight started)
@@ -531,22 +611,25 @@ local function DropAllMenu()
 		end)
 		return false   -- the menu closes; the picker is open
 	end
-	r[#r + 1] = { text = "Icon", icon = ownIcon,
+	r[#r + 1] = { text = "Icon", icon = ownIcon, words = "what the button shows",
 		value = function() return ownIcon and "Picked" or "Next Totem", ownIcon and true or false end,
 		tip = "What the button shows. Next Totem: the icon of the totem it drops next (Call of the Elements when it casts that)."
 			.. " Pick an Icon: one icon you choose, which stays put.",
 		sub = function()
+			-- the pictures: the button as usual (its usual icon while one is picked); the picked icon, else PICK
+			local nextPic, pickPic = { kind = "plain" }, { kind = "word", text = "PICK" }
+			if ownIcon then nextPic, pickPic = { kind = "swap", icon = usualIcon() }, { kind = "swap", icon = ownIcon } end
 			return {
-				{ text = "Next Totem", selected = not ownIcon, onClick = function()
+				{ text = "Next Totem", selected = not ownIcon, pic = nextPic, onClick = function()
 					O().dropAllIcon = nil
 					if not InCombatLockdown() then Run("UpdateDropAllButton") end
 					BtnRow:Changed(false)
 				end },
 				{ text = ownIcon and "Pick Another Icon..." or "Pick an Icon...", selected = ownIcon and true or false, icon = ownIcon,
-					onClick = pick },
+					pic = pickPic, onClick = pick },
 			}
 		end }
-	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_DROPALL") end)
+	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_DROPALL") end, "the key that presses it")
 	r[#r + 1] = SEP
 	if not native then
 		local on = O().showDropAllButton ~= false
@@ -578,8 +661,15 @@ local function SignatureOn()
 	local o = O()
 	return (o.cdbarCueSignature and (o.cdbarCueLook or "standard") ~= "standard") and true or false
 end
-local RUNNING_STYLES = { { "off", "Off" }, { "red", "Turns red" }, { "pulse", "Pulse" }, { "glow", "Glow" },
-	{ "drain", "Frame drains" }, { "underbar", "Bar under it" } }
+-- (the 4th field: each style's picture on the icon's own screen, in WoW's red and the Running Out orange)
+local RUNNING_STYLES = {
+	{ "off", "Off", nil, { kind = "plain" } },
+	{ "red", "Turns red", nil, { kind = "tint", color = { 1, 0.125, 0.125 } } },
+	{ "pulse", "Pulse", nil, { kind = "dark", alpha = 0.4 } },
+	{ "glow", "Glow", nil, { kind = "glow", color = { 1, 0.6, 0.1 } } },
+	{ "drain", "Frame drains", nil, { kind = "edge", color = { 1, 0.6, 0.1 } } },
+	{ "underbar", "Bar under it", nil, { kind = "bar", frac = 0.4, color = { 1, 0.6, 0.1 } } },
+}
 local function ESGet(name)
 	if not SP.CdItemOpt then return nil, false end
 	return SP:CdItemOpt(ES_SLOT, name), SP:CdItemOwnOpt(ES_SLOT, name) ~= nil
@@ -594,6 +684,7 @@ local function ESRunningRow()
 	end
 	return {
 		text = "Running Out",
+		words = "what it plays over its last seconds",
 		tip = "Over its last seconds (Running Out At), or on its last 2 charges, the Earth Shield button plays this until you"
 			.. " cast it again. Off to start.",
 		value = function()
@@ -607,7 +698,7 @@ local function ESRunningRow()
 			for _, c in ipairs(RUNNING_STYLES) do
 				local v = c[1]
 				items[#items + 1] = { text = c[2], selected = now == v, disabled = (sig and v ~= "off" and v ~= sig) or nil,
-					onClick = function()
+					pic = c[4], onClick = function()
 						if v == "off" then
 							ESSet("cueRunning", false)
 						elseif SignatureOn() then
@@ -627,23 +718,28 @@ end
 local function EarthShieldMenu()
 	local r = {}
 	local flyOn = O().enableESFlyout ~= false
-	r[#r + 1] = Choice("Flyout", { { true, "On" }, { false, "Off" } }, function()
+	-- (no picture says a flyout: its card is the switch alone)
+	local fly = Choice("Flyout", { { true, "On" }, { false, "Off" } }, function()
 		return O().enableESFlyout ~= false, false
 	end, function(v)
 		O().enableESFlyout = v
 		if not InCombatLockdown() then Run("UpdateEarthShieldButton") end
 		return Changed(BtnRow)
-	end, "A flyout on the Earth Shield button to choose its target. How flyouts open is on Totem Bar > Clicks.")
+	end, "A flyout on the Earth Shield button to choose its target. How flyouts open is on Totem Bar > Clicks.",
+		nil, { kind = "none" })
+	fly.words = "a flyout on the button to choose its target"
+	r[#r + 1] = fly
 	r[#r + 1] = { text = "Players In The Flyout", subMaxHeight = 420, disabled = (not flyOn) or nil,
+		words = "who the flyout shows",
 		value = function() return WhoText(), AnyPicked() end,
 		tip = "Only these players show in the flyout: a player shows if their role OR class is picked. Nothing picked = everyone."
 			.. " Your assigned target always shows. Roles use the group roles (raid Main Tanks count as Tanks)."
 			.. ((not flyOn) and "\n\n|cffffa040The flyout is off: turn Flyout on first.|r" or ""),
 		sub = function()
 			local o = {}
-			local function pick(tbl, k, text)
+			local function pick(tbl, k, text, pic)
 				local on = Picked(tbl, k)
-				o[#o + 1] = { text = text, selected = on, onClick = function()
+				o[#o + 1] = { text = text, selected = on, pic = pic, onClick = function()
 					if SP.EnsureProfileTable then SP:EnsureProfileTable(tbl) end
 					if type(O()[tbl]) ~= "table" then O()[tbl] = {} end
 					O()[tbl][k] = (not on) or nil
@@ -651,9 +747,12 @@ local function EarthShieldMenu()
 					return Changed(BtnRow)
 				end }
 			end
-			for _, x in ipairs(ROLES) do pick("esFlyoutRoles", x[1], x[2]) end
+			-- the pictures: a class as its class icon; no picture says a role
+			for _, x in ipairs(ROLES) do pick("esFlyoutRoles", x[1], x[2], { kind = "none" }) end
 			o[#o + 1] = SEP
-			for _, c in ipairs(CLASSES) do pick("esFlyoutClasses", c[1], ClassText(c)) end
+			for _, c in ipairs(CLASSES) do
+				pick("esFlyoutClasses", c[1], ClassText(c), { kind = "swap", icon = "Interface\\Icons\\ClassIcon_" .. c[1] })
+			end
 			o[#o + 1] = SEP
 			o[#o + 1] = { text = "Everyone (Clear)", disabled = (not AnyPicked()) or nil, onClick = function()
 				O().esFlyoutRoles, O().esFlyoutClasses = nil, nil
@@ -667,7 +766,7 @@ local function EarthShieldMenu()
 		function(v) ESSet("runOutSecs", v); BtnRow:Repaint() end,
 		function(v) return string.format("%d sec", tonumber(v) or 0) end, false,
 		"When Earth Shield counts as running out, for Running Out. It also counts on its last 2 charges.")
-	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_EARTH_SHIELD") end)
+	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_EARTH_SHIELD") end, "the key that presses it")
 	r[#r + 1] = SEP
 	local on = O().totemBarShowEarthShield ~= false
 	r[#r + 1] = { text = on and "Hide This Button" or "Show This Button", onClick = function()
@@ -740,30 +839,50 @@ local function TotemMenu(item)
 	local pk = PulseKey(id)
 	if pk then
 		local why = PulseOffWhy(false)
-		r[#r + 1] = Choice("Pulse Bar", { { true, "On" }, { false, "Off" } }, function()
+		-- the pictures: the bar in Pulse Bar Color (the theme's, else white); the flash in Pulse Flash Color
+		local bar = Choice("Pulse Bar", { { true, "On" }, { false, "Off" } }, function()
 			local v = PulseBarOn(pk)
 			return v, not v
 		end, function(v) SetPulseBar(pk, v) return Changed(TotRow) end,
 			why and ("|cffffa040" .. why .. "|r") or ("The bar that shows the time to this totem's next pulse (and its pulse"
-				.. " time). Turned off: this totem gets neither."), why and true or nil)
+				.. " time). Turned off: this totem gets neither."), why and true or nil,
+			{ kind = "bar", frac = 0.6, color = function()
+				local c = O().pulseBarColor
+				if c then return c.r or 1, c.g or 1, c.b or 1 end
+				local tr, tg, tb = SP:ThemeColor("tb.pulse", item.e)
+				if tr then return tr, tg, tb end
+				return 1, 1, 1
+			end })
+		bar.words = "the bar that counts down to its next pulse"
+		r[#r + 1] = bar
 		local whyF = PulseOffWhy(true)
-		r[#r + 1] = Choice("Pulse Flash", { { true, "On" }, { false, "Off" } }, function()
+		local flash = Choice("Pulse Flash", { { true, "On" }, { false, "Off" } }, function()
 			local v = PulseFlashOn(pk)
 			return v, not v
 		end, function(v) SetPulseFlash(pk, v) return Changed(TotRow) end,
-			whyF and ("|cffffa040" .. whyF .. "|r") or "The flash on the button each time this totem pulses.", whyF and true or nil)
+			whyF and ("|cffffa040" .. whyF .. "|r") or "The flash on the button each time this totem pulses.", whyF and true or nil,
+			{ kind = "glow", color = function()
+				local c = O().pulseFlashColor
+				if c then return c.r or 0.4, c.g or 1, c.b or 0.4 end
+				return 0.4, 1, 0.4
+			end })
+		flash.words = "the flash on the button each time it pulses"
+		r[#r + 1] = flash
 	end
 	if TempApplies(id) then
 		local off = O().usualTotemReminder ~= true
-		r[#r + 1] = Choice("Counts As Temporary", { { true, "On" }, { false, "Off" } }, function()
+		local temp = Choice("Counts As Temporary", { { true, "On" }, { false, "Off" } }, function()
 			local v = TempOn(id)
 			return v, v ~= TempDefault(id)
 		end, function(v) SetTemp(id, v) return Changed(TotRow) end,
 			off and "|cffffa040Put Your Usual Totem Back is off: turn it on under Totem Bar > Effects.|r"
 			or ("When it ends, Put Your Usual Totem Back asks for your usual " .. ELEM[item.e] .. " totem (Effects tab). Turn"
-				.. " it off for a totem you keep down on purpose."), off or nil)
+				.. " it off for a totem you keep down on purpose."), off or nil, { kind = "none" })   -- (the words say it)
+		temp.words = "then back to your usual totem"
+		r[#r + 1] = temp
 	end
-	r[#r + 1] = Keybind(function() return KeyRows(nil, FlyoutBinding(item)) end)
+	r[#r + 1] = Keybind(function() return KeyRows(nil, FlyoutBinding(item)) end,
+		"the key that casts it from its flyout")
 	r[#r + 1] = SEP
 	if pk or TempApplies(id) then
 		r[#r + 1] = { text = "Copy Settings", onClick = function()
@@ -778,7 +897,8 @@ local function TotemMenu(item)
 				return Changed(TotRow)
 			end }
 		r[#r + 1] = { text = "Copy Settings To...", tip = "Pulse Bar, Pulse Flash and Counts As Temporary, onto the totems that"
-			.. " have them (a totem only takes what it has).", sub = function()
+			.. " have them (a totem only takes what it has).", words = "the same settings onto other totems",
+			sub = function()
 			local o = {}
 			for e = 1, 4 do
 				o[#o + 1] = { text = "All " .. ELEM[e] .. " Totems", icon = AssignedIcon(e), onClick = function()
@@ -796,6 +916,18 @@ local function TotemMenu(item)
 		r[#r + 1] = SEP
 	end
 	if not Native() then
+		-- (3.0.9) its place in the flyout, for whoever would rather click than drag it on the row
+		local pos, n = TotemPlace(item)
+		r[#r + 1] = { text = "Earlier In The Flyout", disabled = (pos <= 1) or nil,
+			tip = "One place earlier in its flyout. Drag it along its line on the row for any place.",
+			onClick = function() SetTotemPlace(item, pos - 1) return OrderChanged() end }
+		r[#r + 1] = { text = "Later In The Flyout", disabled = (pos >= n) or nil,
+			tip = "One place later in its flyout. Drag it along its line on the row for any place.",
+			onClick = function() SetTotemPlace(item, pos + 1) return OrderChanged() end }
+		r[#r + 1] = { text = "Put Back The Usual Order", disabled = (not SP.FlyoutOrderIsUsual or SP:FlyoutOrderIsUsual(item.e)) or nil,
+			tip = "The " .. ELEM[item.e] .. " flyout back in the game's order.",
+			onClick = function() SP:SetFlyoutOrder(item.e, nil) return OrderChanged() end }
+		r[#r + 1] = SEP
 		local on = InFlyout(item)
 		r[#r + 1] = { text = on and "Hide From The Flyout" or "Show In The Flyout", onClick = function()
 			SetInFlyout(item, not on)
@@ -943,10 +1075,14 @@ BtnRow = ns.IconRow.New({
 local LABEL_W = 70
 TotRow = ns.IconRow.New({
 	caption = function() return Native() and TOT_CAPTION_NATIVE or TOT_CAPTION end,
-	hint = "Click: show or hide it in its flyout\nRight-click: its settings",
+	hint = "Click: show or hide it in its flyout\nRight-click: its settings\nDrag: its place in the flyout",
 	list = function(out)
 		for _, t in ipairs(Totems()) do out[#out + 1] = t end
 	end,
+	-- (3.0.9) dragged along its element's line: its place in the flyout order (not with Blizzard's
+	-- Totem Bar, whose flyouts are its own)
+	movable = function() return not Native() end,
+	move = MoveTotem,
 	textures = function(item, out) out[1] = TotemIcon(item) return 1 end,
 	shown = function(item) return Native() or InFlyout(item) end,
 	learned = TotemLearned,
@@ -1019,6 +1155,8 @@ function SP.TotemBarResetPage(sp)
 	o.dropAllUsesTotemSets, o.totemSetsSyncAssignments, o.totemSetsAdoptFromBar = nil, nil, nil
 	for e = 1, 4 do if Excluded(e) and sp.SetDropAllExclude then sp:SetDropAllExclude(e, false) end end
 	o.flyoutTotems = nil
+	o.flyoutOrder = nil   -- (3.0.9) the flyouts back in the game's order
+	TotemsChanged()
 	o.pulseOnlySome, o.pulseTotemsOff, o.pulseFlashOnlySome, o.pulseFlashTotemsOff = nil, nil, nil, nil
 	o.usualTotemTemp = nil
 	o.dropAllIcon = nil   -- (a picked Drop All icon goes too: the button rotates again)

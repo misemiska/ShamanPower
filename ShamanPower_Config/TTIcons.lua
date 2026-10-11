@@ -109,25 +109,91 @@ function ns.TargetTrackerWatch()
 end
 
 -- ---------------------------------------------------------------------------
+-- Picture hints (3.0.9, Icon Screens): `pic` on a menu row is the picture the icon's own
+-- screen draws for that choice (IconScreen.lua), `words` the line after a card's title.
+-- Data only: the right-click menu and the Old Settings Look ignore them. The ones every
+-- spell shares, made once; a spell's own (its edge color, the shock it swaps to) are
+-- made with its menu.
+-- ---------------------------------------------------------------------------
+local PIC = {
+	plain   = { kind = "plain" },
+	none    = { kind = "none" },
+	gray    = { kind = "gray" },
+	size    = { kind = "size" },
+	count   = { kind = "count" },
+	sweep   = { kind = "sweep" },
+	ticking = { kind = "number", text = "8" },          -- a debuff's time left on the icon: Show Time Left
+	charges = { kind = "number", text = "2" },          -- Stormstrike's charges
+	-- Icon Edge: Thin Black (1 px), Thick Black (3 px), Dotted (1 px dashes), as the tracker draws them
+	black       = { kind = "edge", color = { 0, 0, 0 }, thick = 1 },
+	thickBlack  = { kind = "edge", color = { 0, 0, 0 }, thick = 3 },
+	dottedBlack = { kind = "edge", color = { 0, 0, 0 }, thick = 1, dotted = true },
+	-- Purge's Show The Buff's Picture: the settings preview's pretend Magic buff
+	buffPicture = { kind = "swap", icon = "Interface\\Icons\\Spell_Shadow_RagingScream" },
+	-- Next Shock: the shock Flame Shock's icon swaps to (the module's own icons)
+	SHOCK = { earth = "Interface\\Icons\\Spell_Nature_EarthShock", frost = "Interface\\Icons\\Spell_Frost_FrostShock" },
+	ELEMENT = { fs = "fire", frs = "water", ss = "air" },
+}
+-- WoW's own colors, as the module reads them: its red (missing), its gold (Purge's glow, the cast
+-- edge) and Magic's blue
+do
+	local function RGB(c, r, g, b)
+		if type(c) == "table" and type(c.r) == "number" then return c.r, c.g, c.b end
+		return r, g, b
+	end
+	local red  = { RGB(_G.RED_FONT_COLOR, 1, 0.125, 0.125) }
+	local gold = { RGB(_G.NORMAL_FONT_COLOR, 1, 0.82, 0) }
+	PIC.magic    = { RGB(_G.DebuffTypeColor and _G.DebuffTypeColor.Magic, 0.2, 0.6, 1) }
+	PIC.redEdge  = { kind = "edge", color = red, thick = 2 }           -- Red Edge (the module's 2 px ring)
+	PIC.redDots  = { kind = "edge", color = red, thick = 2, dotted = true }   -- Dotted Red Edge
+	PIC.redGlow  = { kind = "glow", color = red, shape = "default" }
+	PIC.redTint  = { kind = "tint", color = red }
+	PIC.faded    = { kind = "faded", alpha = 0.45 }                    -- Just Faded (the module's 0.45)
+	PIC.goldEdge = { kind = "edge", color = gold, thick = 2, dotted = true }  -- Gold Dotted Edge (its gold dashes)
+	PIC.goldGlow = { kind = "glow", color = gold, shape = "default" }  -- Purge's Glow
+end
+-- Icon Edge's Spell Color: the element's brand color, Purge's Magic blue (as the module draws it)
+function PIC.SpellEdge(key)
+	local r, g, b = 1, 1, 1
+	if key == "purge" then
+		r, g, b = PIC.magic[1], PIC.magic[2], PIC.magic[3]
+	elseif PIC.ELEMENT[key] and SP.BrandElementRGB then
+		r, g, b = SP:BrandElementRGB(PIC.ELEMENT[key])
+	end
+	return { kind = "edge", color = { r, g, b }, thick = 1 }
+end
+-- Next Shock: Flame Shock's icon with the other shock in its place
+function PIC.Shock(which)
+	return { kind = "swap", icon = PIC.SHOCK[which] or PIC.SHOCK.earth }
+end
+
+-- ---------------------------------------------------------------------------
 -- Labels
 -- ---------------------------------------------------------------------------
 -- (the saved values stay the same: "always" is in and out of combat; the places below can still turn it off)
-local SHOW_CHOICES = { { "always", "In And Out Of Combat" }, { "combat", "Only In Combat" }, { "nocombat", "Only Out Of Combat" } }
+local SHOW_CHOICES = { { "always", "In And Out Of Combat", pic = PIC.plain },
+	{ "combat", "Only In Combat", pic = PIC.none }, { "nocombat", "Only Out Of Combat", pic = PIC.none } }
 local WHERE_CHOICES = {
 	{ "world", "Open World" }, { "dungeon", "Dungeons" }, { "raid", "Raids" }, { "bg", "Battlegrounds" }, { "arena", "Arenas" },
 }
 local WHERE_TIPS = { world = "Questing, duels and world PvP." }
-local SWEEP_CHOICES = { { "radial", "Radial (Clock)" }, { "greys", "Vertical - Grays Out" },
-	{ "fills", "Vertical - Fills Back In" }, { "none", "None" } }
-local DIRECTION_CHOICES = { { "top", "From The Top" }, { "bottom", "From The Bottom" } }
-local SHOWON_CHOICES = { { "screen", "A Spot You Place" }, { "plate", "Your Target's Nameplate" }, { "frame", "Under The Target Frame" } }
-local MISS_CHOICES = { { "edge", "Red Edge" }, { "dotted", "Dotted Red Edge" }, { "faded", "Just Faded" }, { "glow", "Red Glow" },
-	{ "tint", "Red Tint" }, { "slash", "Red Slash" }, { "outline", "Empty Outline" }, { "pulse", "Pulsing Edge" } }
+local SWEEP_CHOICES = { { "radial", "Radial (Clock)", pic = PIC.sweep },
+	{ "greys", "Vertical - Grays Out", pic = PIC.gray }, { "fills", "Vertical - Fills Back In", pic = PIC.none },
+	{ "none", "None", pic = PIC.plain } }
+local DIRECTION_CHOICES = { { "top", "From The Top", pic = PIC.none }, { "bottom", "From The Bottom", pic = PIC.none } }
+local SHOWON_CHOICES = { { "screen", "A Spot You Place", pic = PIC.none },
+	{ "plate", "Your Target's Nameplate", pic = PIC.none }, { "frame", "Under The Target Frame", pic = PIC.none } }
+-- (pictures: a slashed, outlined or pulsing edge can't be drawn yet)
+local MISS_CHOICES = { { "edge", "Red Edge", pic = PIC.redEdge }, { "dotted", "Dotted Red Edge", pic = PIC.redDots },
+	{ "faded", "Just Faded", pic = PIC.faded }, { "glow", "Red Glow", pic = PIC.redGlow },
+	{ "tint", "Red Tint", pic = PIC.redTint }, { "slash", "Red Slash", pic = PIC.none },
+	{ "outline", "Empty Outline", pic = PIC.none }, { "pulse", "Pulsing Edge", pic = PIC.none } }
 -- Next Shock's cast-it look (Flame Shock's menu): WoW's gold dotted edge, or one of the Missing looks
-local CAST_CHOICES = { { "gold", "Gold Dotted Edge" } }
+local CAST_CHOICES = { { "gold", "Gold Dotted Edge", pic = PIC.goldEdge } }
 for _, c in ipairs(MISS_CHOICES) do CAST_CHOICES[#CAST_CHOICES + 1] = c end
-local EDGE_CHOICES = { { "thin", "Thin Black" }, { "none", "None" }, { "thick", "Thick Black" }, { "dotted", "Dotted" },
-	{ "spell", "Spell Color" } }
+-- (Spell Color has no picture of its own: the row's fallback is the spell's own color, PIC.SpellEdge)
+local EDGE_CHOICES = { { "thin", "Thin Black", pic = PIC.black }, { "none", "None", pic = PIC.plain },
+	{ "thick", "Thick Black", pic = PIC.thickBlack }, { "dotted", "Dotted", pic = PIC.dottedBlack }, { "spell", "Spell Color" } }
 
 local function OnOff(v) if v then return "On" end return "Off" end
 local function LabelOf(list, v)
@@ -163,6 +229,11 @@ local function ButtonClick(b, button)
 	if not s then return end
 	if button == "RightButton" then
 		Row:OpenMenu(s.key)
+		return
+	end
+	-- 3.0.9: Click an Icon Opens Its Screen (General > Main): the spell's own screen (IconScreen.lua)
+	if ns.IconScreen and ns.IconScreen:Wants(Row) then
+		ns.IconScreen:Open(Row, s.key)
 		return
 	end
 	TT("TT_Set", s.key, "shown", not Shown(s.key))
@@ -296,24 +367,29 @@ local function SliderSet(key, opt, value)
 	if cfg and cfg.PreviewChanged then cfg:PreviewChanged() end
 end
 
-local function ChoiceRow(key, text, opt, list)
+-- pic: the picture a choice without one of its own gets
+local function ChoiceRow(key, text, opt, list, pic)
 	return {
 		text = text,
+		pic = pic,
 		value = function() return LabelOf(list, Get(key, opt)), false end,
 		sub = function()
 			local cur = Get(key, opt)
 			local items = {}
 			for _, c in ipairs(list) do
 				local v = c[1]
-				items[#items + 1] = { text = c[2], selected = cur == v, onClick = function() return Set(key, opt, v) end }
+				items[#items + 1] = { text = c[2], selected = cur == v, pic = c.pic,
+					onClick = function() return Set(key, opt, v) end }
 			end
 			return items
 		end,
 	}
 end
-local function OnOffRow(key, text, opt)
+-- pic: the picture when it's On
+local function OnOffRow(key, text, opt, pic)
 	return {
 		text = text,
+		pic = pic,
 		value = function() return OnOff(Get(key, opt)), false end,
 		sub = function()
 			local on = Get(key, opt) and true or false
@@ -324,9 +400,10 @@ local function OnOffRow(key, text, opt)
 		end,
 	}
 end
-local function SliderRow(key, text, opt, lo, hi, step, format)
+local function SliderRow(key, text, opt, lo, hi, step, format, pic)
 	return {
 		text = text,
+		pic = pic,
 		slider = {
 			min = lo, max = hi, step = step,
 			get = function() return tonumber(Get(key, opt)) or lo end,
@@ -345,6 +422,7 @@ local function WhereRow(key, text, kind)
 	return {
 		text = text,
 		tip = WHERE_TIPS[kind],
+		pic = PIC.plain,   -- on: it shows there as usual
 		value = function() return OnOff(Where(key, kind)), false end,
 		sub = function()
 			local on = Where(key, kind)
@@ -363,8 +441,9 @@ local function CopyGroupRow(key, group, which)
 		return true
 	end }
 end
-local function Group(text, rows)
-	return { text = text, sub = function() return rows() end }
+-- words: the line after the card's title on the icon's screen
+local function Group(text, rows, words)
+	return { text = text, words = words, sub = function() return rows() end }
 end
 
 -- the places it shows in, one switch each; the copy row takes Show (in or out of combat) along
@@ -384,35 +463,35 @@ local function LookRows(key)
 	local t
 	if key == "purge" then
 		t = {
-			SliderRow(key, "Icon Size", "size", 32, 128, 1),
-			OnOffRow(key, "Glow", "glow"),
-			OnOffRow(key, "Show The Buff's Picture", "buffPicture"),
+			SliderRow(key, "Icon Size", "size", 32, 128, 1, nil, PIC.size),
+			OnOffRow(key, "Glow", "glow", PIC.goldGlow),
+			OnOffRow(key, "Show The Buff's Picture", "buffPicture", PIC.buffPicture),
 		}
 		t[3].tip = "Shows the picture of the buff you'd remove. Off: the Purge icon."
-		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES)
+		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES, PIC.SpellEdge(key))
 		edge.tip = "The edge around Purge's icon. Spell Color: WoW's Magic blue."
 		t[#t + 1] = edge
 	else
 		t = {
-			SliderRow(key, "Icon Size", "size", 16, 64, 1),
-			OnOffRow(key, "Show Time Left", "timeLeft"),
-			ChoiceRow(key, "Sweep", "sweep", SWEEP_CHOICES),
+			SliderRow(key, "Icon Size", "size", 16, 64, 1, nil, PIC.size),
+			OnOffRow(key, "Show Time Left", "timeLeft", PIC.ticking),
+			ChoiceRow(key, "Sweep", "sweep", SWEEP_CHOICES, PIC.plain),
 		}
 		t[2].tip = "The seconds your debuff has left, on its icon."
 		t[3].tip = "How the icon counts down. Radial: the clock swipe. Grays Out: gray covers the icon as the time runs"
 			.. " out. Fills Back In: the icon starts gray and its color comes back as the time runs out."
 		local sweep = Get(key, "sweep")
 		if sweep == "greys" or sweep == "fills" then
-			local direction = ChoiceRow(key, "Sweep Direction", "sweepDirection", DIRECTION_CHOICES)
+			local direction = ChoiceRow(key, "Sweep Direction", "sweepDirection", DIRECTION_CHOICES, PIC.none)
 			direction.tip = "Where the gray starts for Grays Out, or the color starts for Fills Back In."
 			t[#t + 1] = direction
 		end
-		if key == "ss" then t[#t + 1] = OnOffRow(key, "Show Charges", "charges") end
+		if key == "ss" then t[#t + 1] = OnOffRow(key, "Show Charges", "charges", PIC.charges) end
 		local name = (SpellOf(key) or {}).name or "it"
-		local miss = ChoiceRow(key, "Look When Missing", "missLook", MISS_CHOICES)
+		local miss = ChoiceRow(key, "Look When Missing", "missLook", MISS_CHOICES, PIC.gray)
 		miss.tip = "How the gray warning looks while your " .. name .. " isn't on your target (Warn When It's Missing)."
 		t[#t + 1] = miss
-		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES)
+		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES, PIC.SpellEdge(key))
 		edge.tip = "The edge around this spell's icon. Spell Color: the spell's element color."
 		t[#t + 1] = edge
 	end
@@ -428,7 +507,7 @@ local function SpellName(id, fallback)
 end
 local function NextShockRows()
 	local t = {}
-	local on = OnOffRow("ns", "Show Next Shock", "on")
+	local on = OnOffRow("ns", "Show Next Shock", "on", PIC.Shock(Get("ns", "whenOn")))
 	on.tip = "While your Flame Shock is on an enemy, its Flame Shock icon shows " .. SpellName(8042, "Earth Shock")
 		.. " (or " .. SpellName(8056, "Frost Shock") .. ") instead, with Flame Shock's time left, so you know which"
 		.. " shock to press. Each enemy goes by its own Flame Shock: your target's icon, and with Show On Every"
@@ -436,7 +515,8 @@ local function NextShockRows()
 	t[#t + 1] = on
 	if Get("ns", "on") then
 		local shock = ChoiceRow("ns", "When Flame Shock Is On, Show", "whenOn",
-			{ { "earth", SpellName(8042, "Earth Shock") }, { "frost", SpellName(8056, "Frost Shock") } })
+			{ { "earth", SpellName(8042, "Earth Shock"), pic = PIC.Shock("earth") },
+				{ "frost", SpellName(8056, "Frost Shock"), pic = PIC.Shock("frost") } }, PIC.Shock("earth"))
 		shock.tip = "The shock the icon shows while your Flame Shock is on that enemy."
 		t[#t + 1] = shock
 		local again = SliderRow("ns", "Show Flame Shock Again At", "refresh", 0, 6, 1,
@@ -444,11 +524,11 @@ local function NextShockRows()
 				v = floor((v or 0) + 0.5)
 				if v == 0 then return "Never" end
 				return v .. " s left"
-			end)
+			end, PIC.count)
 		again.tip = "When your Flame Shock on that enemy has this many seconds left, the icon shows Flame Shock again,"
 			.. " in the look below, so you can cast it before it runs out. Never: it keeps the other shock until it ends."
 		t[#t + 1] = again
-		local look = ChoiceRow("ns", "Look When It's Time to Cast", "castLook", CAST_CHOICES)
+		local look = ChoiceRow("ns", "Look When It's Time to Cast", "castLook", CAST_CHOICES, PIC.plain)
 		look.tip = "How Flame Shock looks in its last seconds."
 		t[#t + 1] = look
 	end
@@ -458,7 +538,7 @@ end
 -- Purge: skip a buff that lasts longer than this (Longer Than only while it skips); on the
 -- first level of the menu, so it's plain to see when it's on
 local function LongRows(key, t)
-	local skip = OnOffRow(key, "Skip Long Buffs", "skipLong")
+	local skip = OnOffRow(key, "Skip Long Buffs", "skipLong", PIC.none)
 	skip.tip = "Purge doesn't light up for long buffs, like Arcane Intellect (30 minutes): they're rarely worth"
 		.. " removing in a fight. Turn it off to light up for every buff you can remove."
 	t[#t + 1] = skip
@@ -512,44 +592,45 @@ local function MenuItems(key)
 	if not spell then return {} end
 	local name = spell.name
 	local items = {}
-	local show = ChoiceRow(key, "Show", "show", SHOW_CHOICES)
+	local show = ChoiceRow(key, "Show", "show", SHOW_CHOICES, PIC.plain)
 	show.tip = "In a fight, out of one, or both. The places below can still turn it off in a kind of place."
 	items[#items + 1] = show
-	local places = Group("Places", function() return PlaceRows(key) end)
+	local places = Group("Places", function() return PlaceRows(key) end, "the kinds of place it shows in")
 	places.tip = "Turn it on or off in each kind of place: the open world, dungeons, raids, Battlegrounds and Arenas."
 	items[#items + 1] = places
 	if key == "purge" then
-		local pos = ChoiceRow(key, "Position", "showOn", SHOWON_CHOICES)
+		local pos = ChoiceRow(key, "Position", "showOn", SHOWON_CHOICES, PIC.none)
 		pos.tip = "Where Purge shows: a spot you place on your screen (Move Purge on this page), on your target's"
 			.. " nameplate, or under the target frame."
 		items[#items + 1] = pos
-		items[#items + 1] = Group("Look", function() return LookRows(key) end)
+		items[#items + 1] = Group("Look", function() return LookRows(key) end, "size, glow, the buff's picture and its edge")
 		LongRows(key, items)
-		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses")
+		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses", PIC.none)
 		bosses.tip = "In a boss fight, Purge also lights up when any boss has a buff you can remove, not only your target."
 		local off = OffPlaces(key)
 		if not (Where(key, "raid") or Where(key, "dungeon")) then
 			bosses.tip = bosses.tip .. " Purge is off in Raids and Dungeons (Places), so it can't light up for bosses there."
 		end
 		items[#items + 1] = bosses
-		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate")
+		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate", PIC.plain)
 		plates.tip = "Not only your target: Purge lights up on the nameplate of every enemy with a buff you can remove."
 			.. " Skip Long Buffs counts there too. WoW's enemy nameplates need to be on."
 		if off then plates.tip = plates.tip .. " It's off in " .. off .. " (Places)." end
 		items[#items + 1] = plates
 	else
-		items[#items + 1] = Group("Look", function() return LookRows(key) end)
-		local missing = OnOffRow(key, "Warn When It's Missing", "missing")
+		items[#items + 1] = Group("Look", function() return LookRows(key) end,
+			"size, time left, sweep, look when missing, edge")
+		local missing = OnOffRow(key, "Warn When It's Missing", "missing", PIC.gray)
 		missing.tip = "While you're targeting an enemy without your " .. name .. " on it, a gray " .. name
 			.. " with a red edge shows where yours would be, so you know to cast it again."
 		items[#items + 1] = missing
-		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate")
+		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate", PIC.plain)
 		plates.tip = "Not only your target: your " .. name .. " and its time left show on the nameplate of every enemy"
 			.. " that has it. With Warn When It's Missing on, an enemy without it shows the gray warning. WoW's enemy"
 			.. " nameplates need to be on."
 		items[#items + 1] = plates
 		if key == "fs" then
-			local ns = Group("Next Shock", NextShockRows)
+			local ns = Group("Next Shock", NextShockRows, "which shock to press next, on Flame Shock's icon")
 			ns.value = function() return OnOff(Get("ns", "on")), false end
 			ns.tip = "Flame Shock's icon shows which shock to press next, on each enemy by its own Flame Shock."
 			items[#items + 1] = ns
@@ -567,7 +648,7 @@ local function MenuItems(key)
 			return true
 		end }
 	items[#items + 1] = { text = "Copy Settings To...", disabled = #Row.list < 2, subMaxHeight = 420,
-		sub = function() return CopyItems(key) end }
+		words = "every setting of this spell onto another", sub = function() return CopyItems(key) end }
 	items[#items + 1] = { separator = true }
 	local on = Shown(key)
 	items[#items + 1] = { text = on and "Hide This Spell" or "Show This Spell",
@@ -699,6 +780,7 @@ Row.listDef = {
 	learned = function(s) return Known(s.key) end,
 	toggle = function(s) TT("TT_Set", s.key, "shown", not Shown(s.key)) end,
 	menu = function(s) return MenuItems(s.key) end,
+	textures = function(s, out) out[1] = Texture(s) return 1 end,   -- (3.0.9: the icon's own screen draws it)
 }
 
 -- ===========================================================================

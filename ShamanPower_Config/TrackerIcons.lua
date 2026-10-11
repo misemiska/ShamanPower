@@ -26,6 +26,7 @@ if not (Core and SP and ns.IconRow) then return end
 
 local Menu = ns.IconRow.Menu
 local Choice, Slider = Menu.Choice, Menu.Slider
+-- 3.0.9: a row's `pic` / `words` are picture hints for the icon's own screen (IconScreen.lua); the menus ignore them
 local SEP = { separator = true }
 local B, E = "|cff3FA9F5", "|r"   -- the captions' action words (the settings' blue)
 local QUESTION = 134400
@@ -183,9 +184,12 @@ do
 		if Free() then
 			r[#r + 1] = Slider("Icon Size", 20, 80, 4, function() return OwnSize(key) or ListSize() end,
 				function(v) SetOwnSize(key, v); SliderChanged(Coverage) end, nil, false,
-				"This totem's own size in the coverage list while Place Each Totem Freely is on. The other totems keep theirs.")
+				"This totem's own size in the coverage list while Place Each Totem Freely is on. The other totems keep theirs.",
+				{ kind = "size" })
+			r[#r].words = "its own size in the coverage list"
 			r[#r + 1] = SEP
-			r[#r + 1] = { text = "Copy Icon Size To...", subMaxHeight = 420, sub = function()
+			r[#r + 1] = { text = "Copy Icon Size To...", subMaxHeight = 420,
+				words = "this size onto another totem you watch, or all of them", sub = function()
 				local o, list = {}, {}
 				Items(list)
 				for _, x in ipairs(list) do
@@ -470,14 +474,14 @@ do
 			if InCombatLockdown() then return end
 			SP:SetPopOutScale(key, v)
 			SliderChanged(Popouts)
-		end, nil, true, "How big this tracker is.")
+		end, nil, true, "How big this tracker is.", { kind = "size" })
 		sc.disabled = lock
 		r[#r + 1] = sc
 		local op = Slider("Opacity", 0.1, 1, 0.05, function() return S().opacity or DefOpacity() end, function(v)
 			if InCombatLockdown() then return end
 			SP:SetPopOutOpacity(key, v)
 			SliderChanged(Popouts)
-		end, nil, true, "How see-through this tracker is.")
+		end, nil, true, "How see-through this tracker is.", { kind = "opacity" })
 		op.disabled = lock
 		r[#r + 1] = op
 		local hb = Choice("Hide Background", { { true, "On" }, { false, "Off" } }, function()
@@ -488,7 +492,8 @@ do
 			if Hidden(key) ~= v then SP:TogglePopOutFrame(key) end
 			Changed(Popouts, true)
 			return true
-		end, "Hide this tracker's background and border; its icon stays. ALT+drag still moves it.")
+		end, "Hide this tracker's background and border; its icon stays. ALT+drag still moves it.", { kind = "plain" })
+		hb.words = "only the icon, no background or border"
 		hb.disabled = lock
 		r[#r + 1] = hb
 		if IsTotem(key) then
@@ -498,7 +503,8 @@ do
 					SP:SetPopOutFlyoutDirection(key, v)
 					Changed(Popouts, true)
 					return true
-				end, "Where this totem button's flyout opens.")
+				end, "Where this totem button's flyout opens.", { kind = "none" })
+			fd.words = "where its flyout opens"
 			fd.disabled = lock
 			r[#r + 1] = fd
 		end
@@ -522,7 +528,8 @@ do
 				Changed(Popouts, true)
 				return true
 			end }
-		r[#r + 1] = { text = "Copy Settings To...", disabled = lock, subMaxHeight = 420, sub = function()
+		r[#r + 1] = { text = "Copy Settings To...", disabled = lock, subMaxHeight = 420,
+			words = "its settings onto another tracker, or all of them", sub = function()
 			local o, list = {}, {}
 			Items(list)
 			for _, x in ipairs(list) do
@@ -693,7 +700,7 @@ do
 			Sync()
 			Changed(Raid, true)
 			return true
-		end, tip)
+		end, tip, { kind = "none" })
 		it.disabled = lock
 		return it
 	end

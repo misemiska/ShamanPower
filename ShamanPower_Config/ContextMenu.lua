@@ -187,6 +187,7 @@ end
 
 local function RowEnter(b)
 	local lv = b.lv
+	if not lv then return end   -- (a slider row on its own, outside the menu: no hover look)
 	b.hover = true
 	PaintRow(b)
 	if sliderDrag then return end   -- a thumb is held: the submenus stay as they are
@@ -208,6 +209,7 @@ local function RowEnter(b)
 end
 
 local function RowLeave(b)
+	if not b.lv then return end
 	b.hover = false
 	PaintRow(b)
 	Core:HideTooltipFor(b)
@@ -298,6 +300,7 @@ local function SliderSet(b, v)
 	local sl = b.item and b.item.slider
 	if not (sl and sl.set) or b.item.disabled then return end
 	xpcall(sl.set, geterrorhandler(), v)
+	if b.onSet then xpcall(b.onSet, geterrorhandler(), v) end
 end
 
 local function SliderFill(b, v)
@@ -440,7 +443,7 @@ local function FillSlider(b, valueRight)
 	if off then
 		s.fill:SetColorTexture(Core:Color("off"))
 	else
-		local r, g, bl = ElementRGB(element)
+		local r, g, bl = ElementRGB(b.element or element)
 		s.fill:SetColorTexture(r, g, bl, 1)
 	end
 	box:SetTextColor(Core:ColorIf(off, "textMute", "text"))
@@ -458,6 +461,31 @@ local function FillSlider(b, valueRight)
 	end
 	s:Show()
 	box:Show()
+end
+
+-- (3.0.9) the slider row as a control of its own, for an icon's screen (IconScreen.lua): the menu's
+-- own slider, unchanged (its thumb, its ten-a-second pace while held, the last value on release),
+-- with the item's name at the left. item = { text, slider, disabled }; onSet(v): after each value
+-- handed to the item.
+CM.SliderRow = {}
+function CM.SliderRow.New(parent)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetHeight(34)
+	b.text = b:CreateFontString(nil, "OVERLAY")
+	b.text:SetFontObject(Core.fonts.row)
+	b.text:SetJustifyH("LEFT")
+	b.text:SetPoint("LEFT", b, "LEFT", 12, 0)
+	b.text:SetPoint("RIGHT", b, "RIGHT", -(SLIDER_RESERVE + 24), 0)
+	NewSliderParts(b)
+	return b
+end
+function CM.SliderRow.Fill(b, item, width, pageElement, onSet)
+	b.item, b.element, b.onSet = item, pageElement, onSet
+	b:SetWidth(width)
+	b.text:SetText(item.text or "")
+	b.text:SetTextColor(Core:ColorIf(item.disabled, "textMute", "text"))
+	FillSlider(b, 12)
+	b:Show()
 end
 
 local function NewRow(lv)

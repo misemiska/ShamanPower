@@ -271,6 +271,11 @@ local ORB_H = 14
 local ORB_ICON = { "Orbs_Icon_Lightning_3", "Orbs_Icon_Water_3", "Orbs_Icon_Earth_6" }
 -- Orb Color: By Shield (Lightning / Water / Earth Shield)
 local ORB_SHIELD_COLOR = { { 0.55, 0.55, 1.0 }, { 0.25, 0.66, 0.96 }, { 0.36, 0.72, 0.21 } }
+-- the orbs' own color of a shield (1 Lightning, 2 Water, 3 Earth), as plain numbers (the settings pages draw it)
+function SP:ShieldOrbOwnColor(which)
+	local c = ORB_SHIELD_COLOR[which] or ORB_SHIELD_COLOR[1]
+	return c[1], c[2], c[3]
+end
 -- Each shield has its own look (Lightning / Water / Earth Shield Look, also on
 -- General > Themes): "bar" (today's segmented bar) or an orb look. which: 1
 -- Lightning Shield, 2 Water Shield, 3 Earth Shield (Anniversary only).
@@ -1161,6 +1166,11 @@ local function goneSettings(which)
 	if type(c) == "table" then r, g, b = c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1
 	else local sc = SHIELD_COLOR[(which == 3) and "earth" or "player"]; r, g, b = sc[1], sc[2], sc[3] end
 	return fx, r, g, b, sv[k.goneGlowShape] or (SP.opt and SP.opt.glowShape) or "default", tonumber(sv[k.goneGlowThick]) or 0.2
+end
+-- the glow's color as When It's Gone draws it, plain numbers (the settings' pictures)
+function SP:ShieldGoneGlowColor(which)
+	local _, r, g, b = goneSettings(which or 1)
+	return r, g, b
 end
 local function goneHost(frame, s)
 	local h = frame.goneHost
@@ -2521,6 +2531,42 @@ function SP:ShieldChargeColorOf(which)
 	if r then return r, g, b end
 	local c = SHIELD_COLOR[(which == 3) and "earth" or "player"]
 	return c[1], c[2], c[3]
+end
+-- the orbs' tint as the bar draws them (styleChargeBar), plain numbers: which 1 Lightning, 2 Water, 3 Earth;
+-- look: an orb look; orbColor: a forced Orb Color choice (nil: the saved one). The settings' pictures.
+function SP:ShieldOrbColorOf(which, look, orbColor)
+	local settings = SP.opt and SP.opt.shieldChargeDisplay or NO_SETTINGS
+	which = which or 1
+	if look == "icon" then return 1, 1, 1 end
+	local cr, cg, cb = customChargeColor(settings, which)
+	if cr then return cr, cg, cb end
+	if isStorm(look) then return 1, 1, 1 end
+	if (orbColor or settings[KEY[which].orbColor]) == "shield" then
+		local sc = ORB_SHIELD_COLOR[which] or ORB_SHIELD_COLOR[1]
+		return sc[1], sc[2], sc[3]
+	end
+	local c = SHIELD_COLOR[(which == 3) and "earth" or "player"]
+	return c[1], c[2], c[3]
+end
+-- an orb look's strip art (the settings' pictures): the fill strip, the empty strip, the strip's height over
+-- its length, whether it adds (the Storm family), and the empty strip's own tint when it has one
+function SP:ShieldOrbArt(which, look)
+	which = which or 1
+	local kind = (which == 3) and "earth" or "player"
+	local n = MAX_CHARGES[kind]
+	if STORM_LOOK[look] and not STORM_LOOK[look][which] then look = "storm" end
+	local file
+	if look == "icon" then file = ORB_DIR .. ORB_ICON[which]
+	elseif isStorm(look) then file = ORB_DIR .. STORM_LOOK[look][which]
+	elseif look == "flat" then file = ORB_DIR .. "Orbs_Flat_" .. n
+	else file = ORB_DIR .. "Orbs_Glow_" .. n end
+	local back = ORB_DIR .. (isStorm(look) and "Orbs_StormEmpty_" or "Orbs_Empty_") .. n
+	local add = isStorm(look) and not (look == "storm" and which == 2)
+	local br, bg, bb, ba
+	if isStorm(look) then
+		if which == 3 then br, bg, bb, ba = 0.25, 0.55, 0.3, 0.8 else br, bg, bb, ba = 0.3, 0.4, 0.75, 0.8 end
+	elseif look == "icon" then br, bg, bb, ba = 0.55, 0.6, 0.7, 0.9 end
+	return file, back, orbThickness(look) / orbLength(kind, look), add, br, bg, bb, ba
 end
 -- which: 1 Lightning, 2 Water, 3 Earth Shield; no color = back to today's
 function SP:SetShieldChargeColor(which, r, g, b)

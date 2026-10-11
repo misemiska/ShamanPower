@@ -143,26 +143,65 @@ local function SliderSet(s, name, v)
 	if cfg and cfg.PreviewChanged then cfg:PreviewChanged() end
 end
 
-local function OnOffName(s, text, name, tip)
-	return OnOff(text, function() return Get(s, name) end, function(v) return Set(s, name, v) end, tip)
+-- (pic: the row's picture hint for the icon's own screen, below)
+local function OnOffName(s, text, name, tip, pic)
+	return OnOff(text, function() return Get(s, name) end, function(v) return Set(s, name, v) end, tip, pic)
 end
-local function ChoiceName(s, text, name, list, tip, fallback)
+local function ChoiceName(s, text, name, list, tip, fallback, pic)
 	return Choice(text, list, function()
 		local v, own = Get(s, name)
 		if v == nil then v = fallback end
 		return v, own
-	end, function(v) return Set(s, name, v) end, tip)
+	end, function(v) return Set(s, name, v) end, tip, pic)
 end
 local function Pct(v) return string.format("%d%%", math.floor((tonumber(v) or 0) * 100 + 0.5)) end
+
+-- ---------------------------------------------------------------------------
+-- Picture hints (3.0.9): the icon's own screen (IconScreen.lua) reads `pic` / `words` off
+-- these menu rows; the right-click menu ignores them. Data only. A color function returns
+-- plain numbers, read as the row's swatch reads them, and allocates nothing.
+-- ---------------------------------------------------------------------------
+local Pic = {}
+-- a color as the swatch reads it: the shield's own value, else the fallback ({ r, g, b }, or a function of the shield)
+function Pic.rgb(s, name, fallback)
+	local c = Val(s, name)
+	if type(c) == "table" then return c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1 end
+	if type(fallback) == "function" then return fallback(s) end
+	return fallback[1], fallback[2], fallback[3]
+end
+-- today's charge color for this shield (a theme's Shield Colors included)
+function Pic.chargeOwn(s)
+	if SP.ShieldChargeColorOf then return SP:ShieldChargeColorOf(WHICH_OF[s]) end
+	return 0.2, 0.6, 1
+end
+-- a choice list with a picture per value (the list itself is left as it is)
+function Pic.with(list, pics)
+	local o = {}
+	for i, c in ipairs(list) do o[i] = { c[1], c[2], c[3], pics[c[1]] } end
+	return o
+end
+-- an orb look's picture: the module's own strip under the icon, tinted as the bar draws it (orbColor: a
+-- forced Orb Color choice; frac: how much of it is filled; empty: the empty orbs behind it)
+function Pic.Orbs(s, look, orbColor, frac, empty)
+	if not (SP.ShieldOrbArt and SP.ShieldOrbColorOf) then return { kind = "none" } end
+	local which = WHICH_OF[s] or 1
+	local file, back, aspect, add, br, bg, bb, ba = SP:ShieldOrbArt(which, look)
+	local p = { kind = "orbs", file = file, back = back, aspect = aspect, frac = frac, empty = empty,
+		color = function() return SP:ShieldOrbColorOf(which, look, orbColor) end }
+	if add then p.add = true end
+	if br then p.backColor = { br, bg, bb, ba } end
+	return p
+end
 
 -- ---------------------------------------------------------------------------
 -- The choices (the module's values; the words a new player reads)
 -- ---------------------------------------------------------------------------
 local SHOW_CHOICES = {
-	{ "up", "While It's Up" },
-	{ "always", "Always (Gray While It's Not Up)" },
-	{ "fightsUp", "In Fights, While It's Up" },
-	{ "fights", "In Fights (Gray While It's Not Up)" },
+	{ "up", "While It's Up", nil, { kind = "plain" } },
+	{ "always", "Always (Gray While It's Not Up)", nil, { kind = "gray" } },
+	-- (In Fights: the same pictures as the two above, so the words carry them)
+	{ "fightsUp", "In Fights, While It's Up", nil, { kind = "none" } },
+	{ "fights", "In Fights (Gray While It's Not Up)", nil, { kind = "none" } },
 }
 local NUMPOS_CHOICES = { { "center", "Center" }, { "corner", "Bottom-Right Corner" } }
 local LOOKS = { { "bar", "Bar" }, { "glow", "Glowing Orbs" }, { "icon", "Shield Icon Orbs" }, { "flat", "Flat Orbs" },
@@ -268,9 +307,11 @@ end
 
 local function IconRows(s)
 	local icon, bar = Val(s, "icon"), Val(s, "bar")
-	local r = { OnOffName(s, "Shield Icon", "icon", "The shield's icon, with the number on it.") }
+	local n = (s == ES) and "6" or "3"   -- (the pictures' number: a full shield)
+	local r = { OnOffName(s, "Shield Icon", "icon", "The shield's icon, with the number on it.", { kind = "plain" }) }
 	local number = OnOffName(s, "Number", "number",
-		"The charges left, as a number. It can only be off while the icon or the charge bar is on, so the display never goes blank.")
+		"The charges left, as a number. It can only be off while the icon or the charge bar is on, so the display never goes blank.",
+		{ kind = "number", text = n })
 	if not (icon or bar) then
 		-- nothing else would be left on screen: the number stays (and says why)
 		number.disabled = true
@@ -281,7 +322,8 @@ local function IconRows(s)
 	end
 	r[#r + 1] = number
 	if icon and Val(s, "number") ~= false then
-		r[#r + 1] = ChoiceName(s, "Number Position", "numberPosition", NUMPOS_CHOICES,
+		r[#r + 1] = ChoiceName(s, "Number Position", "numberPosition", Pic.with(NUMPOS_CHOICES,
+			{ center = { kind = "number", text = n }, corner = { kind = "none" } }),   -- (no small-corner number picture yet)
 			"Large in the center of the icon, or smaller in its bottom-right corner.", "center")
 	end
 	r[#r + 1] = SEP
@@ -291,10 +333,22 @@ end
 
 local function BarRows(s)
 	local n = (s == ES) and "6" or "3"
-	local r = { OnOffName(s, "Charge Bar", "bar", "A bar with one piece per charge (" .. n .. "), or one orb per charge.") }
+	-- the pictures: the bar in its charge color (read as it is drawn), or the orbs it is set to
+	local chargeColor = function() return Pic.chargeOwn(s) end
+	local look = Val(s, "look") or "bar"
+	local barPic = { kind = "bar", frac = 1, color = chargeColor }
+	local onPic = barPic
+	if look ~= "bar" then onPic = Pic.Orbs(s, look, nil, 1) end
+	local r = { OnOffName(s, "Charge Bar", "bar", "A bar with one piece per charge (" .. n .. "), or one orb per charge.",
+		onPic) }
 	if Val(s, "bar") then
-		local look = Val(s, "look") or "bar"
-		r[#r + 1] = ChoiceName(s, "Look", "look", LookList(s), "The bar, or one orb per charge. Works in fights.", "bar")
+		-- every look's own strip under the icon, tinted as the bar would be (the Storm family's art too)
+		local looks = {}
+		for _, l in ipairs(LookList(s)) do
+			if l[1] == "bar" then looks.bar = barPic else looks[l[1]] = Pic.Orbs(s, l[1], nil, 1) end
+		end
+		r[#r + 1] = ChoiceName(s, "Look", "look", Pic.with(LookList(s), looks),
+			"The bar, or one orb per charge. Works in fights.", "bar", { kind = "none" })
 		-- with the icon and the number both off there is nothing to sit beside: only flat or upright
 		local alone = not Val(s, "icon") and Val(s, "number") == false
 		r[#r + 1] = Choice("Direction", alone and DIR_ALONE or DIR_CHOICES, function()
@@ -310,27 +364,33 @@ local function BarRows(s)
 			if alone and ((v == "below" and d == "above") or (v == "right" and d == "left")) then return true end
 			return Set(s, "direction", v)
 		end, alone and "The bar lies flat or stands upright (the icon and the number are off, so there is nothing to sit beside)."
-			or "Where the bar sits: under, over or beside the icon or number. Vertical bars fill from the bottom.")
+			or "Where the bar sits: under, over or beside the icon or number. Vertical bars fill from the bottom.",
+			{ kind = "none" })   -- (a choice of places)
 		if look == "bar" then
 			r[#r + 1] = Choice("Texture", TextureList(), function()
 				local v, own = Get(s, "texture")
 				return v or DEFAULT_TEX, own
-			end, function(v) return Set(s, "texture", v) end, "This shield's own bar texture: it never follows Bar Texture.")
+			end, function(v) return Set(s, "texture", v) end, "This shield's own bar texture: it never follows Bar Texture.",
+				{ kind = "none" })   -- (no bar texture picture yet)
 			r[#r].subMaxHeight = 300
 		end
 		if look == "glow" or look == "flat" then
-			r[#r + 1] = ChoiceName(s, "Orb Color", "orbColor", ORBCOL_CHOICES,
+			r[#r + 1] = ChoiceName(s, "Orb Color", "orbColor", Pic.with(ORBCOL_CHOICES,
+				{ bar = Pic.Orbs(s, look, "bar", 1), shield = Pic.Orbs(s, look, "shield", 1) }),
 				"Same As Charge Color: the orbs in this shield's Charge Color (Color). The Shield's Own Color: the shield's usual color.", "bar")
 		end
 		if look ~= "bar" then
+			local most = 2 / 3   -- (one charge used: the empty orb shows behind)
+			if s == ES then most = 5 / 6 end
 			r[#r + 1] = OnOff("Empty Orbs", function()
 				local v, own = Get(s, "orbEmpty")
 				return v ~= false, own
 			end, function(v) return Set(s, "orbEmpty", v) end,
-				"A faint ring where a used charge was, so you always see how many the shield had.")
+				"A faint ring where a used charge was, so you always see how many the shield had.", Pic.Orbs(s, look, nil, most, true))
 		end
 		if STORM[look] then
-			r[#r + 1] = OnOffName(s, ANIM_TEXT[s], "anim", ANIM_TIP[s] .. " Off to start. It may slightly lower your frame rate.")
+			r[#r + 1] = OnOffName(s, ANIM_TEXT[s], "anim", ANIM_TIP[s] .. " Off to start. It may slightly lower your frame rate.",
+				{ kind = "none" })   -- (a spell effect over the orbs: no picture)
 		end
 	end
 	r[#r + 1] = SEP
@@ -339,7 +399,7 @@ local function BarRows(s)
 end
 
 -- a color row: its swatch, a click opens ShamanPower's color picker (Cancel puts it back)
-local function ColorRow(s, text, name, fallback, tip)
+local function ColorRow(s, text, name, fallback, tip, pic)
 	local function rgb()
 		local c = Val(s, name)
 		if type(c) == "table" then return c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1 end
@@ -347,7 +407,7 @@ local function ColorRow(s, text, name, fallback, tip)
 		return fallback[1], fallback[2], fallback[3]
 	end
 	local r, g, b = rgb()
-	return { text = text, tip = tip, swatch = { r, g, b }, onClick = function()
+	return { text = text, tip = tip, pic = pic, swatch = { r, g, b }, onClick = function()
 		if not SP.OpenColorPicker then return false end
 		local before = CopyValue(Val(s, name))
 		local cr, cg, cb = rgb()
@@ -377,15 +437,17 @@ local function ColorRows(s)
 		return 0.2, 0.6, 1
 	end
 	local r = { ColorRow(s, "Charge Color", "chargeColor", own,
-		"This shield's charge bar and orbs (Shield Icon Orbs keep their icons). Any color you like.") }
+		"This shield's charge bar and orbs (Shield Icon Orbs keep their icons). Any color you like.", { kind = "bar" }) }
 	local look = Val(s, "look") or "bar"
 	if Val(s, "bar") and (look == "bar" or look == "glow" or look == "flat") then
 		local grad = Val(s, "gradient") or "default"
+		-- (a gradient, and where it starts: no picture yet)
 		r[#r + 1] = ChoiceName(s, "Gradient", "gradient", GradientList(),
-			"Shades this shield's charge bar (and its Glowing and Flat orbs). Its own: never Bar Gradient's.", "default")
+			"Shades this shield's charge bar (and its Glowing and Flat orbs). Its own: never Bar Gradient's.", "default",
+			{ kind = "none" })
 		if grad ~= "default" then
 			r[#r + 1] = ChoiceName(s, "Gradient Direction", "gradientDirection", GRADIENT_DIRS,
-				"Where the gradient starts on screen.", "default")
+				"Where the gradient starts on screen.", "default", { kind = "none" })
 		end
 		if grad == "two" then
 			-- (no First Color of its own: it starts from the Charge Color)
@@ -396,11 +458,13 @@ local function ColorRows(s)
 				if v then return Set(s, "gradientColor1", nil) end
 				local cr, cg, cb = own()
 				return Set(s, "gradientColor1", { r = cr, g = cg, b = cb })
-			end, "On: it starts in the Charge Color and shades into the second color. Off: it starts in a first color you pick.")
+			end, "On: it starts in the Charge Color and shades into the second color. Off: it starts in a first color you pick.",
+				{ kind = "color", color = own })
 			if Val(s, "gradientColor1") ~= nil then
-				r[#r + 1] = ColorRow(s, "First Color", "gradientColor1", own, "The color the gradient starts in.")
+				r[#r + 1] = ColorRow(s, "First Color", "gradientColor1", own, "The color the gradient starts in.", { kind = "bar" })
 			end
-			r[#r + 1] = ColorRow(s, "Second Color", "gradientColor2", GOLD, "The color the gradient shades into. WoW gold to start.")
+			r[#r + 1] = ColorRow(s, "Second Color", "gradientColor2", GOLD, "The color the gradient shades into. WoW gold to start.",
+				{ kind = "bar" })
 		elseif grad == "fade" then
 			r[#r + 1] = Slider("Fade To", 0, 1, 0.01, function()
 				local f = Val(s, "gradientFade")
@@ -428,10 +492,10 @@ local function SoundRows(s)
 	local r = { OnOffName(s, "Sound When It Drops", "sound", s == ES
 		and "When your Earth Shield is gone from the player you put it on. The same setting as Earth Shield's sound in Expiring Alerts."
 		or ("The moment your " .. (NAMES[s] or "shield") .. " leaves you (its last charge used, run out, canceled or replaced),"
-			.. " in fights too. The same setting as this shield's sound in Expiring Alerts.")) }
+			.. " in fights too. The same setting as this shield's sound in Expiring Alerts."), { kind = "sound" }) }
 	if Val(s, "sound") then
 		r[#r + 1] = {
-			text = "Sound", subMaxHeight = 300,
+			text = "Sound", subMaxHeight = 300, pic = { kind = "sound" },   -- (every sound: the speaker)
 			value = function()
 				local v, own = Get(s, "soundName")
 				return tostring(v or DEFAULT_SOUND), own
@@ -503,22 +567,38 @@ local GONE_EFFECTS = { { "none", "None" }, { "glow", "Glow" }, { "pulse", "Pulse
 local GONE_COLOR = { [LS] = { 0.2, 0.6, 1 }, [WS] = { 0.2, 0.6, 1 }, [ES] = { 0.2, 0.8, 0.2 } }
 local function GoneRows(s)
 	local r = {}
-	r[#r + 1] = ChoiceName(s, "Effect", "goneEffect", GONE_EFFECTS,
+	-- the pictures: the glow in this shield's shape and color, read as the module draws them (a Glow Color,
+	-- else today's shield color, a theme's included); Pulse is the icon's own grow-and-shrink
+	local shape = Val(s, "goneGlowShape") or (SP.opt and SP.opt.glowShape) or "default"
+	local goneColor = function()
+		if SP.ShieldGoneGlowColor then return SP:ShieldGoneGlowColor(WHICH_OF[s]) end
+		return Pic.rgb(s, "goneGlowColor", GONE_COLOR[s] or GONE_COLOR[LS])
+	end
+	r[#r + 1] = ChoiceName(s, "Effect", "goneEffect", Pic.with(GONE_EFFECTS, {
+		none = { kind = "plain" },
+		glow = { kind = "glow", shape = shape, color = goneColor },
+		pulse = { kind = "pulse" },
+		both = { kind = "glow", shape = shape, color = goneColor, pulse = true },
+	}),
 		"At 0 charges, or with no shield up, this shield's icon plays this until a shield is up again. Needs the icon on, and Show set so the display stays while no shield is up."
 		.. ((SPCompat and SPCompat.FOREVER) and " In a fight on WoW: Forever the game's Cooldown Manager tells the moment: keep it enabled with your shield in it." or ""), "none")
 	local fx = Val(s, "goneEffect") or "none"
 	if fx == "glow" or fx == "both" then
-		r[#r + 1] = ColorRow(s, "Glow Color", "goneGlowColor", GONE_COLOR[s] or GONE_COLOR[LS], "The glow's color.")
+		r[#r + 1] = ColorRow(s, "Glow Color", "goneGlowColor", GONE_COLOR[s] or GONE_COLOR[LS], "The glow's color.",
+			{ kind = "glow", shape = shape })
 		local map, order
 		if SP.GlowShapeValues then map, order = SP:GlowShapeValues() end   -- (two values: never through "and", which keeps one)
 		if map then
 			local shapes = {}
-			for _, k in ipairs(order or {}) do shapes[#shapes + 1] = { k, map[k] } end
+			for _, k in ipairs(order or {}) do
+				shapes[#shapes + 1] = { k, map[k], nil, { kind = "glow", shape = k, color = goneColor } }
+			end
 			local shared = SP.opt and SP.opt.glowShape or "default"
 			r[#r + 1] = ChoiceName(s, "Glow Shape", "goneGlowShape", shapes, "This shield's glow shape (an unset one follows General > Themes' Glow Shape).", shared)
 			if (Val(s, "goneGlowShape") or shared) == "proc" then
 				r[#r + 1] = Slider("Proc Glow Thickness", 0, 0.6, 0.01, function() return tonumber(Val(s, "goneGlowThick")) or 0.2 end,
-					function(v) SliderSet(s, "goneGlowThick", v) end, Pct, true, "How thick the ring is. It grows outward from the icon's edge.")
+					function(v) SliderSet(s, "goneGlowThick", v) end, Pct, true, "How thick the ring is. It grows outward from the icon's edge.",
+					{ kind = "thick", shape = "proc", color = goneColor })
 			end
 		end
 	end
@@ -530,18 +610,25 @@ local function MenuItems(item)
 	local s = item.key
 	local r = {}
 	r[#r + 1] = ChoiceName(s, "Show", "show", SHOW_CHOICES, ShowTip(s), "up")
+	r[#r].words = "when this shield's charges are on screen"
 	r[#r + 1] = Slider("Scale", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
 		function(v) SliderSet(s, "scale", v) end, Pct, true,
-		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.")
+		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.",
+		{ kind = "size" })
 	r[#r + 1] = Slider("Opacity", 0.1, 1, 0.05, function() return Val(s, "opacity") or 1 end,
-		function(v) SliderSet(s, "opacity", v) end, Pct, true, "How see-through this shield's charges are.")
-	r[#r + 1] = Group("Icon & Number", function() return IconRows(s) end)
-	r[#r + 1] = Group("Charge Bar", function() return BarRows(s) end)
-	r[#r + 1] = Group("Color", function() return ColorRows(s) end)
+		function(v) SliderSet(s, "opacity", v) end, Pct, true, "How see-through this shield's charges are.",
+		{ kind = "opacity" })
+	r[#r + 1] = Group("Icon & Number", function() return IconRows(s) end, nil, nil,
+		"the icon, and the charges left as a number")
+	r[#r + 1] = Group("Charge Bar", function() return BarRows(s) end, nil, nil,
+		"a bar or orbs, one per charge, and how they look")
+	r[#r + 1] = Group("Color", function() return ColorRows(s) end, nil, nil, "the charge color, and a gradient on the bar")
 	r[#r + 1] = Group("Sound", function() return SoundRows(s) end,
-		"The same setting as this shield's sound in Expiring Alerts: each shield has its own.")
+		"The same setting as this shield's sound in Expiring Alerts: each shield has its own.", nil,
+		"a sound the moment the shield drops")
 	r[#r + 1] = Group("When It's Gone", function() return GoneRows(s) end,
-		"What this shield's icon does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.")
+		"What this shield's icon does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
+		"the icon at 0 charges, or with no shield up")
 	r[#r + 1] = SEP
 	r[#r + 1] = { text = "Copy Settings", disabled = (not HasAPI()) or nil,
 		tip = "Remembers every setting of this shield as it is now, for Paste Settings on another shield.",
@@ -560,7 +647,8 @@ local function MenuItems(item)
 			Row:Changed(true)
 			return true
 		end }
-	r[#r + 1] = { text = "Copy Settings To...", disabled = (not SP.CopyShield) or nil, sub = function()
+	r[#r + 1] = { text = "Copy Settings To...", disabled = (not SP.CopyShield) or nil,
+		words = "every setting onto another shield, once", sub = function()
 		local o = {}
 		for _, x in ipairs(Others(s)) do
 			o[#o + 1] = { text = NAMES[x], icon = ICONS[x], onClick = function() CopyTo(s, x); Row:Changed(false) end }
