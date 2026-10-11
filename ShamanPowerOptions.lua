@@ -7054,6 +7054,42 @@ ShamanPower.options = {
 								end
 							end
 						},
+						alerts_grow_up = {
+							order = 9.3,
+							name = "Grow Upward",
+							desc = "When more than one alert shows at once, the second and third stack above the first instead of below it.",
+							type = "toggle",
+							width = 1.0,
+							get = function(info)
+								return ShamanPowerExpiringAlertsDB and ShamanPowerExpiringAlertsDB.growUp == true or false
+							end,
+							set = function(info, val)
+								if ShamanPowerExpiringAlertsDB then
+									ShamanPowerExpiringAlertsDB.growUp = val and true or false
+								end
+							end
+						},
+						alerts_line_spacing = {
+							order = 9.6,
+							name = "Line Spacing",
+							desc = "How far apart alerts stack when more than one shows at once, from one alert's middle to the next.",
+							type = "range",
+							width = 1.5,
+							min = 16,
+							max = 80,
+							step = 1,
+							get = function(info)
+								if ShamanPowerExpiringAlertsDB then
+									return ShamanPowerExpiringAlertsDB.lineSpacing or 40
+								end
+								return 40
+							end,
+							set = function(info, val)
+								if ShamanPowerExpiringAlertsDB then
+									ShamanPowerExpiringAlertsDB.lineSpacing = val
+								end
+							end
+						},
 						alerts_header_shields = {
 							order = 10,
 							type = "header",
@@ -12730,7 +12766,7 @@ do
 	end
 	-- two to a line where they pair up
 	for _, k in ipairs({ "alerts_display_mode", "alerts_font_outline", "alerts_icon_size", "alerts_text_size", "alerts_opacity",
-		"alerts_animation", "alerts_duration", "alerts_sound_volume" }) do
+		"alerts_line_spacing", "alerts_grow_up", "alerts_animation", "alerts_duration", "alerts_sound_volume" }) do
 		if ea[k] then ea[k].width = 1.0 end
 	end
 	-- Volume: every alert's sound (each has its own now); the Dialog line is its tooltip
@@ -12778,7 +12814,8 @@ do
 		{ keys = { "module_missing_note", "master_off_note" } },
 		{ header = "alerts_header", name = "Alerts", keys = { "eaIcons" } },
 		{ header = "look_header", name = "Look", keys = { "alerts_display_mode", "alerts_font_outline", "alerts_icon_size",
-			"alerts_text_size", "alerts_opacity" }, names = { alerts_font_outline = "Outline (unless Fonts & Textures sets one)" } },
+			"alerts_text_size", "alerts_opacity", "alerts_line_spacing", "alerts_grow_up" },
+			names = { alerts_font_outline = "Outline (unless Fonts & Textures sets one)" } },
 		{ header = "behaviour_header", name = "Behavior", keys = { "alerts_animation", "alerts_duration" } },
 		{ header = "sound_header", name = "Sound", keys = { "alerts_sound_volume" },
 			names = { alerts_sound_volume = "Volume (every alert)" } },

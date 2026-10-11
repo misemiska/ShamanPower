@@ -152,6 +152,8 @@ local defaultSettings = {
 	duration = 2.5,
 	opacity = 100,
 	fontOutline = true,
+	growUp = false,        -- Grow Upward (3.0.9, a user's ask): the second and third alerts stack above the first
+	lineSpacing = 40,      -- Line Spacing: from one alert's middle to the next (px)
 	soundVolume = 100,
 
 	shields = {
@@ -773,8 +775,11 @@ function SP:ProcessAlertQueue()
 		frame.text:SetPoint("CENTER", frame, "CENTER", 0, 0)
 	end
 
-	-- Position based on active alerts (stagger vertically)
-	local yOffset = #self.activeAlerts * -40
+	-- Position based on active alerts (stagger vertically): Line Spacing apart, downward from the
+	-- first, or upward with Grow Upward (3.0.9)
+	local step = tonumber(sv.lineSpacing) or 40
+	if sv.growUp ~= true then step = -step end
+	local yOffset = #self.activeAlerts * step
 	frame:ClearAllPoints()
 	frame:SetPoint("CENTER", self.expiringAlertsFrame, "CENTER", 0, yOffset)
 
