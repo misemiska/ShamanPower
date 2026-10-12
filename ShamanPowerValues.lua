@@ -231,6 +231,7 @@ SHAMANPOWER_DEFAULT_VALUES = {
         esFlyoutClasses = {},             -- ES flyout filter: show only these classes (WARRIOR, ...); combined with roles as OR  -- Dropped-totem indicator: "auto" (above, or flyout side on vertical bars), "above", "below", "left", "right"
         -- Compact style: element-colored lines instead of icons (see ShamanPowerCompact.lua)
         compactStyle = false,
+        droppedTotems = false,  -- Dropped Totems: the bar is only the totems that are down (ShamanPowerDropped.lua)
         compactOrientation = "horizontal",  -- "horizontal" (lines stacked) / "vertical" (lines side by side)
         compactLength = 120,                -- line length px
         compactThickness = nil,             -- line thickness px (nil = 14 horizontal / 16 vertical)

@@ -2399,7 +2399,8 @@ function SP:SetMasterUnlock(on, only)
 
 	for _, m in ipairs(MODULES) do
 		local def = self.PreviewRegistry and self.PreviewRegistry[m.key]   -- nil when the module is not loaded
-		local wanted = def ~= nil and (only == nil or only == m.key) and not barOnly
+		-- ("rows": every Totem Rows row at once, the Style tab's Move the Rows button)
+		local wanted = def ~= nil and (only == nil or only == m.key or (only == "rows" and m.key:sub(1, 5) == "rows_")) and not barOnly
 		if wanted and m.enabled then
 			local ok, res = pcall(m.enabled)
 			wanted = ok and res and true or false

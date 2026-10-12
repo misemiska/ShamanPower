@@ -5998,7 +5998,7 @@ local BAR_GAP, RESET_TAB_H = 4, 15
 -- what is built yet, so a /reload in Grid lands on Grid's spot.
 function ShamanPower:BarStyleSpotKey()
 	local key = self.GetTotemBarStyle and self:GetTotemBarStyle() or "normal"
-	if key == "blizzard" then return "normal" end
+	if key == "blizzard" or key == "dropped" then return "normal" end   -- (Dropped Totems sits where the Normal bar is)
 	return key
 end
 function ShamanPower:GetStyleSpot(d, key)
@@ -19857,8 +19857,9 @@ function ShamanPower:ApplySkin()
 	end
 	-- Only apply backdrop to totem bar if not hidden
 	-- Grid lays the totems out in its own rows and Blizzard's bar replaces ours:
-	-- the old bar's frame would be an empty box on screen
+	-- the old bar's frame would be an empty box on screen (and Dropped Totems is its pictures alone)
 	local noBarFrame = (self.GridActive and self:GridActive()) or (self.UsingBlizzardTotemBar and self:UsingBlizzardTotemBar())
+		or (self.DroppedActive and self:DroppedActive())
 	if self.opt.hideTotemBarFrame or noBarFrame then
 		ShamanPowerAuto:SetBackdrop(nil)
 	else
@@ -19882,8 +19883,9 @@ function ShamanPower:UpdateTotemBarFrame()
 	if not ShamanPowerAuto then return end
 
 	local noBarFrame = (self.GridActive and self:GridActive()) or (self.UsingBlizzardTotemBar and self:UsingBlizzardTotemBar())
+		or (self.DroppedActive and self:DroppedActive())
 	if self.opt.hideTotemBarFrame or noBarFrame then
-		-- Hide the frame - set backdrop to nil (Grid / Blizzard's bar: there is no bar of ours to frame)
+		-- Hide the frame - set backdrop to nil (Grid / Blizzard's bar / Dropped Totems: there is no bar of ours to frame)
 		ShamanPowerAuto:SetBackdrop(nil)
 	else
 		-- Show the frame - reapply skin

@@ -29,6 +29,10 @@ ns.PATCH_NOTES = {
 			{ h = "Shield Charges: When It's Gone on the charge bar", icon = "Interface\\Icons\\Spell_Nature_LightningShield",
 			  b = "With the icon off and the charge bar on, the bar plays When It's Gone instead of sitting there as an empty box: Glow lights the bar's edges, Pulse lights its track. With both the icon and the bar on, the icon alone plays it, as before.",
 			  path = "Settings > Alerts & Reminders > Shield Charges", open = { "fluffy", "shieldcharges_page" } },
+			{ h = "Dropped Totems", icon = "Interface\\Icons\\Spell_Nature_StrengthOfEarthTotem02",
+			  b = "A totem bar style that is only the totems you have down, nothing else: a totem appears the moment it lands and goes the moment it ends, in a fight too. Whatever is down sits centered as a group, in element order, and the others slide over as one lands or ends. Each totem shows its icon, its duration bar and time, its pulse bar and the Effects you already have, by the settings you already have. No flyouts, no clicks, no Drop All; your keybinds still cast.",
+			  path = "Settings > Bars > Totem Bar > Style > Totem Bar Style", open = { "settings", "settings_totemMode" },
+			  card = true, s = "Dropped Totems: a bar style that is only the totems down, centered." },
 			{ h = "Click Through The Totem Bar and The Cooldown Bar", icon = "Interface\\Icons\\Spell_Nature_StoneClawTotem",
 			  b = "Off, In Combat or Always: the bar ignores the mouse. No tooltip when you mouse over it mid-fight, no click, no flyout from hovering, and a click lands on whatever is behind the bar. Your keybinds still cast and still open the flyouts. In Combat turns it on the moment a fight starts, shuts any flyout you had open, and turns it off again when the fight ends. The cooldown bar has the same choice on its page.",
 			  path = "Settings > Bars > Totem Bar > Clicks", open = { "settings", "settings_totemClicks" },
@@ -37,6 +41,9 @@ ns.PATCH_NOTES = {
 		changes = {
 			"Show Items Only When Running Out: an item out of sight no longer leaves a gap. The cooldown bar lays itself out again the moment an item hides or shows, centered on what you see. In a fight the game locks positions, so an item coming into sight then appears at the bar's end and takes its place when the fight ends.",
 			"After updating, fully close and restart the game once: 3.0.9 adds new files (the icon screens, Click Through), and a /reload alone does not load them.",
+		},
+		fixes = {
+			"The Drop All button (and Totemic Call on the totem bar) now takes the Totem Bar Icon Shape: Flat, Rounded and Circle used to leave it square.",
 		},
 		thanks = "Thanks to Saws for the Click Through idea.",
 	},

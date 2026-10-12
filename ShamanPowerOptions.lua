@@ -10684,10 +10684,10 @@ do
 			end,
 		},
 		rowsMove = {
-			order = 9, type = "execute", name = "Move the Rows (Unlock UI)", width = "full", hidden = Off,
-			desc = "Opens Unlock UI: drag each row's box where you want it. Right-click a row's box to come back here.",
+			order = 9, type = "execute", name = "Move the Rows", width = "full", hidden = Off,
+			desc = "Unlocks only the rows: drag each row's box where you want it, then press Done. Right-click a row's box to come back here. It can't be done in a fight.",
 			disabled = Locked,
-			func = function() if SP.SetMasterUnlock then SP:SetMasterUnlock(true) end end,
+			func = function() if SP.UnlockModuleFrames then SP:UnlockModuleFrames("rows") end end,
 		},
 	}
 	-- one switch per row, all on to start
@@ -12095,7 +12095,7 @@ do
 		onlyStyles(key, { grid = true })
 	end
 	-- Totem Rows' switch and settings: with every style but Grid (Grid lays every totem out in rows itself)
-	onlyStyles("rowsOptions", { normal = true, totemtimers = true, single = true, dynamic = true, compact = true, blizzard = true })
+	onlyStyles("rowsOptions", { normal = true, totemtimers = true, single = true, dynamic = true, compact = true, blizzard = true, dropped = true })
 	onlyStyles("use_blizzard_totem_bar", {})
 	-- The native scale controls already have their exact native-only predicate.
 	for _, key in ipairs({ "activeAsMainSpacer", "compactSpacer", "twistSpacer" }) do
@@ -12112,17 +12112,42 @@ do
 		name = function()
 			local key = SP.GetTotemBarStyle and SP:GetTotemBarStyle() or "normal"
 			local style = SP.TotemBarStyle and SP:TotemBarStyle(key)
+			if key == "dropped" then
+				return "Dropped Totems shows only the totems you have down, centered, so there is nothing to click: Drop All, the"
+					.. " Clicks tab, the flyout rows and Twisting are set aside while it is on. Its looks are the Duration Bars,"
+					.. " Pulse Timer and Effects tabs, and the Totem Bar Icon Shape. Show Every Totem in Rows works with it."
+			end
 			return "The options below are for " .. (style and style.label or key)
 				.. " and change with the style you pick. "
 				.. (SP.NoTotemTwisting and "Clicks has its own tab." or "Clicks and Twisting have their own tabs.")
 		end,
 	}
+	-- Dropped Totems has no clicks and no flyouts: the Clicks tab's rows, Twisting, the Flyouts page and
+	-- the Empty choice step aside while it is on (a tab with no rows is no tab); the note above says so
+	do
+		local function aside(group)
+			if not (group and group.args) then return end
+			for _, option in pairs(group.args) do
+				local previous = option.hidden
+				option.hidden = function(info)
+					if type(previous) == "function" then
+						if previous(info) then return true end
+					elseif previous then return true end
+					return SP.GetTotemBarStyle and SP:GetTotemBarStyle() == "dropped" or false
+				end
+			end
+		end
+		aside(settings.settings_totemClicks)
+		aside(settings.settings_totemTwisting)
+		aside(SP.options.args.fluffy.args.flyout_appearance)
+	end
 	SP.SettingsPathAliases["fluffy/layout_section"] = { "fluffy", "totembar_appearance" }
 	-- Empty sits on the Style page, under Hide Blizzard's Totem Bar: every style
 	-- but Blizzard's own bar (its flyouts are Blizzard's) offers it
 	mode.args.flyout_show_empty = pages.totemflyouts_section.args.flyout_show_empty
 	pages.totemflyouts_section.args.flyout_show_empty = nil
 	mode.args.flyout_show_empty.order = 4.856
+	onlyStyles("flyout_show_empty", { normal = true, totemtimers = true, single = true, dynamic = true, compact = true, grid = true, blizzard = true })   -- (Dropped Totems has no flyouts)
 end
 
 -- Module pages keep their controls and callbacks; only their reading order changes.

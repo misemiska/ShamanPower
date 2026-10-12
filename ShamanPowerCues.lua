@@ -388,6 +388,12 @@ SP.CueFx = {
 -- The button a totem's cue plays on: the element's own button. The Compact,
 -- Grid and Blizzard's-bar styles draw their totems elsewhere: no cues there.
 local function totemHost(element)
+	-- Dropped Totems (ShamanPowerDropped.lua): the element's picture while its totem is down
+	if SP.DroppedActive and SP:DroppedActive() then
+		local pic = SP:DroppedHost(element)
+		if pic then return pic, pic.icon end
+		return nil
+	end
 	-- Totem Rows with the main bar hidden: the row's totem that is down
 	local rowBtn = SP.RowsCarryButton and SP:RowsCarryButton(element)
 	if rowBtn then

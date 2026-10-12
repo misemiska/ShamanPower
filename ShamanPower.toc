@@ -55,6 +55,7 @@ ShamanPowerStyles.lua
 ShamanPowerCdItems.lua
 ShamanPowerCues.lua
 ShamanPowerClickThrough.lua
+ShamanPowerDropped.lua
 ShamanPowerTown.lua
 ShamanPowerUsualTotem.lua
 ShamanPowerShieldSound.lua

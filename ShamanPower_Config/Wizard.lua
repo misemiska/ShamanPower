@@ -319,6 +319,7 @@ local STEPS = {
 	    "|cffffd100Dynamic|r: the bar is simply whatever you last dropped. Great for PvP.",
 	    "|cffffd100Single Totem|r: the button shows the totem you dropped, but a click always drops your assigned one, and it goes back to it the moment the dropped totem is gone. Also great for PvP.",
 	    "|cffffd100Compact|r: no icons - each slot is a colored line that drains with the totem and refills with each pulse.",
+	    "|cffffd100Dropped Totems|r: only the totems you have down, centered as a group, each with its bar, time and pulse. No flyouts, no clicks; your keybinds still cast.",
 	    { "|cffffd100Grid|r: all your totems in rows, together or in a separate group for each element.",
 	      when = function() return SP.SetGridStyle ~= nil end },
 	    { "|cffffd100Show every totem in rows|r (under the cards, with any style but Grid): each element's totems also in a row of their own that you place anywhere.",
@@ -1060,13 +1061,14 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 
 	-- A style card under the mouse previews its style without changing anything.
 	local hoverKey
-	local HOVER_MODE = { normal = "normal", totemtimers = "tt", single = "single", dynamic = "dynamic", compact = "compact", grid = "grid", blizzard = "blizzard" }
+	local HOVER_MODE = { normal = "normal", totemtimers = "tt", single = "single", dynamic = "dynamic", compact = "compact", grid = "grid", blizzard = "blizzard", dropped = "dropped" }
 	-- a profile written on Forever can carry the Blizzard-bar flag onto a client without that bar
 	local blizzardStyle = SP.TotemBarStyle and SP:TotemBarStyle("blizzard") ~= nil
 	local function mode()
 		if hoverKey then return HOVER_MODE[hoverKey] or "normal" end
 		if blizzardStyle and OPT().useBlizzardTotemBar then return "blizzard" end
 		if OPT().gridStyle then return "grid" end
+		if OPT().droppedTotems then return "dropped" end
 		if OPT().compactStyle then return "compact" end
 		if OPT().dynamicTotemMode then return "dynamic" end
 		-- Single Totem shows the active totem without the assigned corner
@@ -1087,7 +1089,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 		local side = (lay == "VerticalLeft") and -1 or 1
 		local normal = (m == "normal")
 		-- (Totem Rows' switch, drawn with the four icon styles)
-		local rowsOn = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic")
+		local rowsOn = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic" or m == "dropped")
 		local downRows = rowsOn and OPT().rowsGo == "down"
 		-- vertical with rows: the bar's column on the left (Normal's dropped totem on its side of it), the rows to
 		-- its right, never over it
@@ -1098,7 +1100,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 		local rmH = downRows and (RW + 8) or RM_H
 		rowsMock:SetShown(rowsOn)
 		frameBg:ClearAllPoints()
-		frameBg:SetPoint("TOPLEFT", bar, "TOPLEFT", -8, rowsOn and not vertical and (-rmH + 8) or 8)
+		frameBg:SetPoint("TOPLEFT", bar, "TOPLEFT", -8, 8)   -- (horizontal rows sit under the bar, inside its box)
 		frameBg:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", rowsOn and vertical and (-(rowsW + 14) + 8) or 8, -8)
 		if rowsOn then
 			for i, row in ipairs(rowsUI) do
@@ -1110,14 +1112,16 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				end
 				if downRows then
 					row:SetSize(RS + 28, RW)
-					row:SetPoint("TOPLEFT", bar, "TOPLEFT", (vertical and rowsX or 0) + (i - 1) * (RS + 30), 0)
+					if vertical then row:SetPoint("TOPLEFT", bar, "TOPLEFT", rowsX + (i - 1) * (RS + 30), 0)
+					else row:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", (i - 1) * (RS + 30), 0) end   -- under the bar
 				else
 					row:SetSize(RW, RS + RT)
 					if vertical then
 						row:SetPoint("TOPLEFT", bar, "TOPLEFT", rowsX, -(i - 1) * (RS + RT + 6))
 					else
 						local col, line = (i <= 2) and 0 or 1, (i - 1) % 2
-						row:SetPoint("TOPLEFT", bar, "TOPLEFT", col == 0 and 0 or (4 * STEP - GAP - RW), -line * (RS + RT + 6))
+						-- under the bar: the first line right below it, the second under that
+						row:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", col == 0 and 0 or (4 * STEP - GAP - RW), (1 - line) * (RS + RT + 6))
 					end
 				end
 			end
@@ -1133,7 +1137,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				over:SetPoint(side > 0 and "LEFT" or "RIGHT", main, side > 0 and "RIGHT" or "LEFT", side * 4, 0)
 			else
 				slot:SetSize(SIZE, normal and (SIZE * 2 + 30) or (SIZE + 14))
-				if rowsOn then slot:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", (i - 1) * STEP, 0)
+				if rowsOn then slot:SetPoint("TOPLEFT", bar, "TOPLEFT", (i - 1) * STEP, 0)   -- (the rows below)
 				else slot:SetPoint("LEFT", bar, "LEFT", (i - 1) * STEP, 0) end
 				main:SetPoint("BOTTOM", slot, "BOTTOM", 0, 14)
 				over:SetPoint("BOTTOM", main, "TOP", 0, 4)
@@ -1263,17 +1267,18 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			if s.main.spBorder then for _, t in pairs(s.main.spBorder) do t:SetShown(not blizz) end end
 		end
 	end
+	local droppedSig
 	bar:SetScript("OnUpdate", function(_, el)
 		local m = mode()
 		local lay = OPT().layout or "Horizontal"
-		local rowsMode = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic")
+		local rowsMode = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic" or m == "dropped")
 		local rg = rowsMode and (OPT().rowsGo == "down" and "down" or "across") or nil
 		if lay ~= lastLay or m ~= lastMode or rg ~= lastRowsGo then lastLay, lastMode, lastRowsGo = lay, m, rg; relayout(lay, m); skin(m) end
 		local sc = OPT().buffscale or 1
 		if SP.Wizard.previewOnly then sc = math.min(sc, (inner:GetHeight() - 6) / math.max(1, bar:GetHeight() + 16)) end
 		bar:SetScale(sc)
 		local opacity, fullActive = OPT().totemBarOpacity or 1, OPT().totemBarFullOpacityWhenActive
-		local frameOn = not OPT().hideTotemBarFrame and m ~= "blizzard"   -- Blizzard's bar has no frame of ours
+		local frameOn = not OPT().hideTotemBarFrame and m ~= "blizzard" and m ~= "dropped"   -- Blizzard's bar has no frame of ours, Dropped Totems none at all
 		frameBg:SetShown(frameOn); frameBd:SetShown(frameOn)
 		for _, s in ipairs(slots) do
 			local e = s.e
@@ -1305,6 +1310,13 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				s.mIcon:SetDesaturated(false); s.mIcon:SetAlpha(1)
 				s.inset:Hide(); s.insetBd:Hide()
 				s.dbg:SetAlpha(SP:DurationTrackAlpha(1)); s.dbg:Show(); s.dbar:SetShown(activeNow); s.dbar:SetWidth(math.max(1, SIZE * frac))
+			elseif m == "dropped" then
+				-- Dropped Totems: the slot is there only while its totem is down, and shows that totem
+				s.over:Hide()
+				s.mIcon:SetTexture(e.active)
+				s.mIcon:SetDesaturated(false); s.mIcon:SetAlpha(1)
+				s.inset:Hide(); s.insetBd:Hide()
+				s.droppedOn = activeNow
 			else -- dynamic: the slot becomes whatever was dropped, and stays that way
 				s.over:Hide()
 				s.mIcon:SetTexture(e.active)
@@ -1320,7 +1332,32 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			for _, sl in ipairs(slots) do sl.main:GetParent():SetShown(barOn) end
 			if not barOn then frameBg:Hide(); frameBd:Hide() end
 		else
-			for _, sl in ipairs(slots) do sl.main:GetParent():Show() end
+			for _, sl in ipairs(slots) do sl.main:GetParent():SetShown(m ~= "dropped" or sl.droppedOn == true) end
+		end
+		-- Dropped Totems: the slots in sight as one group centered in the bar, as the real bar does
+		if m == "dropped" then
+			local vis = {}
+			for _, s in ipairs(slots) do if s.main:GetParent():IsShown() then vis[#vis + 1] = s end end
+			local sig = #vis .. lay
+			for _, s in ipairs(vis) do sig = sig .. s.e.n end
+			if sig ~= droppedSig then
+				droppedSig = sig
+				local n = #vis
+				local vertical = (lay ~= "Horizontal")
+				for i, s in ipairs(vis) do
+					local slot = s.main:GetParent()
+					slot:ClearAllPoints()
+					if vertical then
+						local h = SIZE + 14 + 8
+						slot:SetPoint("TOP", bar, "TOP", 0, -((bar:GetHeight() - (n * h - 8)) / 2 + (i - 1) * h))
+					else
+						slot:SetPoint("TOPLEFT", bar, "TOPLEFT", (bar:GetWidth() - (n * STEP - GAP)) / 2 + (i - 1) * STEP, 0)
+					end
+				end
+			end
+		elseif droppedSig then
+			droppedSig = nil
+			relayout(lay, m)   -- (back on the fixed slots)
 		end
 		if m == "compact" then bar:SetAlpha(0); cm:Show(); paintCompact(el)
 		elseif m == "grid" then bar:SetAlpha(0); cm:Hide()
@@ -1510,7 +1547,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			if m == "blizzard" then closeB() end
 		end
 		-- (Totem Rows' switch on: no flyout to open, its totems are always out in their rows)
-		if m == "compact" or m == "grid" or OPT().totemRows == true or (m == "blizzard" and not bBtns[1]) then   -- no icon bar to hover
+		if m == "compact" or m == "grid" or m == "dropped" or OPT().totemRows == true or (m == "blizzard" and not bBtns[1]) then   -- no icon bar to hover (Dropped Totems: no flyouts)
 			cur:Hide(); flyCap:SetText("")
 			return
 		end
