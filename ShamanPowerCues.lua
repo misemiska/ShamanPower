@@ -742,8 +742,9 @@ local function setShown(btn, want)
 			if tab then tab:EnableMouse(false) end
 		elseif not hide and btn._roMouseOff then
 			btn._roMouseOff = nil
-			btn:EnableMouse(true)
-			if tab then tab:EnableMouse(true) end
+			local on = SP:ClickThroughMouse("cd")   -- (Click Through The Cooldown Bar: not always)
+			btn:EnableMouse(on)
+			if tab then tab:EnableMouse(on) end
 		end
 	end
 end
@@ -1325,11 +1326,12 @@ do
 	watch:RegisterEvent("PLAYER_REGEN_DISABLED")
 	watch:SetScript("OnEvent", function()
 		if InCombatLockdown() then return end   -- (too late: locked already)
+		local on = SP:ClickThroughMouse("cd")   -- (Click Through The Cooldown Bar: the fight's start takes it)
 		for _, btn in ipairs(SP.cooldownButtons or {}) do
 			if btn._roMouseOff then
 				btn._roMouseOff = nil
-				btn:EnableMouse(true)
-				if btn.spFlyoutOpenArrow then btn.spFlyoutOpenArrow:EnableMouse(true) end
+				btn:EnableMouse(on)
+				if btn.spFlyoutOpenArrow then btn.spFlyoutOpenArrow:EnableMouse(on) end
 			end
 		end
 	end)

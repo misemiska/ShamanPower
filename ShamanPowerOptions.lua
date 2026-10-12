@@ -12031,10 +12031,27 @@ do
 		get = function() return SP.opt.assignRightClick == "clear" and "clear" or "previous" end,
 		set = function(_, value) SP.opt.assignRightClick = (value == "clear") and "clear" or "previous" end,
 	}
+	-- 3.0.9: Click Through The Totem Bar (a user's ask: a bar mid-screen caught the mouse in fights).
+	-- The mouse itself is ShamanPowerClickThrough.lua's
+	settings.settings_totemClicks.args.click_through = {
+		type = "select", width = 1.5,
+		name = "Click Through The Totem Bar",
+		desc = "The bar ignores the mouse: no tooltip, no click, no flyout from hovering. Clicks land on whatever is behind it."
+			.. " Your keybinds still cast and still open the flyouts. In Combat: the game turns it on the moment a fight"
+			.. " starts and off when it ends, so the bar is yours again between fights.",
+		values = { off = "Off", combat = "In Combat", always = "Always" },
+		sorting = { "off", "combat", "always" },
+		get = function() return SP:TotemBarClickThrough() end,
+		set = function(_, value)
+			SP.opt.totemBarClickThrough = value
+			if InCombatLockdown() then print("|cff0070ddShamanPower:|r Click Through The Totem Bar changes when the fight ends.") end
+			SP:ApplyClickThrough()
+		end,
+	}
 	SP.OrderSettingsBands(settings.settings_totemClicks, {
 		{ keys = { "layout_desc" } },
 		{ header = "button_header", name = "Bar Buttons", keys = {
-			"swap_all_clicks", "rightClickCastsAssigned", "rightClickDestroysTotem",
+			"click_through", "swap_all_clicks", "rightClickCastsAssigned", "rightClickDestroysTotem",
 		} },
 		{ header = "flyout_header", name = "Flyouts", keys = {
 			"swap_flyout_clicks", "flyout_requires_click", "shift_right_click_pulls_totem", "flyout_arrow_only", "flyout_single_open",
@@ -12475,6 +12492,22 @@ do
 		cdbar_move = { type = "execute", width = "full", name = "Move the Cooldown Bar",
 			desc = "Unlocks only the Cooldown Bar: drag its box where you want it, then press Done. It can't be done in a fight.",
 			func = function() SP:UnlockModuleFrames("cooldownbar") end },
+		-- 3.0.9: Click Through The Cooldown Bar, as the Totem Bar's (ShamanPowerClickThrough.lua)
+		cdbar_click_through = {
+			type = "select", width = 1.5,
+			name = "Click Through The Cooldown Bar",
+			desc = "The bar ignores the mouse: no tooltip, no click, no flyout from hovering. Clicks land on whatever is behind it."
+			.. " Your keybinds still cast. In Combat: the game turns it on the moment a fight starts and off when it"
+			.. " ends, so the bar is yours again between fights.",
+			values = { off = "Off", combat = "In Combat", always = "Always" },
+			sorting = { "off", "combat", "always" },
+			get = function() return SP:CooldownBarClickThrough() end,
+			set = function(_, value)
+				SP.opt.cdbarClickThrough = value
+				if InCombatLockdown() then print("|cff0070ddShamanPower:|r Click Through The Cooldown Bar changes when the fight ends.") end
+				SP:ApplyClickThrough()
+			end,
+		},
 	}
 	local function take(src, keys) for _, k in ipairs(keys) do if src[k] then args[k] = src[k] end end end
 	take(app, { "cdbarLayout", "icon_shape", "cooldownBarScale", "cooldownBarOpacity", "cooldownBarPadding",
@@ -12527,6 +12560,7 @@ do
 		{ header = "items_header", name = "Items", keys = { "cdbarIcons" } },
 		{ header = "bar_header", name = "Bar", keys = { "cdbarLayout", "icon_shape", "cooldownBarScale", "cooldownBarOpacity",
 			"cooldownBarPadding", "hide_cooldown_bar_frame", "cooldownBarFullOpacityWhenActive", "frame_edge", "icon_borders_square" } },
+		{ header = "clicks_header", name = "Clicks", keys = { "cdbar_click_through" } },
 		{ header = "progress_header", name = "Progress Bars and Time", keys = { "cdbar_progress_position", "cdbar_progress_height",
 			"cdbar_gradient_direction", "cdbar_duration_text", "cdbar_duration_text_size", "cdbar_numbers_note", "cdbar_numbers_button" },
 			names = { cdbar_duration_text = "Where the Time Shows", cdbar_duration_text_size = "Time Text Size" } },
