@@ -1,5 +1,21 @@
 # ShamanPower Changelog
 
+## v3.0.9 (in progress)
+
+### After updating
+- After updating, fully close and restart the game once: 3.0.9 adds new files (the icon screens, Click Through), and a /reload alone does not load them.
+
+### New
+- **Click an Icon Opens Its Screen** (Settings > General > Main > Click an Icon Opens Its Screen): Switch it on and a click on any icon in Settings opens that icon's own screen, where every choice is a picture: one tile per choice, on-off tiles with a check in the corner, sliders with a live picture beside them, and a Back button to the page. The right-click menus stay exactly as they are, so nothing changes until you switch it on.
+- **Totems In The Flyouts: your own order** (Settings > Bars > Totem Bar > Bar > Totems In The Flyouts): Drag a totem earlier or later within its element on the Totem Bar page, or right-click it: Earlier In The Flyout, Later In The Flyout, Put Back The Usual Order. The flyout follows your order, and a totem you learn later goes to the end of its element. Nothing dragged: the game's order, as before.
+- **Party Strip: Only While The Totem Is Down** (Settings > Group Tools > Party Buff Tracker > Party Strip > Totems): A new switch on the Party Strip's Totems card: a totem's line shows only while that totem is down. Off, the strip is as it was.
+- **Expiring Alerts: Grow Upward and Line Spacing** (Settings > Alerts & Reminders > Expiring Alerts): Grow Upward stacks the second and third alerts above the first instead of below it. Line Spacing sets the space between them (40, as it has always been).
+- **Shield Charges: When It's Gone on the charge bar** (Settings > Alerts & Reminders > Shield Charges): With the icon off and the charge bar on, the bar plays When It's Gone instead of sitting there as an empty box: Glow lights the bar's edges, Pulse lights its track. With both the icon and the bar on, the icon alone plays it, as before.
+- **Click Through The Totem Bar and The Cooldown Bar** (Settings > Bars > Totem Bar > Clicks): Off, In Combat or Always: the bar ignores the mouse. No tooltip when you mouse over it mid-fight, no click, no flyout from hovering, and a click lands on whatever is behind the bar. Your keybinds still cast and still open the flyouts. In Combat turns it on the moment a fight starts, shuts any flyout you had open, and turns it off again when the fight ends. The cooldown bar has the same choice on its page.
+
+### Thanks
+- Thanks to Saws for the Click Through idea.
+
 ## v3.0.8 (2026-10-10)
 
 ### After updating
