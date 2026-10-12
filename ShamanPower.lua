@@ -11453,15 +11453,20 @@ function ShamanPower:UpdateCooldownBarLayout()
 	local cdLayout = self.opt.cdbarLayout or self.opt.layout
 	local isVertical = (cdLayout == "Vertical" or cdLayout == "VerticalLeft")
 
-	-- Count only visible buttons (not hidden in options and not popped out)
-	local visibleButtons = {}
+	-- Count only visible buttons (not hidden in options and not popped out). An item Show
+	-- Items Only When Running Out has out of sight (btn._roHidden, ShamanPowerCues.lua) takes
+	-- no space: the bar lays out and centers what is in sight, and parks those past its end in
+	-- their order, so one that comes into sight in a fight (where nothing can move) has a spot
+	-- there; the fight's end lays the bar out again (3.0.9, a user's ask: a gap mid-bar)
+	local visibleButtons, parkedButtons = {}, {}
 	for _, btn in ipairs(self.cooldownButtons) do
 		local isPoppedOut = self:IsCooldownPoppedOut(btn.cooldownType)
 		if not btn.isHiddenInOptions and not isPoppedOut then
-			table.insert(visibleButtons, btn)
+			table.insert(btn._roHidden and parkedButtons or visibleButtons, btn)
 		end
 	end
 	local numButtons = #visibleButtons
+	for _, btn in ipairs(parkedButtons) do table.insert(visibleButtons, btn) end   -- (laid out past the end)
 
 	-- Extra padding for progress bars based on position
 	-- Only reserve space when at least one is currently visible (Progress Bar is per item:

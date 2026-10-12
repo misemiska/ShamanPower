@@ -722,16 +722,31 @@ local function gridKeeps(btn)
 	return (btn.spellType == "shield" or btn.spellType == "weaponImbue") and SP.CooldownBarGridOn and SP:CooldownBarGridOn(btn.cooldownType) or false
 end
 
--- In or out of sight. Out of sight keeps the button's spot, so nothing on the bar
--- moves: its alpha goes to 0 (UpdateCooldownBarOpacity; alpha may change in a
--- fight), and out of a fight its mouse goes too, so it is really gone: no click,
--- tooltip or flyout. In a fight the game locks the mouse: the fight's start
--- gives every button its mouse back (a click on an empty spot still casts there).
+-- In or out of sight. Its alpha goes to 0 (UpdateCooldownBarOpacity; alpha may
+-- change in a fight), and out of a fight its mouse goes too, so it is really gone:
+-- no click, tooltip or flyout. In a fight the game locks the mouse: the fight's
+-- start gives every button its mouse back (a click on its spot still casts there).
+-- Out of sight takes no space: the bar lays itself out again, centered on what is
+-- in sight (UpdateCooldownBarLayout parks the rest past its end). In a fight nothing
+-- can move, so a flip then waits for the fight's end (the watcher below).
+local layoutQueued
+local function relayout()
+	if InCombatLockdown() then SP._roLayoutLater = true return end
+	if layoutQueued then return end
+	layoutQueued = true
+	C_Timer.After(0, function()
+		layoutQueued = nil
+		if InCombatLockdown() then SP._roLayoutLater = true return end
+		SP:UpdateCooldownBarLayout()
+	end)
+end
+
 local function setShown(btn, want)
 	local hide = (not want) or nil
 	if btn._roHidden ~= hide then
 		btn._roHidden = hide
 		SP:UpdateCooldownBarOpacity()
+		relayout()
 	end
 	if not InCombatLockdown() then
 		-- (the tab that opens its flyout, WoW: Forever's arrow layout, goes with it)
@@ -1324,7 +1339,13 @@ end
 do
 	local watch = CreateFrame("Frame")
 	watch:RegisterEvent("PLAYER_REGEN_DISABLED")
-	watch:SetScript("OnEvent", function()
+	watch:RegisterEvent("PLAYER_REGEN_ENABLED")
+	watch:SetScript("OnEvent", function(_, event)
+		if event == "PLAYER_REGEN_ENABLED" then
+			-- an item came into sight or went out of it during the fight: the bar laid out again
+			if SP._roLayoutLater then SP._roLayoutLater = nil; relayout() end
+			return
+		end
 		if InCombatLockdown() then return end   -- (too late: locked already)
 		local on = SP:ClickThroughMouse("cd")   -- (Click Through The Cooldown Bar: the fight's start takes it)
 		for _, btn in ipairs(SP.cooldownButtons or {}) do

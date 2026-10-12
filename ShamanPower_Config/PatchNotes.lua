@@ -35,6 +35,7 @@ ns.PATCH_NOTES = {
 			  card = true, s = "Click Through: the bars ignore the mouse, in fights or always." },
 		},
 		changes = {
+			"Show Items Only When Running Out: an item out of sight no longer leaves a gap. The cooldown bar lays itself out again the moment an item hides or shows, centered on what you see. In a fight the game locks positions, so an item coming into sight then appears at the bar's end and takes its place when the fight ends.",
 			"After updating, fully close and restart the game once: 3.0.9 adds new files (the icon screens, Click Through), and a /reload alone does not load them.",
 		},
 		thanks = "Thanks to Saws for the Click Through idea.",
