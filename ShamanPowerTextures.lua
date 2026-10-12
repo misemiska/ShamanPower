@@ -1101,7 +1101,20 @@ function SP:ApplyIconShapes()
 	end
 	shapeButton(self.esActiveOverlay, "totem")
 	for _, f in pairs(self.poppedOutFrames or {}) do shapeButton(type(f) == "table" and rawget(f, "button"), "totem") end
-	shapeButton(_G.ShamanPowerAutoDropAll, "totem")
+	-- Drop All and Totemic Call on the bar: their template icons have no .icon key either (as the
+	-- Earth Shield button): the global icon, its highlight and its cooldown take the totem bar's shape
+	for _, name in ipairs({ "ShamanPowerAutoDropAll", "ShamanPowerAutoTotemicCall" }) do
+		local btn, icon = _G[name], _G[name .. "Icon"]
+		if btn and rawget(btn, "icon") then
+			shapeButton(btn, "totem")
+		elseif btn and icon then
+			SP:ShapeIconTexture(icon, icon, "totem")
+			local hl = btn.GetHighlightTexture and btn:GetHighlightTexture()
+			if hl then SP:ShapeIconTexture(hl, icon, "totem") end
+			local cd = rawget(btn, "cooldown")
+			if type(cd) == "table" then SP:ShapeCooldown(cd, "totem") end
+		end
+	end
 	if _G.ShamanPowerGCD5 then SP:ShapeCooldown(_G.ShamanPowerGCD5, "totem") end
 	for t, icon in pairs(shapedTex) do shapeTexture(t, icon) end
 	for cd in pairs(shapedCd) do shapeCooldown(cd) end
