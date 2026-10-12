@@ -13,6 +13,9 @@
 - **Shield Charges: When It's Gone on the charge bar** (Settings > Alerts & Reminders > Shield Charges): With the icon off and the charge bar on, the bar plays When It's Gone instead of sitting there as an empty box: Glow lights the bar's edges, Pulse lights its track. With both the icon and the bar on, the icon alone plays it, as before.
 - **Click Through The Totem Bar and The Cooldown Bar** (Settings > Bars > Totem Bar > Clicks): Off, In Combat or Always: the bar ignores the mouse. No tooltip when you mouse over it mid-fight, no click, no flyout from hovering, and a click lands on whatever is behind the bar. Your keybinds still cast and still open the flyouts. In Combat turns it on the moment a fight starts, shuts any flyout you had open, and turns it off again when the fight ends. The cooldown bar has the same choice on its page.
 
+### Thanks
+- Thanks to Saws for the Click Through idea.
+
 ## v3.0.8 (2026-10-10)
 
 ### After updating

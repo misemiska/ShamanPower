@@ -37,6 +37,7 @@ ns.PATCH_NOTES = {
 		changes = {
 			"After updating, fully close and restart the game once: 3.0.9 adds new files (the icon screens, Click Through), and a /reload alone does not load them.",
 		},
+		thanks = "Thanks to Saws for the Click Through idea.",
 	},
 	{
 		v = "3.0.8",
