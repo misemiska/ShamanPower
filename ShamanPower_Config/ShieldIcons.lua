@@ -568,27 +568,47 @@ local GONE_COLOR = { [LS] = { 0.2, 0.6, 1 }, [WS] = { 0.2, 0.6, 1 }, [ES] = { 0.
 local function GoneRows(s)
 	local r = {}
 	-- the pictures: the glow in this shield's shape and color, read as the module draws them (a Glow Color,
-	-- else today's shield color, a theme's included); Pulse is the icon's own grow-and-shrink
+	-- else today's shield color, a theme's included); Pulse is the icon's own grow-and-shrink. With the icon
+	-- off and the charge bar on, the bar plays it (3.0.9): the bar, its edges lit (Glow) or its track lit (Pulse)
 	local shape = Val(s, "goneGlowShape") or (SP.opt and SP.opt.glowShape) or "default"
 	local goneColor = function()
 		if SP.ShieldGoneGlowColor then return SP:ShieldGoneGlowColor(WHICH_OF[s]) end
 		return Pic.rgb(s, "goneGlowColor", GONE_COLOR[s] or GONE_COLOR[LS])
 	end
-	r[#r + 1] = ChoiceName(s, "Effect", "goneEffect", Pic.with(GONE_EFFECTS, {
-		none = { kind = "plain" },
-		glow = { kind = "glow", shape = shape, color = goneColor },
-		pulse = { kind = "pulse" },
-		both = { kind = "glow", shape = shape, color = goneColor, pulse = true },
-	}),
-		"At 0 charges, or with no shield up, this shield's icon plays this until a shield is up again. Needs the icon on, and Show set so the display stays while no shield is up."
+	local onBar = (not Val(s, "icon")) and Val(s, "bar") and true or false
+	local function barPic(glow, lit)
+		local look = Val(s, "look") or "bar"
+		local p
+		if look ~= "bar" then p = Pic.Orbs(s, look, nil, 0) else p = { kind = "bar", frac = 0, color = function() return Pic.chargeOwn(s) end } end
+		if glow then p.goneGlow = goneColor end
+		if lit then p.goneLit = goneColor end
+		return p
+	end
+	local pics
+	if onBar then
+		pics = { none = barPic(false, false), glow = barPic(true, false), pulse = barPic(false, true), both = barPic(true, true) }
+	else
+		pics = {
+			none = { kind = "plain" },
+			glow = { kind = "glow", shape = shape, color = goneColor },
+			pulse = { kind = "pulse" },
+			both = { kind = "glow", shape = shape, color = goneColor, pulse = true },
+		}
+	end
+	r[#r + 1] = ChoiceName(s, "Effect", "goneEffect", Pic.with(GONE_EFFECTS, pics),
+		"At 0 charges, or with no shield up, this shield's icon plays this until a shield is up again; with the icon off, its charge bar does. Needs the icon or the charge bar on, and Show set so the display stays while no shield is up."
 		.. ((SPCompat and SPCompat.FOREVER) and " In a fight on WoW: Forever the game's Cooldown Manager tells the moment: keep it enabled with your shield in it." or ""), "none")
 	local fx = Val(s, "goneEffect") or "none"
 	if fx == "glow" or fx == "both" then
 		r[#r + 1] = ColorRow(s, "Glow Color", "goneGlowColor", GONE_COLOR[s] or GONE_COLOR[LS], "The glow's color.",
-			{ kind = "glow", shape = shape })
+			onBar and barPic(true, false) or { kind = "glow", shape = shape })
 		local map, order
 		if SP.GlowShapeValues then map, order = SP:GlowShapeValues() end   -- (two values: never through "and", which keeps one)
-		if map then
+		if onBar then
+			-- the bar's glow hugs the bar: the icon's two shape rows step aside and say so
+			r[#r + 1] = { text = "Glow Shape and Proc Glow Thickness are the icon's:", disabled = true }
+			r[#r + 1] = { text = "they show when the icon is on.", disabled = true }
+		elseif map then
 			local shapes = {}
 			for _, k in ipairs(order or {}) do
 				shapes[#shapes + 1] = { k, map[k], nil, { kind = "glow", shape = k, color = goneColor } }
@@ -627,8 +647,8 @@ local function MenuItems(item)
 		"The same setting as this shield's sound in Expiring Alerts: each shield has its own.", nil,
 		"a sound the moment the shield drops")
 	r[#r + 1] = Group("When It's Gone", function() return GoneRows(s) end,
-		"What this shield's icon does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
-		"the icon at 0 charges, or with no shield up")
+		"What this shield's icon, or its charge bar, does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
+		"the icon, or the charge bar, at 0 charges, or with no shield up")
 	r[#r + 1] = SEP
 	r[#r + 1] = { text = "Copy Settings", disabled = (not HasAPI()) or nil,
 		tip = "Remembers every setting of this shield as it is now, for Paste Settings on another shield.",

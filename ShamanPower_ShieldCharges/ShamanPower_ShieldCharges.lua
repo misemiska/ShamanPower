@@ -1153,7 +1153,7 @@ end
 -- sample: the Shield Charges page's own copy (SP:PaintShieldChargeSample), which plays its effects on both clients
 -- When It's Gone: the icon's effect at 0 charges / no shield (each shield its own): a glow in
 -- its Glow Shape (Proc Glow too) round the icon, a pulse of the icon, or both, until a shield
--- is up again. In a fight on WoW: Forever the game hides whether the shield is up: the Cooldown
+-- is up again. With the icon off, the charge bar plays it (3.0.9, barGoneEffect below). In a fight on WoW: Forever the game hides whether the shield is up: the Cooldown
 -- Manager's own shield item tells the moment (ShieldGoneHooks, below); until it has spoken,
 -- nothing plays there.
 local goneHook = { bound = false, anyUp = nil, up = {}, have = {} }   -- anyUp: a Lightning / Water Shield is up (seeded out of a fight); up: each shield as the hook last saw it; have: the shields with an item
@@ -1238,11 +1238,111 @@ local function goneEffect(frame, which, s, on)
 		elseif icon.spPulse and icon.spPulse:IsPlaying() then icon.spPulse:Stop() end
 	end
 end
+-- When It's Gone on the charge bar (3.0.9, the owner's ask: a glow for bar mode, where an empty
+-- bar is a dark box you lose on dark ground): with the icon off and the charge bar on, the bar
+-- plays the effect. Glow: the bar's edges lit in the Glow Color with a soft halo round them (rings
+-- of light stepping out from the edge, each a step fainter: a glow that fits any box, corners
+-- included); Pulse: the bar's track lit, an orb look's own orbs, and fading. Both breathe 0.2 -> 1 -> 0.2, half a second each way, the icon's own timing, on alpha
+-- alone (a fight too, both clients). Glow Shape and Proc Glow Thickness stay the icon's. With both
+-- the icon and the bar on, the icon plays it alone, as before.
+local BAR_GONE_RINGS = { 0.5, 0.32, 0.18, 0.08 }   -- the halo's rings out from the edge, each one ring wide (1 px at 100%)
+local function barGoneHost(cb)
+	local h = cb.goneHost
+	if h then return h end
+	h = CreateFrame("Frame", nil, cb)
+	h:SetFrameLevel(cb:GetFrameLevel() + 2)
+	h:SetPoint("TOPLEFT", cb, "TOPLEFT", -1, 1)       -- (the bar's dark rim)
+	h:SetPoint("BOTTOMRIGHT", cb, "BOTTOMRIGHT", 1, -1)
+	cb.goneHost = h
+	h.rings = {}
+	for k = 1, #BAR_GONE_RINGS do
+		local ring = {}
+		for i = 1, 4 do
+			local t = h:CreateTexture(nil, "OVERLAY", nil, 1)
+			t:SetTexture("Interface\\Buttons\\WHITE8X8")
+			t:SetBlendMode("ADD")
+			ring[i] = t
+		end
+		h.rings[k] = ring
+	end
+	h.edges = {}
+	for i = 1, 4 do
+		local t = h:CreateTexture(nil, "OVERLAY", nil, 2)
+		t:SetTexture("Interface\\Buttons\\WHITE8X8")
+		t:SetBlendMode("ADD")
+		h.edges[i] = t
+	end
+	local E = h.edges
+	E[1]:SetPoint("TOPLEFT"); E[1]:SetPoint("TOPRIGHT")         -- top
+	E[2]:SetPoint("BOTTOMLEFT"); E[2]:SetPoint("BOTTOMRIGHT")   -- bottom
+	E[3]:SetPoint("TOPLEFT"); E[3]:SetPoint("BOTTOMLEFT")       -- left
+	E[4]:SetPoint("TOPRIGHT"); E[4]:SetPoint("BOTTOMRIGHT")     -- right
+	local lit = h:CreateTexture(nil, "OVERLAY", nil, 0)
+	lit:SetAllPoints(cb)
+	lit:SetBlendMode("ADD")
+	h.lit = lit
+	local ag = h:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+	local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.2); a1:SetToAlpha(1); a1:SetDuration(0.5); a1:SetOrder(1)
+	local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(1); a2:SetToAlpha(0.2); a2:SetDuration(0.5); a2:SetOrder(2)
+	h.anim = ag
+	h:Hide()
+	return h
+end
+-- cb: one of the display's bars; on: it is the bar shown, at 0 charges / no shield, with the icon off
+local function barGoneEffect(cb, which, s, on)
+	if not cb then return end
+	local fx, r, g, b = goneSettings(which)
+	local wantGlow = on and (fx == "glow" or fx == "both")
+	local wantLit = on and (fx == "pulse" or fx == "both")
+	local h = cb.goneHost
+	if not (wantGlow or wantLit) then
+		if h and h.on then h.on, h.sig = nil, nil; h.anim:Stop(); h:Hide() end
+		return
+	end
+	h = h or barGoneHost(cb)
+	local w, ht = cb:GetWidth() or 0, cb:GetHeight() or 0
+	local vertical = cb:GetOrientation() == "VERTICAL"
+	local sig = fx .. "|" .. r .. "," .. g .. "," .. b .. "|" .. w .. "x" .. ht .. "|" .. tostring(cb.spOrbFile) .. "|" .. tostring(vertical)
+	if h.on and h.sig == sig then return end
+	h.sig = sig
+	-- the edges: a hair on a thin bar, thicker as the bar grows (its thinner side rules: a bar stood up too)
+	local thin = math.max(1, math.floor(math.min(w, ht) * 0.1 + 0.5))
+	local E = h.edges
+	E[1]:SetHeight(thin); E[2]:SetHeight(thin); E[3]:SetWidth(thin); E[4]:SetWidth(thin)
+	for i = 1, 4 do E[i]:SetVertexColor(r, g, b, 0.9); E[i]:SetShown(wantGlow) end
+	-- the halo: each ring one step further out (a ring is as wide as the scale, 1 px at 100%); the top and
+	-- bottom strips span the corners, the sides fill between them: no gap, no overlap
+	local hw = math.max(1, math.floor((tonumber(s) or 1) + 0.5))
+	for k, ring in ipairs(h.rings) do
+		local inner = (k - 1) * hw
+		local o = inner + hw
+		ring[1]:ClearAllPoints(); ring[1]:SetPoint("TOPLEFT", h, "TOPLEFT", -o, o); ring[1]:SetPoint("TOPRIGHT", h, "TOPRIGHT", o, o); ring[1]:SetHeight(hw)
+		ring[2]:ClearAllPoints(); ring[2]:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", -o, -o); ring[2]:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", o, -o); ring[2]:SetHeight(hw)
+		ring[3]:ClearAllPoints(); ring[3]:SetPoint("TOPLEFT", h, "TOPLEFT", -o, inner); ring[3]:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", -o, -inner); ring[3]:SetWidth(hw)
+		ring[4]:ClearAllPoints(); ring[4]:SetPoint("TOPRIGHT", h, "TOPRIGHT", o, inner); ring[4]:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", o, -inner); ring[4]:SetWidth(hw)
+		for j = 1, 4 do ring[j]:SetVertexColor(r, g, b, BAR_GONE_RINGS[k]); ring[j]:SetShown(wantGlow) end
+	end
+	-- the track lit: an orb look lights its own orbs (stood up with them)
+	if cb.spOrbs and cb.spOrbFile then
+		h.lit:SetTexture(cb.spOrbFile)
+		if vertical then h.lit:SetTexCoord(1, 0, 0, 0, 1, 1, 0, 1) else h.lit:SetTexCoord(0, 1, 0, 1) end
+		h.lit:SetVertexColor(r, g, b, 0.8)
+	else
+		h.lit:SetTexture("Interface\\Buttons\\WHITE8X8")
+		h.lit:SetTexCoord(0, 1, 0, 1)
+		h.lit:SetVertexColor(r, g, b, 0.55)
+	end
+	h.lit:SetShown(wantLit)
+	if not h.on then h.on = true; h:Show(); h.anim:Play() end
+end
 -- every display's effect off (the module off, a profile change)
 function SP:ShieldGoneEffectsOff()
 	local frames = self.shieldChargeFrames
 	if not frames then return end
-	for _, f in pairs(frames) do if f.goneHost or (f.icon and f.icon.spPulse) then goneEffect(f, f.spWhich or 1, 1, false) end end
+	for _, f in pairs(frames) do
+		if f.goneHost or (f.icon and f.icon.spPulse) then goneEffect(f, f.spWhich or 1, 1, false) end
+		for _, b in pairs(f.chargeBars or {}) do if b.goneHost then barGoneEffect(b, b.spWhich or 1, 1, false) end end
+	end
 end
 
 local function paintDisplay(frame, kind, settings, s, charges, present, restricted, iconWhich, noGray, sample)
@@ -1340,6 +1440,12 @@ local function paintDisplay(frame, kind, settings, s, charges, present, restrict
 		if iconWhich ~= 3 and not sample then goneHook.anyUp = present and true or false end
 	end
 	goneEffect(frame, iconWhich or 1, s, (icon and own and gone) and true or false)
+	-- with the icon off, the charge bar shown plays it (3.0.9); a display's other bars rest
+	if bars then
+		for _, b in pairs(bars) do
+			barGoneEffect(b, b.spWhich or iconWhich or 1, s, (b == cb and not icon and bar and own and gone) and true or false)
+		end
+	end
 end
 
 -- The engine draws the count and never shows us the number, but it applies a

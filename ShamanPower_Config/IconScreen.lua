@@ -450,6 +450,80 @@ local function Bar(b)
 	end
 	return b.bar, b.barFill
 end
+-- When It's Gone on a bar / orb strip picture (Shield Charges, 3.0.9): `goneGlow` = its edges lit in that color
+-- with the halo round them (rings of light stepping out, each fainter), `goneLit` = its track lit (an orb strip:
+-- its own orbs), as the module draws them
+local GONE_RINGS = { 0.5, 0.32, 0.18, 0.08 }
+local GoneRGB   -- (below PicColor)
+local function BarGone(b, box, pic, orbFile)
+	if not (pic.goneGlow or pic.goneLit) then
+		if b.barGone then b.barGone:Hide() end
+		return 0
+	end
+	local f = b.barGone
+	if not f then
+		f = CreateFrame("Frame", nil, b)
+		f:SetFrameLevel(b:GetFrameLevel() + 2)
+		f.rings = {}
+		for k = 1, #GONE_RINGS do
+			local ring, inner, o = {}, k - 1, k
+			for i = 1, 4 do
+				local t = f:CreateTexture(nil, "OVERLAY", nil, 1)
+				t:SetTexture("Interface\\Buttons\\WHITE8X8")
+				t:SetBlendMode("ADD")
+				ring[i] = t
+			end
+			ring[1]:SetPoint("TOPLEFT", f, "TOPLEFT", -o, o); ring[1]:SetPoint("TOPRIGHT", f, "TOPRIGHT", o, o); ring[1]:SetHeight(1)
+			ring[2]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -o, -o); ring[2]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", o, -o); ring[2]:SetHeight(1)
+			ring[3]:SetPoint("TOPLEFT", f, "TOPLEFT", -o, inner); ring[3]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -o, -inner); ring[3]:SetWidth(1)
+			ring[4]:SetPoint("TOPRIGHT", f, "TOPRIGHT", o, inner); ring[4]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", o, -inner); ring[4]:SetWidth(1)
+			f.rings[k] = ring
+		end
+		f.edges = {}
+		for i = 1, 4 do
+			local t = f:CreateTexture(nil, "OVERLAY", nil, 2)
+			t:SetTexture("Interface\\Buttons\\WHITE8X8")
+			t:SetBlendMode("ADD")
+			f.edges[i] = t
+		end
+		local E = f.edges
+		E[1]:SetPoint("TOPLEFT"); E[1]:SetPoint("TOPRIGHT"); E[1]:SetHeight(1)
+		E[2]:SetPoint("BOTTOMLEFT"); E[2]:SetPoint("BOTTOMRIGHT"); E[2]:SetHeight(1)
+		E[3]:SetPoint("TOPLEFT"); E[3]:SetPoint("BOTTOMLEFT"); E[3]:SetWidth(1)
+		E[4]:SetPoint("TOPRIGHT"); E[4]:SetPoint("BOTTOMRIGHT"); E[4]:SetWidth(1)
+		local lit = f:CreateTexture(nil, "OVERLAY", nil, 0)
+		lit:SetAllPoints(f)
+		lit:SetBlendMode("ADD")
+		f.lit = lit
+		b.barGone = f
+	end
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", box, "TOPLEFT", -1, 1)
+	f:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 1, -1)
+	if pic.goneGlow then
+		local r, g, bl = GoneRGB(pic.goneGlow)
+		for i = 1, 4 do f.edges[i]:SetVertexColor(r, g, bl, 0.9); f.edges[i]:Show() end
+		for k, ring in ipairs(f.rings) do
+			for i = 1, 4 do ring[i]:SetVertexColor(r, g, bl, GONE_RINGS[k]); ring[i]:Show() end
+		end
+	else
+		for i = 1, 4 do f.edges[i]:Hide() end
+		for _, ring in ipairs(f.rings) do for i = 1, 4 do ring[i]:Hide() end end
+	end
+	if pic.goneLit then
+		local r, g, bl = GoneRGB(pic.goneLit)
+		if orbFile then
+			f.lit:SetTexture(orbFile); f.lit:SetTexCoord(0, 1, 0, 1); f.lit:SetVertexColor(r, g, bl, 0.8)
+		else
+			f.lit:SetTexture("Interface\\Buttons\\WHITE8X8"); f.lit:SetTexCoord(0, 1, 0, 1); f.lit:SetVertexColor(r, g, bl, 0.55)
+		end
+		f.lit:Show()
+	else
+		f.lit:Hide()
+	end
+	f:Show()
+	return pic.goneGlow and 6 or 0   -- (the halo's reach below: the caption clears it)
+end
 local function RedX(b)
 	if not b.redx then
 		local t = b.plate:CreateTexture(nil, "OVERLAY", nil, 3)
@@ -533,6 +607,7 @@ local function ResetTile(b)
 	if b.dots then for _, tx in ipairs(b.dots) do tx:Hide() end end
 	if b.orbs then b.orbs:Hide(); b.orbFill:Hide() end
 	if b.bar then b.bar:Hide(); b.barFill:Hide() end
+	if b.barGone then b.barGone:Hide() end
 	if b.redx then b.redx:Hide() end
 	if b.spk then b.spk:Hide() end
 	if b.fill then b.fill:Hide() end
@@ -553,6 +628,8 @@ local function PicColor(pic, dr, dg, db)
 	end
 	return dr, dg, db
 end
+local goneScratch = {}
+GoneRGB = function(c) goneScratch.color = c; return PicColor(goneScratch, 1, 1, 1) end
 
 local function GlowShape(pic, ctx)
 	local s = pic and pic.shape
@@ -709,15 +786,16 @@ local function PaintPicture(b, ctx, pic, room)
 		fill:SetTexCoord(0, frac, 0, 1)
 		fill:SetBlendMode(pic.add and "ADD" or "BLEND")
 		fill:SetVertexColor(r, g, bl, 1)
-		fill:Show()
-		b.extraH = h + 6   -- (the caption clears the strip)
+		fill:SetShown(frac > 0)   -- (an empty strip: no sliver)
+		b.extraH = h + 6 + BarGone(b, back, pic, pic.file)   -- (the caption clears the strip)
 	elseif kind == "bar" then
 		local bg, fill = Bar(b)
 		local r, g, bl = PicColor(pic, Core:Color("accentHi"))
 		fill:SetColorTexture(r, g, bl, 1)
-		fill:SetWidth(max(1, PLATE * (tonumber(pic.frac) or 0.6)))
-		bg:Show(); fill:Show()
-		b.extraH = 8   -- (the caption clears the bar)
+		local frac = tonumber(pic.frac) or 0.6
+		fill:SetWidth(max(1, PLATE * frac))
+		bg:Show(); fill:SetShown(frac > 0)   -- (an empty bar: no sliver)
+		b.extraH = 8 + BarGone(b, bg, pic, nil)   -- (the caption clears the bar)
 	elseif kind == "redx" then
 		RedX(b):Show()
 	elseif kind == "tint" then
