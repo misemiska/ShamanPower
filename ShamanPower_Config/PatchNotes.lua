@@ -14,7 +14,7 @@ ns.PATCH_NOTES = {
 		new = {
 			{ h = "Click an Icon Opens Its Screen", icon = "Interface\\Icons\\INV_Letter_15",
 			  b = "Switch it on and a click on any icon in Settings opens that icon's own screen, where every choice is a picture: one tile per choice, on-off tiles with a check in the corner, sliders with a live picture beside them, and a Back button to the page. The right-click menus stay exactly as they are, so nothing changes until you switch it on.",
-			  path = "Settings > General > Main > Click an Icon Opens Its Screen", open = { "settings", "settings_show" }, look = true,
+			  path = "Settings > General > Main > Click an Icon Opens Its Screen", open = { "settings", "settings_show" },
 			  card = true, s = "Click an Icon Opens Its Screen: every choice as a picture, if you want it." },
 			{ h = "Totems In The Flyouts: your own order", icon = "Interface\\Icons\\Spell_Nature_StrengthOfEarthTotem02",
 			  b = "Drag a totem earlier or later within its element on the Totem Bar page, or right-click it: Earlier In The Flyout, Later In The Flyout, Put Back The Usual Order. The flyout follows your order, and a totem you learn later goes to the end of its element. Nothing dragged: the game's order, as before.",
