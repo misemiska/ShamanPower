@@ -600,7 +600,7 @@ local MISSING_ONLY_DESC = SPCompat.FOREVER
 -- buttons. With "Hide Totem Bar Frame" on there is no panel, and the settings
 -- looked broken (they did nothing, with no hint why). Say so, and grey them out.
 local PANEL_HIDDEN_NOTE = "\n\n|cffffa040The totem bar's panel is hidden right now, so nothing here is visible."
-	.. " Turn off \"Hide Background\" (Appearance > Totem Bar) to see it.|r"
+	.. " Turn off \"Hide Background and Border\" (Appearance > Totem Bar) to see it.|r"
 local function PanelHidden()
 	return ShamanPower.opt and ShamanPower.opt.hideTotemBarFrame and true or false
 end

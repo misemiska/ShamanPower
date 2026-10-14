@@ -266,6 +266,23 @@ local NAV = {
 			{ label = "Keybinds",  paths = { P("settings", "settings_keybinds") } },
 			{ label = "Reset",     paths = { P("settings", "settings_frames") } },
 		}},
+		-- Appearance (3.0.9.1, from G's review): how the bars look, so it sits beside General, not under BARS
+		-- (there, with a first tab called Totem Bar, players took it for the totem bar's own page). The tabs are
+		-- composed from the groups ShamanPowerAppearancePage.lua lays out: the totem bar and the cooldown bar
+		-- alike, the flyouts, Textures & Colors, Visibility.
+		{ label = "Appearance", preview = MOCK_BARS, shamanOnly = true, lock = true, power = false,
+			desc = "Customize the totem bar, the cooldown bar, their flyouts, colors and visibility. For preset looks, use General > Themes.", tabs = {
+			{ label = "Totem Bar", preview = MOCK_TOTEM, paths = {
+				P("fluffy", "totembar_appearance"), P("fluffy", "appearance_resets"),
+			} },
+			{ label = "Cooldown Bar", preview = MOCK_CDBAR, paths = { P("fluffy", "cdbar_appearance") } },
+			{ label = "Flyouts", paths = { P("fluffy", "flyout_appearance") } },
+			{ label = "Textures & Colors", paths = {
+				P("fluffy", "element_colors_section"), P("fluffy", "button_tints_section"), P("fluffy", "borders_appearance"),
+			} },
+			{ label = "Visibility",        paths = { { "settings", "settings_visibility", label = "Auto-Hide" },
+				{ "settings", "settings_town", label = "Out Of The Way" }, P("fluffy", "visibility_section") } },
+		}},
 		{ label = "Profiles", path = P("profiles"), lock = true },
 		-- every version's notes (PatchNotesPage.lua draws the page); NEW until opened
 		{ label = "Patch Notes", custom = "patchnotes", path = P("settings", "settings_patchnotes"),
@@ -291,18 +308,6 @@ local NAV = {
 			desc = "Click an item to show or hide it, right-click it for its settings, drag it to move it.",
 			onReset = function() local sp = SP() if sp and sp.CooldownBarResetPage then sp:CooldownBarResetPage() end end,
 			path = P("fluffy", "cdbar_page") },
-		{ label = "Appearance", preview = MOCK_BARS, shamanOnly = true, lock = true, power = false, desc = "Layout, size, opacity, textures and visibility of the bars.", tabs = {
-			{ label = "Totem Bar", preview = MOCK_TOTEM, paths = {
-				P("fluffy", "totembar_appearance"), P("fluffy", "appearance_resets"),
-			} },
-			{ label = "Flyouts", paths = { P("fluffy", "flyout_appearance") } },
-			{ label = "Textures & Colors", paths = {
-				P("fluffy", "texture_section"), P("fluffy", "color_section"),
-				P("fluffy", "element_colors_section"), P("fluffy", "button_tints_section"),
-			} },
-			{ label = "Visibility",        paths = { P("fluffy", "visibility_section"), { "settings", "settings_visibility", label = "Auto-Hide" },
-				{ "settings", "settings_town", label = "Out Of The Way" } } },
-		}},
 		{ label = "Loadouts", preview = MOCK_LOADOUT, shamanOnly = true, lock = true, power = false,
 			desc = "Save totem loadouts, set up their bar and choose when to switch automatically.", tabs = {
 			{ label = "Loadouts", preview = MOCK_LOADOUT, paths = { P("buttons", "loadouts_section") } },

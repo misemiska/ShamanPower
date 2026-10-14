@@ -2292,14 +2292,14 @@ local SHAPE_ROWS = {
 		return y + h + 10
 	  end },
 	{ key = "edge", label = "Frame Edge", list = function() return SP.FRAME_EDGES end,
-	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Totem Bar and Cooldown Bar.",
+	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Textures & Colors (Panel Edge Style) and the Cooldown Bar page.",
 	  get = function() return SP.opt.frameEdge or "default" end, set = function(k) SP:SetFrameEdge(k) end },
 	-- Icon Shape: one per bar (the same settings as on each bar's own page)
 	{ key = "icon", iconKind = "totem", label = "Totem Bar Icon Shape", list = function() return SP.ICON_SHAPES end,
 	  note = "The totem bar's buttons, its flyouts, pop-outs and Drop All (ShamanPower Minimal's boxes too). Also on Appearance > Totem Bar.",
 	  get = function() return SP:IconShapeOf("totem") or "default" end, set = function(k) SP:SetIconShape(k, "totem") end },
 	{ key = "iconcd", iconKind = "cooldown", label = "Cooldown Bar Icon Shape", list = function() return SP.ICON_SHAPES end,
-	  note = "The cooldown bar's buttons and its shield and imbue flyouts (ShamanPower Minimal's boxes too). Also on the Cooldown Bar page (Bar).",
+	  note = "The cooldown bar's buttons and its shield and imbue flyouts (ShamanPower Minimal's boxes too). Also on Appearance > Cooldown Bar and the Cooldown Bar page.",
 	  get = function() return SP:IconShapeOf("cooldown") or "default" end, set = function(k) SP:SetIconShape(k, "cooldown") end },
 	{ key = "iconrr", iconKind = "ready", label = "Ready Reminders Icon Shape", list = function() return SP.ICON_SHAPES end,
 	  search = "Keep Borders Square",
@@ -2310,7 +2310,7 @@ local SHAPE_ROWS = {
 		if not IconShapedAny() then return y end
 		local _, h = Widgets:Toggle(page.body, {
 			label = "Keep Borders Square", x = 0, y = y, width = W,
-			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Totem Bar, Cooldown Bar and Ready Reminders.",
+			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Textures & Colors (Keep Icon Borders Square), the Cooldown Bar page and Ready Reminders.",
 			get = function() return SP.opt.iconBordersSquare == true end,
 			set = function(v) SP:SetIconBordersSquare(v) end,
 			onChanged = PageChanged,
@@ -2421,7 +2421,7 @@ SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "bargrad", label = "Bar Gradient", list = 
 	end }
 SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "outgrad", label = "Outline Gradient", list = function() return SP.GRADIENTS end,
 	search = "Outline Gradient Direction Two-Tone First Color Second Color Fade To",
-	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Totem Bar.",
+	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Textures & Colors (Border Gradient).",
 	get = function() return SP.opt.outlineGradient or "default" end, set = function(k) SP:SetGradientField("outlineGradient", k) end,
 	extra = GradientExtra("outlineGradient", "Outline") }
 
@@ -2896,7 +2896,7 @@ local SPOT_EXTRAS = {
 -- a section's own extra row, labelled like a part: Mana Tint at the end of Totem Bar
 local MODULE_EXTRAS = {
 	totembar = { { key = "extra.manatint", label = "Mana Tint",
-		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Textures & Colors (turn Mana Tint on there).",
+		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Textures & Colors (Low-Mana Tint).",
 		paths = { { "fluffy", "button_tints_section", "manaTintColor" } } } },
 	shieldcharges = {},
 }

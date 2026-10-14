@@ -60,6 +60,7 @@ ShamanPowerClickThrough.lua
 ShamanPowerDropped.lua
 ShamanPowerTown.lua
 ShamanPowerCdBarVisibility.lua
+ShamanPowerAppearancePage.lua
 ShamanPowerUsualTotem.lua
 ShamanPowerShieldSound.lua
 ShamanPowerController.lua
