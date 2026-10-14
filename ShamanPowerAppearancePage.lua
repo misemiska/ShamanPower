@@ -1,6 +1,6 @@
 -- Appearance (3.0.9.1, laid out from G's review of the page): Settings > General > Appearance,
 -- the page for how the bars look, by the thing being styled: Totem Bar, Cooldown Bar (new: the
--- same rows as the totem bar's, in the same order), Flyouts, Textures & Colors, Visibility.
+-- same rows as the totem bar's, in the same order), Flyouts, Colors & Borders, Visibility.
 -- Nothing leaves a right-click menu or another page for this: a setting that lives elsewhere
 -- too is a twin here (its own label, text, width and order; the same saved setting through the
 -- same get / set), and the original stays where it is. The rows only this page ever had keep
@@ -35,7 +35,7 @@ end
 
 local function cdbarOff() return not SP.opt.showCooldownBar end
 
--- a theme color (General > Themes' swatch for a part of a panel) as a settings row here.
+-- a theme color (Appearance > Themes' swatch for a part of a panel) as a settings row here.
 -- Cancel in the picker hands back the color it opened with: an edit that started with no
 -- color of its own ends with none, as the Themes tab's own swatch does, never as a saved copy
 -- of the standard color.
@@ -66,10 +66,10 @@ local function ThemeColorRow(spot, role, name, text, disabled)
 	}
 end
 
--- a theme switch and a border thickness (General > Themes has the same rows)
+-- a theme switch and a border thickness (Appearance > Themes has the same rows)
 local function ThemeToggle(field, name, text, hidden)
 	return {
-		type = "toggle", name = name, desc = text .. " The same setting as on General > Themes.", width = "full", hidden = hidden,
+		type = "toggle", name = name, desc = text .. " The same setting as on Appearance > Themes.", width = "full", hidden = hidden,
 		get = function() return SP:ThemeField(field) == true end,
 		set = function(_, v) SP:SetThemeField(field, v and true or nil) end,
 	}
@@ -77,7 +77,7 @@ end
 local function ThemeSize(field, name, what, hidden)
 	return {
 		type = "range", name = name, width = "full", min = 1, max = 6, step = 1, hidden = hidden,
-		desc = "How thick the element-colored border is on " .. what .. ", in pixels: the square edge, or the ring round Rounded and Circle icons. 2 by default. The same setting as on General > Themes.",
+		desc = "How thick the element-colored border is on " .. what .. ", in pixels: the square edge, or the ring round Rounded and Circle icons. 2 by default. The same setting as on Appearance > Themes.",
 		get = function() return SP:ThemeField(field) or 2 end,
 		set = function(_, v)
 			v = math.floor((tonumber(v) or 2) + 0.5)
@@ -91,7 +91,7 @@ local function cdBordersOn() return bordersOn() and SP:ThemeField("bordersCooldo
 
 -- ---------------------------------------------------------------------------
 -- Totem Bar: Size & Spacing, Icons, Opacity, Background & Border (the panel's texture
--- and colors from Textures & Colors, as twins), Dropped Totem Indicator; Shared Resets
+-- and colors from Colors & Borders, as twins), Dropped Totem Indicator; Shared Resets
 -- ---------------------------------------------------------------------------
 do
 	local tb = F.totembar_appearance
@@ -115,7 +115,7 @@ do
 	end
 	local grayed = function() return not isShaman or noPanel() end
 
-	-- the shared border rows go to Textures & Colors (one Panel Edge Style, one Keep Icon
+	-- the shared border rows go to Colors & Borders (one Panel Edge Style, one Keep Icon
 	-- Borders Square, one border gradient for everything they shade)
 	F.borders_appearance = { type = "group", name = "Shared Border Shape", order = 6.3, args = {} }
 	SP.MoveSettingsOptions({ "fluffy", "totembar_appearance" }, { "fluffy", "borders_appearance" }, {
@@ -139,7 +139,7 @@ do
 	a.tb_color_missing = twin(col.color_missing, { name = "No Assigned Totems Down", width = 1.0, disabled = grayed,
 		desc = "The panel's color while none of your assigned totems are down." })
 	a.tb_border_color = ThemeColorRow("tb.frame", "border", "Border Color",
-		"The color of the line round the panel. The same as Border on General > Themes > Totem Bar > Frame Background and Border.", grayed)
+		"The color of the line round the panel. The same as Border on Appearance > Themes > Totem Bar > Frame Background and Border.", grayed)
 	a.tb_indicator_desc = desc("Choose where the separate dropped-totem indicator appears. This also places the Earth Shield indicator when there is one.")
 
 	SP.OrderSettingsBands(tb, {
@@ -180,7 +180,7 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Cooldown Bar: the same bands as the totem bar's, from the Cooldown Bar page's own rows
--- (twins: that page keeps its Bar rows), plus the panel's two colors from General > Themes
+-- (twins: that page keeps its Bar rows), plus the panel's two colors from Appearance > Themes
 -- ---------------------------------------------------------------------------
 do
 	local app = F.cooldownbar_appearance and F.cooldownbar_appearance.args or {}
@@ -204,9 +204,9 @@ do
 	a.hide_cooldown_bar_frame = twin(app.hide_cooldown_bar_frame, { name = "Hide Background and Border", width = "full",
 		desc = "Hide the panel behind the cooldown buttons, its background and its border, and show the icons alone." .. same("Hide Background") })
 	a.cd_bg_color = ThemeColorRow("cd.frame", "bg", "Background Color",
-		"The panel's color. The same as Background on General > Themes > Cooldown Bar > Frame Background and Border.", grayed)
+		"The panel's color. The same as Background on Appearance > Themes > Cooldown Bar > Frame Background and Border.", grayed)
 	a.cd_border_color = ThemeColorRow("cd.frame", "border", "Border Color",
-		"The color of the line round the panel. The same as Border on General > Themes > Cooldown Bar > Frame Background and Border.", grayed)
+		"The color of the line round the panel. The same as Border on Appearance > Themes > Cooldown Bar > Frame Background and Border.", grayed)
 	for _, k in ipairs({ "cdbarLayout", "cooldownBarScale", "cooldownBarPadding", "icon_shape", "cooldownBarOpacity" }) do
 		if a[k] and app[k] then a[k].desc = (app[k].desc or "") .. same(app[k].name or a[k].name) end
 	end
@@ -299,13 +299,13 @@ do
 		return h1 and noBoxes()
 	end)
 
-	a.fl_borders_desc = desc("These use the colored-border settings on Textures & Colors. Cooldown flyout borders also need the cooldown bar's icon borders.")
-	a.fl_borders_note = note("Turn on Element-Colored Icon Borders (Textures & Colors) to use these.", bordersOn)
+	a.fl_borders_desc = desc("These use the colored-border settings on Colors & Borders. Cooldown flyout borders also need the cooldown bar's icon borders.")
+	a.fl_borders_note = note("Turn on Element-Colored Icon Borders (Colors & Borders) to use these.", bordersOn)
 	a.fl_borders_totem = ThemeToggle("bordersFlyouts", "Totem Flyout Colored Borders",
 		"Gives every totem in the totem bar's flyouts the same element-colored border as the bar's icons.", function() return not bordersOn() end)
 	a.fl_border_size_totem = ThemeSize("borderSizeFlyouts", "Totem Flyout Border Thickness", "the totem bar's flyouts",
 		function() return not (bordersOn() and SP:ThemeField("bordersFlyouts") == true) end)
-	a.fl_borders_cd_note = note("Cooldown flyout borders need Cooldown Icon Colored Borders (Textures & Colors) on.",
+	a.fl_borders_cd_note = note("Cooldown flyout borders need Cooldown Icon Colored Borders (Colors & Borders) on.",
 		function() return not bordersOn() or cdBordersOn() end)
 	a.fl_borders_cd = ThemeToggle("bordersCooldownFlyouts", "Cooldown Flyout Colored Borders",
 		"Gives every shield and weapon imbue in the cooldown bar's flyouts a border in the color of what it shows, like the cooldown bar's own buttons.", function() return not cdBordersOn() end)
@@ -338,7 +338,7 @@ do
 end
 
 -- ---------------------------------------------------------------------------
--- Textures & Colors: Element Colors first, Low-Mana Tint, then the shared border rows
+-- Colors & Borders: Element Colors first, Low-Mana Tint, then the shared border rows
 -- ---------------------------------------------------------------------------
 do
 	local ec = F.element_colors_section
@@ -369,7 +369,7 @@ do
 	if a.frame_edge then
 		a.frame_edge.name = "Panel Edge Style"
 		a.frame_edge.width = "full"
-		a.frame_edge.desc = "Add a shadow, raised edge or thick border to the totem bar's and the cooldown bar's panels and to ShamanPower's other panels. The same setting as Frame Edge on General > Themes and on the Cooldown Bar page."
+		a.frame_edge.desc = "Add a shadow, raised edge or thick border to the totem bar's and the cooldown bar's panels and to ShamanPower's other panels. The same setting as Frame Edge on Appearance > Themes and on the Cooldown Bar page."
 		a.frame_edge.hidden = function() return SP.opt.hideTotemBarFrame and SP.opt.hideCooldownBarFrame and true or false end
 	end
 	a.sb_hidden_note = note("Both panels are hidden (Hide Background and Border on each bar's tab), so Panel Edge Style is not shown.",
@@ -377,7 +377,7 @@ do
 	if a.icon_borders_square then
 		a.icon_borders_square.name = "Keep Icon Borders Square"
 		a.icon_borders_square.width = "full"
-		a.icon_borders_square.desc = "With Rounded or Circle icons, borders (the element-colored borders, Ready Reminders' border) follow the shape. Turn this on to keep them square. One setting for every bar. The same setting as Keep Borders Square on General > Themes and on the Cooldown Bar page."
+		a.icon_borders_square.desc = "With Rounded or Circle icons, borders (the element-colored borders, Ready Reminders' border) follow the shape. Turn this on to keep them square. One setting for every bar. The same setting as Keep Borders Square on Appearance > Themes and on the Cooldown Bar page."
 		a.icon_borders_square.hidden = function()
 			local t, c = SP:IconShapeOf("totem"), SP:IconShapeOf("cooldown")
 			local function round(k) return k == "rounded" or k == "circle" end

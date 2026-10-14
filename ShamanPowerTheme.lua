@@ -1,6 +1,6 @@
 -- ShamanPowerTheme.lua
 -- The theme engine. A theme changes how ShamanPower LOOKS and nothing else.
--- Every theme control lives on General > Themes (ShamanPower_Config/Themes.lua);
+-- Every theme control lives on Appearance > Themes (ShamanPower_Config/Themes.lua);
 -- this file is the shared engine every painter and that page code against.
 --
 -- Two kinds of parts:
@@ -93,7 +93,7 @@ SP.THEME_LISTS = {
 	            { key = "stronger", label = "Stronger" }, { key = "vibrant", label = "Vibrant" }, { key = "muted", label = "Muted" } },
 }
 
--- Class Colors (General > Themes, the cards under Element Colors; a part's own
+-- Class Colors (Appearance > Themes, the cards under Element Colors; a part's own
 -- dropdown on Party Dots / Coverage Dots: Class Colors). The same hue for every
 -- class in every set; WoW's = RAID_CLASS_COLORS exactly (what Standard shows).
 -- The ShamanPower themes pick Subtle.
@@ -1441,7 +1441,7 @@ end
 
 
 -- (no effects fields: effects are not part of the themes, see ResolveLook)
--- borders / bordersFlyouts: General > Themes, Element-Colored Borders on the totem bar
+-- borders / bordersFlyouts: Appearance > Themes, Element-Colored Borders on the totem bar
 -- and its flyouts (ShamanPower.lua ThemePaintTotemBorders)
 -- Border Size (px) under each of the three toggles; 2 = nil (the default)
 local BORDER_SIZE = { [1] = true, [3] = true, [4] = true, [5] = true, [6] = true }
@@ -1585,7 +1585,7 @@ function SP:ResetThemeColors()
 	if SP.RefreshGradients then SP:RefreshGradients() end   -- the bars, outlines and charges repaint
 end
 
--- Reset All Colors and Theme (General > Themes, the emergency button): the Themes tab back
+-- Reset All Colors and Theme (Appearance > Themes, the emergency button): the Themes tab back
 -- to Standard with nothing overridden (a Custom look is kept on the Custom card
 -- first, as a theme card does), then every colour setting in ShamanPower back to
 -- how it comes, the modules' own included. The caller reloads the interface.
@@ -1769,7 +1769,7 @@ function SP:ResetAllColorsToDefault(everything)
 	end
 end
 
--- Reset Everything (General > Themes): every setting on the Themes tab back to how
+-- Reset Everything (Appearance > Themes): every setting on the Themes tab back to how
 -- it comes. All of Reset All Colors and Theme (a Custom look stays on the Custom
 -- card), then every look: the bar textures, shapes, gradients, Duration Bar
 -- Background, Gem Dot Finish and each shield's charge look. The caller reloads.
@@ -2519,7 +2519,7 @@ function Cards.Decode(text)
 	return p
 end
 
--- ---- the public side (General > Themes) --------------------------------------------
+-- ---- the public side (Appearance > Themes) --------------------------------------------
 function SP:ThemeIsCustom()
 	local t = T()
 	if not t then return false end
@@ -2634,7 +2634,7 @@ function SP:ThemeCustomOf()
 end
 
 -- /sp themecheck (the developer's tripwire, account-wide switch): every change on
--- General > Themes must change what a theme holds; one that does not is a look not
+-- Appearance > Themes must change what a theme holds; one that does not is a look not
 -- hooked into Cards.Flat (presets, Your Themes and share codes would miss it)
 function SP:ThemeCheckOn()
 	local g = SP.db and SP.db.global
@@ -2647,7 +2647,7 @@ function SP:ThemeCheckChange()
 	if not SP:ThemeCheckOn() then return end
 	local f = Cards.Flat()
 	if Cards.lastFlat and Cards.Same(f, Cards.lastFlat) then
-		print("|cffff8040ShamanPower theme check|r: that change on General > Themes is NOT part of a theme:"
+		print("|cffff8040ShamanPower theme check|r: that change on Appearance > Themes is NOT part of a theme:"
 			.. " presets, Your Themes and share codes would not carry it. Hook it into Cards.Flat"
 			.. " (LOOK / RESET_COLOR_KEYS lists or ThemeSpotSettings).")
 	end

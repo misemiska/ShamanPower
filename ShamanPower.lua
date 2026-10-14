@@ -3518,7 +3518,7 @@ function ShamanPower:SetupPulseOverlays()
 		local button = self.totemButtons[element]
 		if button and not self.pulseOverlays[element] then
 			self.pulseOverlays[element] = self:CreatePulseOverlay(button)
-			self:ThemePaintPulse(self.pulseOverlays[element], element)   -- tb.pulse (General > Themes); nothing on Standard
+			self:ThemePaintPulse(self.pulseOverlays[element], element)   -- tb.pulse (Appearance > Themes); nothing on Standard
 		end
 	end
 
@@ -4032,7 +4032,7 @@ function ShamanPower:SetupTotemProgressBars()
 		end
 	end
 
-	-- General > Themes: the time texts' colour (tb.duration-text); nothing on Standard
+	-- Appearance > Themes: the time texts' colour (tb.duration-text); nothing on Standard
 	for element = 1, 4 do self:ThemePaintDurationBars(element, false) end
 
 	-- Position bars based on setting
@@ -5217,7 +5217,7 @@ function ShamanPower:CreateActiveTotemOverlay(element)
 	borderRight:SetPoint("BOTTOMRIGHT", 0, 0)
 	borderRight:SetWidth(borderSize)
 	borderRight:SetColorTexture(r, g, b, 1)
-	-- kept so a General > Themes change can repaint them (tb.overlay-border)
+	-- kept so a Appearance > Themes change can repaint them (tb.overlay-border)
 	overlay.spEdges = { borderTop, borderBottom, borderLeft, borderRight }
 	self:ThemePaintOverlayBorder(overlay, element)
 
@@ -6324,7 +6324,7 @@ function ShamanPower:ApplyPanelBackdrop(frame, border, spot)
 	frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
 	local b = border or self.PANEL_BORDER
 	frame:SetBackdropBorderColor(b[1], b[2], b[3], b[4])
-	-- spot: a General > Themes spot with bg / border roles repaints the colours
+	-- spot: a Appearance > Themes spot with bg / border roles repaints the colours
 	-- above (nothing on Standard); the backdrop itself never changes
 	if spot then self:ThemePaintPanel(frame, spot, border) end
 	if self.EdgeFrame then self:EdgeFrame(frame) end   -- Frame Edges
@@ -8141,7 +8141,7 @@ function ShamanPower:PlaceFlyoutArrows(flyout)
 		local art = (isClose and ARROW_CLOSE or ARROW_OPEN)[element] or ARROW_OPEN[1]
 		if arrow.spFlatTab then arrow.tex:SetTexture(ARROW_TEXTURE); arrow.spFlatTab = nil end   -- back from a theme's flat tab
 		arrow.tex:SetTexCoord(spArrowCoords(art, dir))
-		-- General > Themes (tb.flyout-art): a flat tab in the element colour; nil = the art above
+		-- Appearance > Themes (tb.flyout-art): a flat tab in the element colour; nil = the art above
 		local fr, fg, fb = self:ThemeFlyoutTabColor(flyout, element)
 		if fr then arrow.tex:SetColorTexture(fr, fg, fb, 1); arrow.spFlatTab = true end
 		arrow.glow:SetSize((sideways and 11 or 20) * k, (sideways and 20 or 11) * k)
@@ -8402,7 +8402,7 @@ function ShamanPower:DressFlyoutFrame(flyout)
 	cap:SetTexCoord(spArrowCoords(FRAME_CAP[art] or FRAME_CAP[5], dir))
 	if tab.spFlatTab then tab:SetTexture(ARROW_TEXTURE); tab.spFlatTab = nil end   -- back from a theme's flat tab
 	tab:SetTexCoord(spArrowCoords(ARROW_CLOSE[art] or ARROW_CLOSE[5], dir))
-	-- General > Themes (tb.flyout-art): the tab drawn flat in the element colour; nil = the art above
+	-- Appearance > Themes (tb.flyout-art): the tab drawn flat in the element colour; nil = the art above
 	local fr, fg, fb = self:ThemeFlyoutTabColor(flyout, art)
 	if fr then tab:SetColorTexture(fr, fg, fb, 1); tab.spFlatTab = true end
 
@@ -10153,7 +10153,7 @@ local ELEMENT_PALETTES = {
 	classic  = { { 0.60, 0.40, 0.20 }, { 1.00, 0.40, 0.10 }, { 0.20, 0.60, 1.00 }, { 0.80, 0.80, 1.00 } },
 	-- sampled from Interface\\Buttons\\UI-TotemBar (slot borders), lifted a little so they read on a thin line
 	blizzard = { { 0.36, 0.72, 0.21 }, { 0.92, 0.37, 0.17 }, { 0.28, 0.70, 0.88 }, { 0.60, 0.32, 1.00 } },
-	-- the logo's colours, #AE7E4E #F25735 #668DF2 #D0D5ED (the ShamanPower themes pick it, General > Themes)
+	-- the logo's colours, #AE7E4E #F25735 #668DF2 #D0D5ED (the ShamanPower themes pick it, Appearance > Themes)
 	shamanpower = { { 174 / 255, 126 / 255, 78 / 255 }, { 242 / 255, 87 / 255, 53 / 255 },
 		{ 102 / 255, 141 / 255, 242 / 255 }, { 208 / 255, 213 / 255, 237 / 255 } },
 }
@@ -10675,7 +10675,7 @@ function ShamanPower:CreateCooldownBar()
 		})
 		bar:SetBackdropColor(0, 0, 0, 0.7)
 		bar:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
-		self:ThemePaintBarFrame(bar, "cd.frame")   -- General > Themes; nothing on Standard
+		self:ThemePaintBarFrame(bar, "cd.frame")   -- Appearance > Themes; nothing on Standard
 	end
 
 	self.cooldownBar = bar
@@ -11256,7 +11256,7 @@ end
 -- Helper to get progress bar color based on time remaining (milliseconds)
 local function GetTimerBarColor(expiration)
 	local mins = expiration / 60000
-	-- General > Themes (cd.timers): the theme's healthy / low / critical colours; nil = the ones below
+	-- Appearance > Themes (cd.timers): the theme's healthy / low / critical colours; nil = the ones below
 	if ShamanPower:ThemeActive("cd.timers") then
 		local r, g, b = ShamanPower:ThemeColor("cd.timers", (mins < 5 and "bad") or (mins < 10 and "low") or "good")
 		if r then return r, g, b end
@@ -11597,7 +11597,7 @@ end
 -- addon's own text out of combat, the engine formatter in combat).
 function ShamanPower:ShieldCountColor(charges, t)
 	if not self:CdItemOpt(t, "colorCount") then return 1, 1, 1 end
-	-- General > Themes (cd.count): the theme's green / yellow / red; nil = the ones below
+	-- Appearance > Themes (cd.count): the theme's green / yellow / red; nil = the ones below
 	if self:ThemeActive("cd.count") then
 		local r, g, b = self:ThemeColor("cd.count", (charges >= 3 and "high") or (charges == 2 and "mid") or "low")
 		if r then return r, g, b end
@@ -11647,7 +11647,7 @@ function ShieldStrip.Style(bar, noBacking)
 end
 
 -- any Charge Bar Look / Orb Look / Orb Color / Show Empty Orbs change (Shield
--- Charges and General > Themes; the cooldown bar's strip always stays the bar)
+-- Charges and Appearance > Themes; the cooldown bar's strip always stays the bar)
 function ShamanPower:ShieldLookChanged()
 	if self.UpdateShieldChargeDisplays then self:UpdateShieldChargeDisplays() end
 end
@@ -11879,7 +11879,7 @@ function ShamanPower:EnsureShieldChargeContainer(btn)
 						ShamanPower:SetSPStatusBarTexture(bar, "cooldown", "Interface\\Buttons\\WHITE8x8")
 						local bt = bar:GetStatusBarTexture()
 						if bt then bt:SetVertexColor(0.2, 0.8, 0.2, 0.9) end
-						-- General > Themes (cd.engine, WoW: Forever): the theme's green, set here when built
+						-- Appearance > Themes (cd.engine, WoW: Forever): the theme's green, set here when built
 						if bt and SPCompat.FOREVER then
 							local er, eg, eb = ShamanPower:ThemeColor("cd.engine", "bar")
 							if er then bt:SetVertexColor(er, eg, eb, 0.9) end
@@ -19877,7 +19877,7 @@ function ShamanPower:ApplySkin()
 		ShamanPowerAuto:SetBackdrop(nil)
 	else
 		ShamanPowerAuto:SetBackdrop(tmp)
-		self:ThemePaintBarFrame(ShamanPowerAuto, "tb.frame")   -- General > Themes: the border; nothing on Standard
+		self:ThemePaintBarFrame(ShamanPowerAuto, "tb.frame")   -- Appearance > Themes: the border; nothing on Standard
 		self:FitBarBackdrop(ShamanPowerAuto)   -- out past the flyout tabs again, if they show
 	end
 	if self.EdgeFrame then self:EdgeFrame(ShamanPowerAuto) end   -- Frame Edges
@@ -19923,7 +19923,7 @@ function ShamanPower:UpdateCooldownBarFrame()
 		})
 		self.cooldownBar:SetBackdropColor(0, 0, 0, 0.7)
 		self.cooldownBar:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
-		self:ThemePaintBarFrame(self.cooldownBar, "cd.frame")   -- General > Themes; nothing on Standard
+		self:ThemePaintBarFrame(self.cooldownBar, "cd.frame")   -- Appearance > Themes; nothing on Standard
 		self:FitBarBackdrop(self.cooldownBar)   -- out past the flyout tabs again, if they show
 	end
 	if self.EdgeFrame then self:EdgeFrame(self.cooldownBar) end   -- Frame Edges
@@ -21942,7 +21942,7 @@ function ShamanPower:GetLoadoutDescription(index)
 	for element = 1, 4 do
 		local totemIdx = loadout[element] or 0
 		local color = loadoutElementColors[element]
-		color = self:ThemeLoadoutTipColor(element) or color   -- General > Themes (lo.tooltip); nil = the code above
+		color = self:ThemeLoadoutTipColor(element) or color   -- Appearance > Themes (lo.tooltip); nil = the code above
 		if totemIdx > 0 then
 			local name = self:GetTotemName(element, totemIdx)
 			local out = self:LoadoutExcluded(index, element) and " |cff888888(not in Drop All)|r" or ""
@@ -22630,7 +22630,7 @@ SlashCmdList["SPLOADOUT"] = function(msg)
 end
 
 -- ============================================================================
--- Themes (General > Themes): the core bar files' part. A theme only changes how
+-- Themes (Appearance > Themes): the core bar files' part. A theme only changes how
 -- things LOOK. Where a look has a setting today the theme writes that setting
 -- (a preset: the setting's own page still shows and changes it, and Standard
 -- puts the player's value back); a look with no setting is read from the engine
@@ -22800,7 +22800,7 @@ end
 -- After every theme change (the engine calls it; never on a plain Standard
 -- login). Colours only, all of them allowed in combat; the rebuilds go through
 -- ThemeRepaintSoon, which waits for the end of a fight.
--- General > Themes > Element-Colored Borders (SP.opt.theme.borders): a 2px edge in
+-- Appearance > Themes > Element-Colored Borders (SP.opt.theme.borders): a 2px edge in
 -- each totem's element colour just inside the edge of its totem bar button, like
 -- the icons on the Element Colors cards; with Also on the Flyouts
 -- (SP.opt.theme.bordersFlyouts) every totem in the flyouts too. Inside, so nothing moves or overlaps at
@@ -22873,7 +22873,7 @@ function ShamanPower:ThemeBorderEdges(btn, on, spot, element)
 			btn.spThemeBorder = edges
 			self._themeBordersMade = true
 		end
-		-- Border Size (General > Themes, one slider under each toggle): 2 px by default
+		-- Border Size (Appearance > Themes, one slider under each toggle): 2 px by default
 		local field = (spot == "cd.boxes") and "borderSizeCooldown" or ((spot == "cd.flyout-boxes") and "borderSizeCooldownFlyouts")
 			or ((spot == "tb.flyout-boxes") and "borderSizeFlyouts" or "borderSize")
 		local px = (self.ThemeField and self:ThemeField(field)) or 2
@@ -22923,7 +22923,7 @@ function ShamanPower:ThemeBorderEdges(btn, on, spot, element)
 end
 
 -- the four edges (top, bottom, left, right) in one colour, or shaded by the
--- Outline Gradient (General > Themes > Shapes & Textures)
+-- Outline Gradient (Appearance > Themes > Shapes & Textures)
 function ShamanPower:PaintBorderEdges(e, r, g, b)
 	-- the ring a Rounded / Circle icon's border becomes (ThemeBorderEdges)
 	if e.ring then

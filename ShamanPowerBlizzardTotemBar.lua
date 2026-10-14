@@ -175,7 +175,7 @@ local function styleHost(host, element)
 	host.textLocation = location
 	SP:SetSPFont(text, "timers", opt.durationTextSize or 8, "OUTLINE")
 	text:SetTextColor(1, 1, 1)
-	SP:ThemePaintDurationText(text, element)   -- General > Themes (tb.duration-text); nothing on Standard
+	SP:ThemePaintDurationText(text, element)   -- Appearance > Themes (tb.duration-text); nothing on Standard
 	if location == "inside_top" then text:SetPoint("TOP", bg, "TOP", 0, -1)
 	elseif location == "inside_bottom" then text:SetPoint("BOTTOM", bg, "BOTTOM", 0, 1)
 	elseif location == "above" then
@@ -197,7 +197,7 @@ local function styleHost(host, element)
 	end
 	local border = SP.ElementColors[element]
 	host.iconBackground:SetColorTexture(border.r, border.g, border.b, 1)
-	-- General > Themes (st.blizzard): the element square's colour; nil = as above
+	-- Appearance > Themes (st.blizzard): the element square's colour; nil = as above
 	local tr, tg, tb = SP:ThemeColor("st.blizzard", element)
 	if tr then host.iconBackground:SetColorTexture(tr, tg, tb, 1) end
 	host.activeIcon:ClearAllPoints()
@@ -499,7 +499,7 @@ local function mapHosts()
 				stopPulse(original)
 				if not host.pulse then host.pulse = SP:CreatePulseOverlay(host) end
 				SP.pulseOverlays[element] = host.pulse
-				SP:ThemePaintPulse(host.pulse, element)   -- General > Themes (tb.pulse); nothing on Standard
+				SP:ThemePaintPulse(host.pulse, element)   -- Appearance > Themes (tb.pulse); nothing on Standard
 				host.pulse.buttonWidth, host.pulse.buttonHeight = host:GetWidth() - 4, host:GetHeight() - 4
 				host.pulse.wipeFrame:SetFrameLevel(host:GetFrameLevel() + 2)
 				host.pulse.wipeFrame:Show()
@@ -685,7 +685,7 @@ nativeHideEvents:SetScript("OnEvent", function(_, event)
 end)
 hooksecurefunc(SP, "RefreshBlizzardTotemBar", function() SP:ApplyBlizzardTotemBarHiding() end)
 
--- General > Themes: a theme change repaints the hosts' colours (tb.duration: the
+-- Appearance > Themes: a theme change repaints the hosts' colours (tb.duration: the
 -- engine rewrote DurationBarColors; tb.duration-text; st.blizzard; tb.pulse).
 -- Textures and font strings only, so this is fine in combat.
 if SP.OnThemeChanged then

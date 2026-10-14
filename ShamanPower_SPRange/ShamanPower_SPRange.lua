@@ -463,7 +463,7 @@ function SP:SPRangeOwnTotemInRange(totemData)
 	return self:TotemDropInRange(totemData.element)
 end
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot mod.range-colors:
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot mod.range-colors:
 -- the overlay panel's background and border. On Standard every read is nil and
 -- SP:ApplyPanelBackdrop's colours stay; `restore` puts them back (the Themes
 -- tab went back to Standard).
@@ -1472,7 +1472,7 @@ function SP:SPRangeDemo(on)
 	end
 end
 
--- A theme change (General > Themes): the overlay panel takes the new colours
+-- A theme change (Appearance > Themes): the overlay panel takes the new colours
 -- now (nothing here is protected, so combat does not matter)
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

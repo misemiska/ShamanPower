@@ -54,7 +54,7 @@ local MOCK_CDBAR    = { mocks = { { label = "Cooldown bar",  build = "BuildCoold
 local MOCK_BARS     = { mocks = { MOCK_TOTEM.mocks[1], MOCK_CDBAR.mocks[1] } }
 -- the Totem Bar's Effects tab: its preview with its effects playing on it
 local MOCK_TOTEM_EFFECTS = { mocks = MOCK_TOTEM.mocks, effects = true }
-local MOCK_THEMES   = { mocks = MOCK_BARS.mocks }   -- General > Themes: the split bar preview, rebuilt on every theme change (no Effects: themes are not effects)
+local MOCK_THEMES   = { mocks = MOCK_BARS.mocks }   -- Appearance > Themes: the split bar preview, rebuilt on every theme change (no Effects: themes are not effects)
 -- which bar a mock is, for a theme's flat boxes on it (SP:ThemeSkinPreview)
 local MOCK_SKIN_FAMILY = {
 	BuildTotemBarPane = "totembar", BuildDurationBarsPane = "totembar", BuildPartyBuffStep = "totembar",
@@ -70,7 +70,7 @@ local MOCK_LOADOUT  = { mocks = {
 local MOCK_PARTY    = { mocks = {
 	{ label = "Party Buff Tracker", build = "BuildPartyBuffStep", weight = 2.3, shiftY = 85 },
 } }
--- General > Themes: the preview each module section shows while it is in view
+-- Appearance > Themes: the preview each module section shows while it is in view
 -- (the same one as that module's own settings page). Sections not listed, and the
 -- top of the tab, show MOCK_THEMES: both bars.
 local THEMES_SECTION_PREVIEW = {
@@ -256,28 +256,29 @@ local function P(...) return { ... } end
 local PLAYER_IS_SHAMAN = select(2, UnitClass("player")) == "SHAMAN"
 local NAV = {
 	{ group = "General", entries = {
-		{ label = "General", lock = true, desc = "Choose how ShamanPower looks and works.", tabs = {
+		{ label = "General", lock = true, desc = "Choose how ShamanPower works.", tabs = {
 			-- the Totem Bar Style dropdown is on Main: a shaman sees the bar change as they hover its list
 			{ label = "Main",      preview = PLAYER_IS_SHAMAN and MOCK_TOTEM or nil, paths = { P("settings", "settings_show") } },
-			-- every theme setting, and nothing else (drawn by Themes.lua)
-			{ label = "Themes",    preview = PLAYER_IS_SHAMAN and MOCK_THEMES or nil, custom = "themes", paths = { P("settings", "settings_themes") } },
-			{ label = "Fonts & Textures", preview = PLAYER_IS_SHAMAN and MOCK_BARS or nil, paths = { P("settings", "settings_fonts") } },
-			{ label = "Interface", paths = { P("settings", "settings_newui") } },
 			{ label = "Keybinds",  paths = { P("settings", "settings_keybinds") } },
 			{ label = "Reset",     paths = { P("settings", "settings_frames") } },
 		}},
-		-- Appearance (3.0.9.1, from G's review): how the bars look, so it sits beside General, not under BARS
-		-- (there, with a first tab called Totem Bar, players took it for the totem bar's own page). The tabs are
-		-- composed from the groups ShamanPowerAppearancePage.lua lays out: the totem bar and the cooldown bar
-		-- alike, the flyouts, Textures & Colors, Visibility.
+		-- Appearance (3.0.9.1, from G's review): everything about how ShamanPower looks, beside General, not under
+		-- BARS (there, with a first tab called Totem Bar, players took it for the totem bar's own page). Themes and
+		-- Fonts & Textures lead (they were General's second and third tabs, where nobody looking to customize found
+		-- them); the window sliders (General's Interface tab) ride on Fonts & Textures as a Windows band. The bar
+		-- tabs are composed from the groups ShamanPowerAppearancePage.lua lays out: the totem bar and the cooldown
+		-- bar alike, the flyouts, Colors & Borders, Visibility.
 		{ label = "Appearance", preview = MOCK_BARS, shamanOnly = true, lock = true, power = false,
-			desc = "Customize the totem bar, the cooldown bar, their flyouts, colors and visibility. For preset looks, use General > Themes.", tabs = {
+			desc = "Everything about how ShamanPower looks: themes, fonts, the bars, their flyouts, colors and visibility.", tabs = {
+			-- every theme setting, and nothing else (drawn by Themes.lua)
+			{ label = "Themes",    preview = MOCK_THEMES, custom = "themes", paths = { P("settings", "settings_themes") } },
+			{ label = "Fonts & Textures", preview = MOCK_BARS, paths = { P("settings", "settings_fonts"), { "settings", "settings_newui", label = "Windows" } } },
 			{ label = "Totem Bar", preview = MOCK_TOTEM, paths = {
 				P("fluffy", "totembar_appearance"), P("fluffy", "appearance_resets"),
 			} },
 			{ label = "Cooldown Bar", preview = MOCK_CDBAR, paths = { P("fluffy", "cdbar_appearance") } },
 			{ label = "Flyouts", paths = { P("fluffy", "flyout_appearance") } },
-			{ label = "Textures & Colors", paths = {
+			{ label = "Colors & Borders", paths = {
 				P("fluffy", "element_colors_section"), P("fluffy", "button_tints_section"), P("fluffy", "borders_appearance"),
 			} },
 			{ label = "Visibility",        paths = { { "settings", "settings_visibility", label = "Auto-Hide" },
@@ -881,7 +882,7 @@ end
 
 -- Show the current page's preview (or say why there is none). Re-running it
 -- for the same key re-feeds the sample data, which is how setters reach it.
--- General > Themes: the module section in the top third of the page right now
+-- Appearance > Themes: the module section in the top third of the page right now
 -- (key, label), or nil at the top of the tab / on any other page
 -- (key, label, style: the totem bar style of the Totem Bar Styles rows in view)
 local STYLE_OF_SPOT = {
@@ -1494,7 +1495,7 @@ local function BuildWindow()
 		local maxS = math.max(0, body:GetHeight() - self:GetHeight())
 		self:SetVerticalScroll(math.max(0, math.min(maxS, self:GetVerticalScroll() - delta * 40)))
 	end)
-	-- General > Themes: once the scrolling settles, the preview switches to the
+	-- Appearance > Themes: once the scrolling settles, the preview switches to the
 	-- module section now in view (only when that section changed). Nothing runs
 	-- on any other page or while the page sits still.
 	do
@@ -1977,7 +1978,7 @@ local function ClearPage()
 	end
 end
 
--- General > Themes draws its own page (Themes.lua) in place of its group's
+-- Appearance > Themes draws its own page (Themes.lua) in place of its group's
 -- rows; a search appends its matching blocks after the ordinary settings rows.
 local function CustomTabActive(entry, query)
 	if (query and query ~= "") or not (entry and entry.tabs) then return nil end
@@ -3222,7 +3223,7 @@ do
 	end
 end
 
--- A theme changed (General > Themes, a colour picker drag, a profile switch)
+-- A theme changed (Appearance > Themes, a colour picker drag, a profile switch)
 -- while the window is open: the Themes page repaints on the next frame, the
 -- live preview is rebuilt, and the page's rows re-read their values once the
 -- changes settle. Nothing runs while the window is shut.
@@ -3664,7 +3665,7 @@ local function InjectOptions()
 
 	settings.args.settings_newui = {
 		order = baseOrder + 0.5,
-		name = "New UI",
+		name = "Windows",
 		type = "group",
 		inline = true,
 		args = {

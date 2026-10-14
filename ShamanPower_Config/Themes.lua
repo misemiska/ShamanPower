@@ -1,5 +1,5 @@
 -- ShamanPower_Config :: Themes
--- General > Themes: every theme setting of ShamanPower on one page, and nowhere
+-- Appearance > Themes: every theme setting of ShamanPower on one page, and nowhere
 -- else. Top to bottom:
 --   1. one intro line
 --   2. the theme picker: three cards, each with a live mini totem bar, then the
@@ -1299,10 +1299,10 @@ local BLOCKS = {
 	shapes = { label = "Shapes & Textures" },
 	barTexture = { label = "Bar Texture",
 		desc = "The texture of every bar ShamanPower draws, unless a part picks its own."
-			.. " The same setting as Bar Texture on General > Fonts & Textures." },
+			.. " The same setting as Bar Texture on Appearance > Fonts & Textures." },
 	shieldTexture = { label = "Shield Charge Bars",
 		desc = "The texture for the Cooldown Bar's Shield Charge Bar. Set separately from Bar Texture. Each shield's charges on"
-			.. " screen have their own (Shield Charge Display, below). The same setting as on General > Fonts & Textures." },
+			.. " screen have their own (Shield Charge Display, below). The same setting as on Appearance > Fonts & Textures." },
 	wow = { label = "WoW's Own Colors",
 		desc = "The colors WoW itself uses, so the ShamanPower themes match the rest of your game."
 			.. " A swatch below tagged WOW is one of these; click it to pick your own color for that part instead." },
@@ -1540,7 +1540,7 @@ function TC.ShareDialog(th)
 	if not code then TC.Say("could not make a code for that theme.") return end
 	SP:ShowSPDialog({
 		key = "themeshare", title = "Share " .. th.name, subtitle = "Theme code", width = 460, editScroll = true,
-		text = "Press |cffFFD100Ctrl+C|r to copy it. Anyone with ShamanPower can paste it into Import Theme on General > Themes"
+		text = "Press |cffFFD100Ctrl+C|r to copy it. Anyone with ShamanPower can paste it into Import Theme on Appearance > Themes"
 			.. " to add this theme to theirs, or share it in #ui-showcase on the ShamanPower Discord.",
 		editText = code,
 	})
@@ -2292,7 +2292,7 @@ local SHAPE_ROWS = {
 		return y + h + 10
 	  end },
 	{ key = "edge", label = "Panel Edge Style", list = function() return SP.FRAME_EDGES end,
-	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Textures & Colors (Panel Edge Style) and the Cooldown Bar page.",
+	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Colors & Borders (Panel Edge Style) and the Cooldown Bar page.",
 	  get = function() return SP.opt.frameEdge or "default" end, set = function(k) SP:SetFrameEdge(k) end },
 	-- Icon Shape: one per bar (the same settings as on each bar's own page)
 	{ key = "icon", iconKind = "totem", label = "Totem Bar Icon Shape", list = function() return SP.ICON_SHAPES end,
@@ -2310,7 +2310,7 @@ local SHAPE_ROWS = {
 		if not IconShapedAny() then return y end
 		local _, h = Widgets:Toggle(page.body, {
 			label = "Keep Borders Square", x = 0, y = y, width = W,
-			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Textures & Colors (Keep Icon Borders Square), the Cooldown Bar page and Ready Reminders.",
+			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Colors & Borders (Keep Icon Borders Square), the Cooldown Bar page and Ready Reminders.",
 			get = function() return SP.opt.iconBordersSquare == true end,
 			set = function(v) SP:SetIconBordersSquare(v) end,
 			onChanged = PageChanged,
@@ -2421,7 +2421,7 @@ SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "bargrad", label = "Bar Gradient", list = 
 	end }
 SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "outgrad", label = "Outline Gradient", list = function() return SP.GRADIENTS end,
 	search = "Outline Gradient Direction Two-Tone First Color Second Color Fade To",
-	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Textures & Colors (Border Gradient).",
+	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Colors & Borders (Border Gradient).",
 	get = function() return SP.opt.outlineGradient or "default" end, set = function(k) SP:SetGradientField("outlineGradient", k) end,
 	extra = GradientExtra("outlineGradient", "Outline") }
 
@@ -2716,7 +2716,7 @@ local function NewShapeCard(row, s)
 end
 
 local function RenderShapes(y, W, selection)
-	-- the two bar texture choices: the same settings as General > Fonts & Textures
+	-- the two bar texture choices: the same settings as Appearance > Fonts & Textures
 	local function texValues(def)
 		return function()
 			local v = { [DEFAULT] = def }
@@ -2896,7 +2896,7 @@ local SPOT_EXTRAS = {
 -- a section's own extra row, labelled like a part: Mana Tint at the end of Totem Bar
 local MODULE_EXTRAS = {
 	totembar = { { key = "extra.manatint", label = "Mana Tint",
-		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Textures & Colors (Low-Mana Tint).",
+		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Colors & Borders (Low-Mana Tint).",
 		paths = { { "fluffy", "button_tints_section", "manaTintColor" } } } },
 	shieldcharges = {},
 }

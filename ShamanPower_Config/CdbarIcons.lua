@@ -840,7 +840,7 @@ function SP.CooldownBarResetPage(sp)
 			if sp:CdItemOwnOpt(EARTH_SHIELD, name) == nil then sp:SetCdItemOpt(EARTH_SHIELD, name, sp:CdItemOpt(EARTH_SHIELD, name)) end
 		end
 	end
-	-- each item's own looks a theme holds (General > Themes) stay: the theme stays as it is
+	-- each item's own looks a theme holds (Appearance > Themes) stay: the theme stays as it is
 	local looks = sp.CdItemThemeLooks or {}
 	if sp.CdItemHasOwn and sp.ResetCdItem then
 		for t = 1, 11 do

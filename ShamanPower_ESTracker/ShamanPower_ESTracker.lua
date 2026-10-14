@@ -34,7 +34,7 @@ SP.earthShields = {}  -- { [targetGUID] = { target, caster, charges, expiration 
 SP.EarthShieldSpellID = 32594  -- Rank 1, we just need the icon
 local ES_SPELL_IDS = { 974, 32593, 32594, 408514, 383648 }
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot
 -- mod.estracker-colors: the panel's background and border, the charge count.
 -- On Standard every read is nil and today's colours stay; `restore` puts
 -- today's back (the Themes tab went back to Standard).
@@ -956,7 +956,7 @@ SlashCmdList["SPESTRACK"] = function(msg)
 	end
 end
 
--- A theme change (General > Themes): the panel and the counts take the new
+-- A theme change (Appearance > Themes): the panel and the counts take the new
 -- colours now (nothing here is protected, so combat does not matter)
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

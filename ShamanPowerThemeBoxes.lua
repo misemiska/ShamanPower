@@ -1,5 +1,5 @@
 -- ShamanPowerThemeBoxes.lua
--- The flat boxes of the ShamanPower Minimal theme, per spot (General > Themes).
+-- The flat boxes of the ShamanPower Minimal theme, per spot (Appearance > Themes).
 --
 -- A LOOK ONLY. A skin is a few textures and one text line drawn on an icon's
 -- own frame ABOVE the icon (the icon's draw layer, higher sublevels), anchored
@@ -273,7 +273,7 @@ local function SkinRGB(s, spot, ck, arg)
 	return LOGO[1], LOGO[2], LOGO[3]
 end
 
--- General > Themes > Element-Colored Borders, Also on the Cooldown Bar
+-- Appearance > Themes > Element-Colored Borders, Also on the Cooldown Bar
 -- (ShamanPower.lua ThemeBorderEdges): the colour a flat box gives this icon.
 -- Element spells and imbues in their element, shields in the Shield Colors,
 -- other spells in the logo blue; nil while the icon can't be read (secret).
@@ -492,7 +492,7 @@ local function EngineSweep(s, fresh)
 end
 
 -- ---- Icon Shape --------------------------------------------------------------
--- A box takes its bar's Icon Shape (General > Themes): the totem bar's, the
+-- A box takes its bar's Icon Shape (Appearance > Themes): the totem bar's, the
 -- cooldown bar's or Ready Reminders'; other spots stay square. Flat: no black
 -- edge, the colour runs to the icon's edge. Rounded / Circle: the edge, the box
 -- and what is drawn on it are cut to the shape (the icon under it too).

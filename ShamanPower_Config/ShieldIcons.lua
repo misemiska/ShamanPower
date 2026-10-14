@@ -610,7 +610,7 @@ local function GoneRows(s)
 				shapes[#shapes + 1] = { k, map[k], nil, { kind = "glow", shape = k, color = goneColor } }
 			end
 			local shared = SP.opt and SP.opt.glowShape or "default"
-			r[#r + 1] = ChoiceName(s, "Glow Shape", "goneGlowShape", shapes, "This shield's glow shape (an unset one follows General > Themes' Glow Shape).", shared)
+			r[#r + 1] = ChoiceName(s, "Glow Shape", "goneGlowShape", shapes, "This shield's glow shape (an unset one follows Appearance > Themes' Glow Shape).", shared)
 			if (Val(s, "goneGlowShape") or shared) == "proc" then
 				r[#r + 1] = Slider("Glow Thickness", 0, 0.6, 0.01, function() return tonumber(Val(s, "goneGlowThick")) or 0.2 end,
 					function(v) SliderSet(s, "goneGlowThick", v) end, Pct, true, "How thick the Proc Glow ring is. It grows outward from the icon's edge.",
@@ -965,7 +965,7 @@ end
 -- Reset This Page (Window.lua calls it after the page's own rows): every shield's menu
 -- settings back to their starting values, and every shield shown again. Left alone, as on
 -- every page: where they sit, and what a theme holds (each shield's Look, Charge Color,
--- texture and gradient: the shield's entries in the theme cards, General > Themes).
+-- texture and gradient: the shield's entries in the theme cards, Appearance > Themes).
 -- ---------------------------------------------------------------------------
 local THEME_HELD = { "look", "chargeColor", "texture", "gradient", "gradientDirection", "gradientColor1", "gradientColor2",
 	"gradientFade", "goneGlowColor", "goneGlowShape", "goneGlowThick" }

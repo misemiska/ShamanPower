@@ -293,7 +293,7 @@ local function RaidCDNames(blName, conj)
 end
 
 local STEPS = {
-	-- the look (General > Themes): new installs only; anyone else keeps the look
+	-- the look (Appearance > Themes): new installs only; anyone else keeps the look
 	-- they have and is shown the themes once in the What's New card instead
 	{ id = "look", title = "Pick your look", roles = ALL, build = "BuildLookStep",
 	  -- new installs; "/sp setup look" shows it on any setup (to try it: nothing is reset)
@@ -301,7 +301,7 @@ local STEPS = {
 	  desc = "Choose the colors of ShamanPower's bars, panels and effects. This changes how they look, not what they do.",
 	  bullets = {
 	    "Hover a look to see it in the preview; click one to use it. Standard is how ShamanPower has always looked.",
-	    "Change it any time, or change any single part of it, in |cff3FA9F5Settings > General > Themes|r.",
+	    "Change it any time, or change any single part of it, in |cff3FA9F5Settings > Appearance > Themes|r.",
 	  } },
 	{ id = "forever", title = "WoW: Forever", roles = ALL, build = "BuildForeverStep",   -- shaman-only content; the Raid Cooldowns step covers what a non-shaman needs
 	  when = function() return SPCompat.FOREVER end,
@@ -543,7 +543,7 @@ end
 -- Water, Alerts & Reminders = Fire, Other = logo blue). Steps with no settings page
 -- of their own (Your Spec, WoW: Forever, Position, Finish) are Air.
 local STEP_GROUP = {
-	look = "General",   -- General > Themes
+	look = "General",   -- Appearance > Themes
 	totembar = "Bars", totemsets = "Bars", durationbars = "Bars", cooldownbar = "Bars",
 	effects = "Bars", twisting = "Bars",
 	assign = "Group Tools",   -- the Totem Assignments window
@@ -985,7 +985,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			arrow:SetPoint("BOTTOM", main, "TOP", 0, 0)
 		end
 		slots[i] = { e = e, main = main, mIcon = mIcon, inset = inset, insetBd = insetBd, dbg = dbg, dbar = dbar, over = over, key = key, ring = ring, arrow = arrow, t = e.off, lastMode = nil }
-		-- General > Themes > Element-Colored Borders, as on the real bar (the preview is rebuilt on a theme change)
+		-- Appearance > Themes > Element-Colored Borders, as on the real bar (the preview is rebuilt on a theme change)
 		local th = SP.opt and SP.opt.theme
 		if type(th) == "table" and th.borders == true and SP.ThemeElement then
 			local br, bgc, bb = SP:ThemeElement("tb.boxes", i)
@@ -5171,10 +5171,10 @@ function SP.Wizard.BuildTotemSetsStep(card, inner, y)
 end
 
 -- ===========================================================================
--- Pick your look (the themes of General > Themes), for new installs only.
+-- Pick your look (the themes of Appearance > Themes), for new installs only.
 -- Three cards, each with a mini totem bar drawn in that look; the look under
 -- the mouse, or the one picked, runs large in the preview. A card calls
--- SP:SetThemeGlobal, exactly like the theme cards on General > Themes, and
+-- SP:SetThemeGlobal, exactly like the theme cards on Appearance > Themes, and
 -- nothing else. The mini bar is also the What's New card's (WhatsNew.lua).
 -- ===========================================================================
 local LOOK = {

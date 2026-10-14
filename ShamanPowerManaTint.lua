@@ -91,7 +91,7 @@ for _, name in ipairs({ "ButtonsUpdate", "UpdateDynamicTotemIcons", "RecreateCoo
 	end
 end
 
--- Settings: Appearance > Textures & Colors > Low-Mana Tint (ShamanPowerAppearancePage.lua names the rows there)
+-- Settings: Appearance > Colors & Borders > Low-Mana Tint (ShamanPowerAppearancePage.lua names the rows there)
 do
 	local sec = SP.options and SP.options.args.fluffy and SP.options.args.fluffy.args.button_tints_section
 	if sec and sec.args then

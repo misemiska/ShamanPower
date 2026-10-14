@@ -1510,7 +1510,7 @@ local function watchRealEnd(f, d)
 	pcall(w.SetCooldownFromDurationObject, w, d, true)
 end
 
--- each icon's own Glow Shape (nil: General > Themes' Glow Shape) and Proc Glow Thickness
+-- each icon's own Glow Shape (nil: Appearance > Themes' Glow Shape) and Proc Glow Thickness
 local function glowShapeOf(e) return IconOpt(e, "glowShape") or (SP.opt and SP.opt.glowShape) or "default" end
 -- Proc Glow: WeakAuras' Proc Glow on the icon, in the glow's color, instead of the glow texture
 local function glowOn(f, quiet)
@@ -4894,7 +4894,7 @@ end)
 -- every icon and stops the ticker; on shows what the settings say)
 SP:OnOnOff(function() SP:UpdateReadyReminders() end)
 
--- Theme (General > Themes, spot mod.readyreminders): the existing Border Color
+-- Theme (Appearance > Themes, spot mod.readyreminders): the existing Border Color
 -- setting is the theme's Border swatch. A theme writes it exactly as the Border
 -- Color option does (this module's page still shows and changes it); Standard
 -- puts the player's own colour back.

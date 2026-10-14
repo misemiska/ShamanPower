@@ -123,7 +123,7 @@ local function PartyDots(frame)
 		elseif position == "left" then dot:SetPoint("TOPRIGHT", frame, "LEFT", -2, span / 2 - along)
 		elseif position == "right" then dot:SetPoint("TOPLEFT", frame, "RIGHT", 2, span / 2 - along)
 		else dot:SetPoint(corner, frame, corner, 0, 0) end
-		-- a theme's "missing buff" red (General > Themes); nil = today's
+		-- a theme's "missing buff" red (Appearance > Themes); nil = today's
 		local mr, mg, mb
 		if index == 4 and SP.ThemeColor then mr, mg, mb = SP:ThemeColor("tb.dots-missing", "missing") end
 		if mr then
@@ -152,7 +152,7 @@ local function BuildGrid(inner)
 			row.element, row.vertical, row.choices = element, vertical, choices
 			row:SetSize(vertical and SIZE + 16 or (SIZE + GAP) * (#choices + 1) + 8,
 				vertical and (SIZE + GAP) * (#choices + 1) + 26 or SIZE + 34)
-			-- a theme's Grid ring colour (General > Themes); nil = today's
+			-- a theme's Grid ring colour (Appearance > Themes); nil = today's
 			local gr, gg, gb
 			if SP.ThemeColor then gr, gg, gb = SP:ThemeColor("st.grid", element) end
 			if split then

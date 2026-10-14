@@ -27,7 +27,7 @@
 
 local SP = ShamanPower
 if not SP then return end
--- General > Themes: the bar's looks are part of a theme (Layout and the pad pictures;
+-- Appearance > Themes: the bar's looks are part of a theme (Layout and the pad pictures;
 -- its colors are the element colors and WoW's own, which themes already hold). On both
 -- clients, data only (nothing shows on Anniversary): a theme shared from WoW: Forever then
 -- reads the same on Anniversary instead of turning Custom there.

@@ -640,7 +640,7 @@ local function FlyoutSizeOption(order, width, key, default, name, desc, apply, e
 end
 
 -- Shield Charges: one look per shield (Lightning / Water / Earth Shield), shared
--- with General > Themes. The module (ShamanPower_ShieldCharges) owns the logic.
+-- with Appearance > Themes. The module (ShamanPower_ShieldCharges) owns the logic.
 local SC_LOOKS = {
 	{ "bar", "Bar" }, { "glow", "Glowing Orbs" }, { "icon", "Shield Icon Orbs" }, { "flat", "Flat Orbs" }, { "storm", "Storm Orbs" },
 }
@@ -674,7 +674,7 @@ local function SCLookRow(which, order)
 		hidden = function(info) return not SCBarOn() or which > SCShields() end,
 		order = order,
 		name = SC_NAMES[which],
-		desc = "How this shield's charges look: the bar, or one orb per charge (Glowing, Shield Icon, Flat or one of the Storm looks). Works in combat. The same setting as on General > Themes.",
+		desc = "How this shield's charges look: the bar, or one orb per charge (Glowing, Shield Icon, Flat or one of the Storm looks). Works in combat. The same setting as on Appearance > Themes.",
 		type = "select",
 		width = 1.4,
 		values = function()
@@ -3740,9 +3740,9 @@ ShamanPower.options = {
 							end
 						},
 						cdbar_gradient_direction = {
-							-- Bar Gradient's direction for these bars (one per kind of bar; also on General > Themes)
+							-- Bar Gradient's direction for these bars (one per kind of bar; also on Appearance > Themes)
 							order = 7.5, type = "select", name = "Progress Bar Gradient Direction", width = "full",
-							desc = "Where the gradient starts on the cooldown bar's progress bars. Along the Bar follows each bar. Shown when Bar Gradient (Totem Bar > Duration Bars or General > Themes) is not Flat.",
+							desc = "Where the gradient starts on the cooldown bar's progress bars. Along the Bar follows each bar. Shown when Bar Gradient (Totem Bar > Duration Bars or Appearance > Themes) is not Flat.",
 							hidden = function() return ShamanPower.opt.barGradient == nil or ShamanPower.opt.cdbarShowProgressBars == false end,
 							values = function() return (ShamanPower:GradientDirectionValues("barGradient")) end,
 							sorting = function() return select(2, ShamanPower:GradientDirectionValues("barGradient")) end,
@@ -4383,12 +4383,12 @@ ShamanPower.options = {
 							end
 						},
 						partybuff_dot_shape = {
-							-- one setting with Coverage's Dot Shape and General > Themes
+							-- one setting with Coverage's Dot Shape and Appearance > Themes
 							hidden = function(info) return (not ShamanPower.opt.showPartyRangeDots) and true or false end,
 							order = 1.61,
 							type = "select",
 							name = "Dot Shape",
-							desc = "The shape of the dots. The same setting as Dot Shape on the Coverage tab and on General > Themes.",
+							desc = "The shape of the dots. The same setting as Dot Shape on the Coverage tab and on Appearance > Themes.",
 							width = 0.9,
 							values = function() return (ShamanPower:DotShapeValues()) end,
 							sorting = function() return select(2, ShamanPower:DotShapeValues()) end,
@@ -4396,12 +4396,12 @@ ShamanPower.options = {
 							set = function(info, val) ShamanPower:SetDotShape(val) end,
 						},
 						partybuff_class_colors = {
-							-- one setting with the Class Colors cards on General > Themes
+							-- one setting with the Class Colors cards on Appearance > Themes
 							hidden = function(info) return (not ShamanPower.opt.showPartyRangeDots) and true or false end,
 							order = 1.62,
 							type = "select",
 							name = "Class Colors",
-							desc = "The class colors of the party dots and the Totem Coverage dots: WoW's own, or ShamanPower's Subtle, Stronger, Vibrant or Muted (the same hue for every class). The same setting as the Class Colors cards on General > Themes.",
+							desc = "The class colors of the party dots and the Totem Coverage dots: WoW's own, or ShamanPower's Subtle, Stronger, Vibrant or Muted (the same hue for every class). The same setting as the Class Colors cards on Appearance > Themes.",
 							width = 0.9,
 							values = function()
 								local v = {}
@@ -4425,7 +4425,7 @@ ShamanPower.options = {
 							order = 1.63,
 							type = "toggle",
 							name = "Gem Dot Finish",
-							desc = "A darker rim and a soft highlight on every party dot and Totem Coverage dot, cut to the Dot Shape (Ring has none). The same setting as on General > Themes.",
+							desc = "A darker rim and a soft highlight on every party dot and Totem Coverage dot, cut to the Dot Shape (Ring has none). The same setting as on Appearance > Themes.",
 							width = 0.9,
 							get = function(info) return ShamanPower.opt.dotGem == true end,
 							set = function(info, val) ShamanPower:SetDotGem(val) end,
@@ -4803,7 +4803,7 @@ ShamanPower.options = {
 							order = 11.5405,
 							type = "select",
 							name = "Dot Shape",
-							desc = "The shape of the dots. The same setting as Dot Shape on the Dots & Counters tab and on General > Themes.",
+							desc = "The shape of the dots. The same setting as Dot Shape on the Dots & Counters tab and on Appearance > Themes.",
 							width = 0.9,
 							hidden = function() return not (ShamanPower.CoverageAvailable and ShamanPower:CoverageAvailable()
 								and ShamanPower.opt.coverage and ShamanPower.opt.coverage.dots) end,
@@ -6097,7 +6097,7 @@ ShamanPower.options = {
 								end
 							end
 						},
-						-- Shield Orbs: each shield has its own look (the same setting as on General > Themes)
+						-- Shield Orbs: each shield has its own look (the same setting as on Appearance > Themes)
 						shieldcharges_look_ls = SCLookRow(1, 4.441),
 						shieldcharges_look_ws = SCLookRow(2, 4.4412),
 						shieldcharges_look_es = SCLookRow(3, 4.4414),
@@ -8734,7 +8734,7 @@ ShamanPower.options = {
 							order = 4.515,
 							type = "color",
 							name = "Pulse Bar Color",
-							desc = "Color of the pulse bar and the pulse wipe on the icon. White by default. A theme on General > Themes can color it too; a color picked here shows over the theme (the Themes tab then says Custom), and Standard puts back the color you had before the theme.",
+							desc = "Color of the pulse bar and the pulse wipe on the icon. White by default. A theme on Appearance > Themes can color it too; a color picked here shows over the theme (the Themes tab then says Custom), and Standard puts back the color you had before the theme.",
 							width = 1.0,
 							hidden = function()
 								return ShamanPower.opt.pulseBarPosition == "none"
@@ -8793,12 +8793,12 @@ ShamanPower.options = {
 							end
 						},
 						pulse_flash_shape = {
-							-- Glow Shape: one setting with General > Themes and Ready Reminders
+							-- Glow Shape: one setting with Appearance > Themes and Ready Reminders
 							disabled = function(info) return (CompactOn()) and true or false end,
 							order = 4.535,
 							type = "select",
 							name = "Pulse Flash Shape",
-							desc = "The shape of the flash around the button at each pulse. The same setting as Glow Shape on General > Themes and Ready Reminders (it also shapes the other alert glows).",
+							desc = "The shape of the flash around the button at each pulse. The same setting as Glow Shape on Appearance > Themes and Ready Reminders (it also shapes the other alert glows).",
 							width = 1.0,
 							hidden = function()
 								return ShamanPower.opt.pulseBarPosition == "none" or ShamanPower.opt.pulseFlashOpacity == 0
@@ -8812,7 +8812,7 @@ ShamanPower.options = {
 							order = 4.536,
 							type = "range",
 							name = "Proc Glow Thickness",
-							desc = "How thick the Proc Glow ring is: it grows outward from the icon's edge. 20% by default. The same setting as on General > Themes; each Ready Reminders icon has its own.",
+							desc = "How thick the Proc Glow ring is: it grows outward from the icon's edge. 20% by default. The same setting as on Appearance > Themes; each Ready Reminders icon has its own.",
 							min = 0, max = 0.6, step = 0.01, isPercent = true,
 							width = 1.0,
 							hidden = function()
@@ -10995,7 +10995,7 @@ do
 	for _, a in ipairs(SP.FONT_AREAS) do SP.OptionHoverFont[args["font_" .. a.key]] = a.key end
 end
 
--- General > Fonts & Textures, second half: the bar fills' texture
+-- Appearance > Fonts & Textures, second half: the bar fills' texture
 -- (ShamanPowerTextures.lua), and one button to apply the chosen look everywhere.
 do
 	local SP = ShamanPower
@@ -11075,7 +11075,7 @@ do
 	if sc and sc.args and area then
 		sc.args.shieldcharges_bar_texture = {
 			order = 4.46, type = "select", name = "Charge Bar Texture", width = "full",
-			desc = "The texture of the charge bar and of the cooldown bar's Shield Charge Bar: its own, it never follows Bar Texture. The same setting as Shield Charge Bars on General > Fonts & Textures.",
+			desc = "The texture of the charge bar and of the cooldown bar's Shield Charge Bar: its own, it never follows Bar Texture. The same setting as Shield Charge Bars on Appearance > Fonts & Textures.",
 			hidden = function()
 				local s = SP.opt.shieldChargeDisplay
 				return not (s and s.showChargeBar and SCAnyLook("bar")) and true or false   -- orbs draw their own
@@ -11604,11 +11604,11 @@ do
 	move("scale_section", "appearance_resets", { "scale_desc", "scale_reset" })
 	move("opacity_section", "appearance_resets", { "opacity_desc", "opacity_reset" })
 	move("padding_section", "appearance_resets", { "padding_desc", "padding_reset" })
-	-- Frame Edges: one setting for both bars (and General > Themes)
+	-- Frame Edges: one setting for both bars (and Appearance > Themes)
 	local function frameEdgeRow(hiddenKey)
 		return {
 			type = "select", name = "Frame Edge", width = 1.0,
-			desc = "Add a shadow, raised edge or thick border to the Totem Bar, Cooldown Bar and ShamanPower's panels. The same setting as Frame Edge on General > Themes.",
+			desc = "Add a shadow, raised edge or thick border to the Totem Bar, Cooldown Bar and ShamanPower's panels. The same setting as Frame Edge on Appearance > Themes.",
 			hidden = function() return ShamanPower.opt[hiddenKey] and true or false end,
 			values = function() return (ShamanPower:FrameEdgeValues()) end,
 			sorting = function() return select(2, ShamanPower:FrameEdgeValues()) end,
@@ -11618,12 +11618,12 @@ do
 	end
 	pages.totembar_appearance.args.frame_edge = frameEdgeRow("hideTotemBarFrame")
 	pages.cooldownbar_appearance.args.frame_edge = frameEdgeRow("hideCooldownBarFrame")
-	-- Icon Shape: one per bar (and on General > Themes)
+	-- Icon Shape: one per bar (and on Appearance > Themes)
 	local function iconShapeRow(kind, what)
 		return {
 			type = "select", name = "Icon Shape", width = 1.0,
 			desc = "The shape of " .. what .. ": Square, Flat (the picture's border removed), Rounded or Circle."
-				.. " ShamanPower Minimal's boxes and the cooldown sweep take the same shape. The same setting as on General > Themes.",
+				.. " ShamanPower Minimal's boxes and the cooldown sweep take the same shape. The same setting as on Appearance > Themes.",
 			values = function() return (ShamanPower:IconShapeValues()) end,
 			sorting = function() return select(2, ShamanPower:IconShapeValues()) end,
 			get = function() return ShamanPower:IconShapeOf(kind) or "default" end,
@@ -11636,7 +11636,7 @@ do
 	local function bordersSquareRow(kind)
 		return {
 			type = "toggle", name = "Keep Borders Square", width = 1.0,
-			desc = "With Rounded or Circle icons, borders (Element-Colored Borders, Ready Reminders' border) follow the shape. Turn this on to keep them square. One setting for every bar (and on General > Themes).",
+			desc = "With Rounded or Circle icons, borders (Element-Colored Borders, Ready Reminders' border) follow the shape. Turn this on to keep them square. One setting for every bar (and on Appearance > Themes).",
 			hidden = function() local k = ShamanPower:IconShapeOf(kind); return k ~= "rounded" and k ~= "circle" end,
 			get = function() return ShamanPower.opt.iconBordersSquare == true end,
 			set = function(_, v) ShamanPower:SetIconBordersSquare(v) end,
@@ -11645,7 +11645,7 @@ do
 	pages.totembar_appearance.args.icon_borders_square = bordersSquareRow("totem")
 	pages.cooldownbar_appearance.args.icon_borders_square = bordersSquareRow("cooldown")
 	-- Gradients: Bar Gradient (Totem Bar > Duration Bars) and Outline Gradient
-	-- (here), one setting each with General > Themes. Two-Tone adds its colors,
+	-- (here), one setting each with Appearance > Themes. Two-Tone adds its colors,
 	-- Fade Out how much color is left at the faded end.
 	local function gradientRows(args, field, name, part, desc, order, hiddenAll)
 		local opt = function() return ShamanPower.opt end
@@ -11660,8 +11660,8 @@ do
 		if field ~= "barGradient" then args[field .. "_direction"] = {
 			order = order + 0.0005, type = "select", name = part .. " Gradient Direction", width = 1.0,
 			desc = (field == "outlineGradient")
-				and "Where the gradient starts: from the top edge down by default, or from the bottom, the left or the right. The same setting as on General > Themes."
-				or "Where the gradient starts. Along the Bar follows each bar: left to right, or bottom to top on a vertical bar. The others are the same on every bar. The same setting as on General > Themes.",
+				and "Where the gradient starts: from the top edge down by default, or from the bottom, the left or the right. The same setting as on Appearance > Themes."
+				or "Where the gradient starts. Along the Bar follows each bar: left to right, or bottom to top on a vertical bar. The others are the same on every bar. The same setting as on Appearance > Themes.",
 			hidden = function() return opt()[field] == nil end,
 			values = function() return (ShamanPower:GradientDirectionValues(field)) end,
 			sorting = function() return select(2, ShamanPower:GradientDirectionValues(field)) end,
@@ -11716,14 +11716,14 @@ do
 	end
 	SP.GradientRows = gradientRows   -- Shield Charges' own Charge Bar Gradient (below)
 	gradientRows(pages.totembar_appearance.args, "outlineGradient", "Outline Gradient", "Outline",
-		"Shades the element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. The same setting as Outline Gradient on General > Themes.", 50)
+		"Shades the element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. The same setting as Outline Gradient on Appearance > Themes.", 50)
 	gradientRows(pages.totembar_duration_section.args, "barGradient", "Bar Gradient", "Bar",
-		"Shades ShamanPower's bars: duration and pulse bars, the cooldown bar's progress bars and Ready Reminders' bar (never Shield Charges). The same setting as Bar Gradient on General > Themes.", 2.07)
-	-- Bar Gradient's direction, one per kind of bar (and on General > Themes)
+		"Shades ShamanPower's bars: duration and pulse bars, the cooldown bar's progress bars and Ready Reminders' bar (never Shield Charges). The same setting as Bar Gradient on Appearance > Themes.", 2.07)
+	-- Bar Gradient's direction, one per kind of bar (and on Appearance > Themes)
 	local function barDirectionRow(area, name, what, order, hiddenExtra)
 		return {
 			order = order, type = "select", name = name, width = 1.0,
-			desc = "Where the gradient starts on " .. what .. ". Along the Bar follows each bar: left to right, or bottom to top on a vertical bar. Shown when Bar Gradient (Totem Bar > Duration Bars or General > Themes) is not Flat.",
+			desc = "Where the gradient starts on " .. what .. ". Along the Bar follows each bar: left to right, or bottom to top on a vertical bar. Shown when Bar Gradient (Totem Bar > Duration Bars or Appearance > Themes) is not Flat.",
 			hidden = function() return ShamanPower.opt.barGradient == nil or (hiddenExtra and hiddenExtra()) or false end,
 			values = function() return (ShamanPower:GradientDirectionValues("barGradient")) end,
 			sorting = function() return select(2, ShamanPower:GradientDirectionValues("barGradient")) end,
@@ -12256,7 +12256,7 @@ do
 		for w = 1, 3 do
 			scArgs["shieldcharges_color_" .. w] = {
 				order = 20 + w, type = "color", name = NAMES[w], width = 1.0,
-				desc = "The color of this shield's charge bar and orbs (Shield Icon Orbs keep their icons). Any color you like. Also on General > Themes.",
+				desc = "The color of this shield's charge bar and orbs (Shield Icon Orbs keep their icons). Any color you like. Also on Appearance > Themes.",
 				hidden = function() return noBar() or w > SCShields() end,
 				get = function() if SP.ShieldChargeColorOf then return SP:ShieldChargeColorOf(w) end return 0.2, 0.6, 1 end,
 				set = function(_, r, g, b) if SP.SetShieldChargeColor then SP:SetShieldChargeColor(w, r, g, b) end end,
@@ -12270,7 +12270,7 @@ do
 		}
 		if SP.GradientRows then
 			SP.GradientRows(scArgs, "chargeGradient", "Charge Bar Gradient", "Charge Bar",
-				"Shades the charge bar (and the Glowing and Flat orbs): Shield Charges' own gradient, never Bar Gradient's. Also the cooldown bar's Shield Charge Bar, and on General > Themes.", 25,
+				"Shades the charge bar (and the Glowing and Flat orbs): Shield Charges' own gradient, never Bar Gradient's. Also the cooldown bar's Shield Charge Bar, and on Appearance > Themes.", 25,
 				function() return noBar() or not (SCAnyLook("bar") or SCAnyLook("glow") or SCAnyLook("flat")) end)
 		end
 	end
@@ -12538,7 +12538,7 @@ end
 -- it to move it), then only what is about the whole bar: Bar (Appearance > Cooldown
 -- Bar's rows), Progress Bars and Time, Effects (the look; which effect each item plays is
 -- in its menu) and Position. The same option objects as before (moved, not copied); the
--- old groups stay as their holders (the item menus and General > Themes read them there)
+-- old groups stay as their holders (the item menus and Appearance > Themes read them there)
 -- and their old addresses land on this page. On / off: the switch beside Cooldown Bar in
 -- the sidebar (Window.lua POWER_CDBAR). The Cooldown Bar Flyouts rows (Appearance >
 -- Flyouts) move into the shield's and the imbue's menu > Flyout.
@@ -12657,7 +12657,7 @@ end
 -- click a shield to show or hide its charges, right-click it for all of its settings: each
 -- shield owns its own, nothing shared), then only Position (Lock Position, Move). On / off:
 -- the switch beside Shield Charges in the sidebar (Window.lua POWER_SHIELDCHARGES). The old
--- group stays as the holder of its rows (Expiring Alerts and General > Themes still build
+-- group stays as the holder of its rows (Expiring Alerts and Appearance > Themes still build
 -- from the same helpers); its old address lands on this page.
 do
 	local SP = ShamanPower
@@ -12774,7 +12774,7 @@ do
 		"behaviour_header", "sound_header" }) do
 		sc[k] = nil
 	end
-	-- General > Themes, Shield Charge Display: one row per shield (Q5) drawn from these (Themes.lua
+	-- Appearance > Themes, Shield Charge Display: one row per shield (Q5) drawn from these (Themes.lua
 	-- MODULE_EXTRAS): its own Charge Bar Texture and Gradient, the same settings as its menu here
 	do
 		local NAME = { LS = "Lightning Shield", WS = "Water Shield", ES = "Earth Shield" }

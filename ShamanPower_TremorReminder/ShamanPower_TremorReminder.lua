@@ -1632,7 +1632,7 @@ if ShamanPower.RegisterPreview then
     ShamanPower:RegisterPreview("tremor", { frame = "ShamanPowerTremorReminderFrame", demo = "SP:TremorDemo", pad = 24 })
 end
 
--- Theme (General > Themes, spot mod.tremor): the existing Glow Color setting is
+-- Theme (Appearance > Themes, spot mod.tremor): the existing Glow Color setting is
 -- the theme's Glow swatch. A theme writes it exactly as the Glow Color option
 -- does (the Tremor Reminder page still shows and changes it); Standard puts the
 -- player's own colour back.

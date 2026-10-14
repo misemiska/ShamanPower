@@ -71,7 +71,7 @@ function SP:TextureFor(area)
 	return texturePath(name)
 end
 
--- Gradients (General > Themes > Shapes & Textures, and each part's page; Miska's
+-- Gradients (Appearance > Themes > Shapes & Textures, and each part's page; Miska's
 -- request). Bars: opt.barGradient; outlines: opt.outlineGradient. Each is nil
 -- (flat, today's), "shade", "glass", "two" (Two-Tone) or "fade" (Fade Out), with
 -- <prefix>Color1 (nil = the part's own color), <prefix>Color2 (Two-Tone's second,
@@ -423,7 +423,7 @@ if LSM and LSM.RegisterCallback then
 	end)
 end
 
--- Dot Shape (General > Themes and Party Buff Tracker, one setting): the party
+-- Dot Shape (Appearance > Themes and Party Buff Tracker, one setting): the party
 -- dots and Totem Coverage's dots. opt.dotShape nil = the round dot ShamanPower
 -- always drew.
 local SHAPES = "Interface\\AddOns\\ShamanPower\\Media\\Textures\\"
@@ -440,7 +440,7 @@ function SP:DotTexture()
 	local k = self.opt and self.opt.dotShape
 	return (k and dotFile[k]) or dotFile.default
 end
--- Gem Dot Finish (General > Themes under Class Colors, and Party Buff Tracker;
+-- Gem Dot Finish (Appearance > Themes under Class Colors, and Party Buff Tracker;
 -- opt.dotGem): a darker rim and a soft highlight laid over every party and
 -- coverage dot, cut to its Dot Shape (Ring has nothing inside to light: none).
 local GEM_FILE = { default = SHAPES .. "Gem_Round", orb = SHAPES .. "Gem_Round",
@@ -495,7 +495,7 @@ function SP:SetDotShape(key)
 	if self.UpdateCoverageLayout then self:UpdateCoverageLayout() end
 end
 
--- Glow Shape (General > Themes, Totem Bar > Duration Bars, Ready Reminders; one
+-- Glow Shape (Appearance > Themes, Totem Bar > Duration Bars, Ready Reminders; one
 -- setting): the pulse flash round the totem buttons and the ready / alert glows
 -- round Ready Reminders, Reactive Totems, Tremor Reminder and the cooldown bar.
 -- opt.glowShape nil = today's square glows. A glow keeps its size, color and
@@ -750,7 +750,7 @@ function SP.ProcGlow_Stop(r, key)
     end
 end
 function SP:ProcGlowOn() return self.opt and self.opt.glowShape == "proc" end
--- Proc Glow Thickness (General > Themes, Totem Bar > Duration Bars; Ready Reminders icons each
+-- Proc Glow Thickness (Appearance > Themes, Totem Bar > Duration Bars; Ready Reminders icons each
 -- have their own): how thick the ring is, as a share of the icon's size. The ring's inner edge
 -- sits on the icon's edge (the mask above); the band grows outward from there. 20% by default.
 SP.PROC_GLOW_OUT = 0.2
@@ -804,7 +804,7 @@ function SP:SetGlowShape(key)
 	if self.ReadyReminderGlowRefresh then self:ReadyReminderGlowRefresh() end   -- (Proc Glow on / off on glowing icons)
 end
 
--- Frame Edges (General > Themes, Appearance > Totem Bar / Cooldown Bar; one
+-- Frame Edges (Appearance > Themes, Appearance > Totem Bar / Cooldown Bar; one
 -- setting): an edge round the frames ShamanPower draws a backdrop for (the
 -- totem bar, the cooldown bar, pop-outs, module panels). opt.frameEdge nil =
 -- today's plain border only. The edge is its own frame just under the frame,
@@ -930,7 +930,7 @@ function SP:SetFrameEdge(key)
 	self:RepaintFrameEdges()
 end
 
--- Icon Shape (General > Themes, and each bar's own page): one shape per bar.
+-- Icon Shape (Appearance > Themes, and each bar's own page): one shape per bar.
 --   opt.iconShape          the totem bar: its buttons, flyouts, the dropped-totem
 --                          overlays, pop-outs and Drop All
 --   opt.iconShapeCooldown  the cooldown bar: its buttons and the shield and imbue flyouts

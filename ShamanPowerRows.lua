@@ -770,12 +770,12 @@ local function carryStyle(c, element, size)
 	bar:SetPoint(c.vertical and "BOTTOMLEFT" or "TOPLEFT", bg, c.vertical and "BOTTOMLEFT" or "TOPLEFT", 0, 0)
 	local color = SP.DurationBarColors and SP.DurationBarColors[element]
 	if color then SP:SetSPBarColor(bar, "duration", color[1], color[2], color[3], 1) end
-	-- Duration Bar Opacity and Duration Bar Background (General > Themes too), as the bar's own
+	-- Duration Bar Opacity and Duration Bar Background (Appearance > Themes too), as the bar's own
 	local a = opt.durationBarOpacity or 1
 	bg:SetAlpha(SP:DurationTrackAlpha(a))
 	bar:SetAlpha(a)
 	SP:SetSPFont(text, "timers", opt.durationTextSize or 8, "OUTLINE")
-	SP:ThemePaintDurationText(text, element)   -- General > Themes: Duration Text Color; white on Standard
+	SP:ThemePaintDurationText(text, element)   -- Appearance > Themes: Duration Text Color; white on Standard
 	c.location = opt.durationTextLocation or "none"
 	if c.location == "inside_top" then text:SetPoint("TOP", bg, "TOP", 0, -1)
 	elseif c.location == "inside_bottom" then text:SetPoint("BOTTOM", bg, "BOTTOM", 0, 1)
@@ -930,7 +930,7 @@ end
 -- true while the rows carry the bar's pieces
 function SP:RowsCarryBar() return applied and carrying or false end
 
--- Keep Flyouts on Main Totem Bar: every copy a row has made, for the look painters (General > Themes'
+-- Keep Flyouts on Main Totem Bar: every copy a row has made, for the look painters (Appearance > Themes'
 -- Element-Colored Borders on the flyouts, Icon Shape, Minimal's boxes, Cooldown Text Color), which paint
 -- them as the flyout's own buttons
 function SP:RowsCopies(element)
@@ -1042,7 +1042,7 @@ local function apply()
 		and (not SP:TotemBarInUse() or (SP.totemBarHidden and (o.hideOutOfCombat or o.hideWhenNoTotems))) then
 		SP:SetTotemBarFramesShown(false)
 	end
-	if newCopies then   -- (new copies on the rows: the looks General > Themes gives the flyout's own buttons)
+	if newCopies then   -- (new copies on the rows: the looks Appearance > Themes gives the flyout's own buttons)
 		newCopies = false
 		if SP.ApplyIconShapes then SP:ApplyIconShapes() end
 		if SP.ThemePaintTotemBorders then SP:ThemePaintTotemBorders() end

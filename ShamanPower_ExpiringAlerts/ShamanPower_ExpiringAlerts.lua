@@ -108,7 +108,7 @@ local ElementColors = {
 	air = { r = 0.6, g = 0.8, b = 1.0 },
 }
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot mod.alerts. A
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot mod.alerts. A
 -- theme recolours these tables in place and puts today's numbers back on
 -- Standard: totem lines by element; Lightning Shield by the shield colour,
 -- Water and Earth Shield by their element; the centre "destroyed!" warning.

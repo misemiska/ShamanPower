@@ -32,7 +32,7 @@ SP.partyRangeDots = {}  -- [element][partyIndex] = dot texture
 local engineDotsReady = false -- SetupPartyRangeDots has run (buttons exist)
 
 -- ============================================================================
--- Theme looks (General > Themes, ShamanPowerTheme.lua). Looks only: on Standard
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua). Looks only: on Standard
 -- every read below is nil and each paint site runs today's code as it was.
 -- tb.dots-missing / mod.coverage-dots-missing: the red "no buff" dot.
 -- tb.dots-class / mod.coverage-dots-class: the engine is asked, and every theme
@@ -70,7 +70,7 @@ local function PaintMissingCov(dot)
 end
 local classSetsSeen = {}   -- the Class Colors set each dot kind was last built with
 -- a class-coloured dot: the theme's colour for that class if it has one, else
--- the Class Colors set it uses (General > Themes; WoW's = `color`, RAID_CLASS_COLORS
+-- the Class Colors set it uses (Appearance > Themes; WoW's = `color`, RAID_CLASS_COLORS
 -- exactly as today). One table per class, made once.
 local themeClassColors = {}
 local function ThemeClassColor(spot, class, color)
@@ -1946,7 +1946,7 @@ do
 	end
 
 	-- -------------------------------------------------------------------------
-	-- Colors: WoW's own, or the theme's (General > Themes, Party Buff Tracker)
+	-- Colors: WoW's own, or the theme's (Appearance > Themes, Party Buff Tracker)
 	-- -------------------------------------------------------------------------
 	local RED, GRAY = { 1, 0.125, 0.125 }, { 0.5, 0.5, 0.5 }
 	local function WoWColor(name, t, r, g, b)
@@ -3845,7 +3845,7 @@ if ShamanPower.RegisterPreview then
 	})
 end
 
--- A theme change (General > Themes): the red dots, the Coverage panel and the
+-- A theme change (Appearance > Themes): the red dots, the Coverage panel and the
 -- counter frames take the new look now (nothing here is protected, so combat
 -- does not matter); the totem bar's dots repaint on their next range pass.
 if SP.OnThemeChanged then

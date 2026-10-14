@@ -564,7 +564,7 @@ function SP:ShowManaTideAlert()
 end
 
 -- ============================================================================
--- THEME (General > Themes, spot mod.raidcd-colors): the caller buttons' panel
+-- THEME (Appearance > Themes, spot mod.raidcd-colors): the caller buttons' panel
 -- and the center alert's text. Looks only. On Standard every read is nil and
 -- the colours set below stay exactly as they are; a theme change repaints
 -- (restore = true puts today's colours back).
@@ -1717,7 +1717,7 @@ SP:OnOnOff(function(off)
 	SP:UpdateCallerButtons()
 end)
 
--- Theme changed (General > Themes): repaint the panel and the alert if they
+-- Theme changed (Appearance > Themes): repaint the panel and the alert if they
 -- exist. Plain frames, so this is safe in combat; nothing runs otherwise.
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

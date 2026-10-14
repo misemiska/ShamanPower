@@ -99,7 +99,7 @@ function SP:BuildSharePayload(opts)
 		for _, name in ipairs(EXTRA_SVARS) do
 			if _G[name] then payload.extras[name] = CleanCopy(_G[name]) end
 		end
-		-- Your Themes (account-wide, General > Themes): the full export carries them, so the
+		-- Your Themes (account-wide, Appearance > Themes): the full export carries them, so the
 		-- profile's own theme comes along to another account or game (ImportShare puts them in)
 		local themes = self.db and self.db.global and self.db.global.themes
 		if type(themes) == "table" and #themes > 0 then payload.themes = CleanCopy(themes) end

@@ -1250,7 +1250,7 @@ local function PurgeParts(host, look, blend)
 	p.glow = host:CreateTexture(nil, "BACKGROUND", nil, -1)
 	p.glow:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
 	p.glow:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
-	if SP.ShapeGlow then SP:ShapeGlow(p.glow, "alert") end   -- (General > Themes: Glow Shape)
+	if SP.ShapeGlow then SP:ShapeGlow(p.glow, "alert") end   -- (Appearance > Themes: Glow Shape)
 	p.glow:SetBlendMode(blend or "ADD")
 	p.glow:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
 	p.glow:SetAlpha(0.6)
@@ -4770,14 +4770,14 @@ function SP:TT_SetEnabled(on)
 	if stageOn and LayoutStage then LayoutStage() end
 end
 
--- The two looks on General > Themes (Shapes & Textures): their choices, and a sample drawn
+-- The two looks on Appearance > Themes (Shapes & Textures): their choices, and a sample drawn
 -- with the parts above, so a card shows exactly what the spell looks like
 SP.TT_MISS_LOOKS = { { key = "edge", label = "Red Edge (default)" }, { key = "dotted", label = "Dotted Red Edge" },
 	{ key = "faded", label = "Just Faded" }, { key = "glow", label = "Red Glow" }, { key = "tint", label = "Red Tint" },
 	{ key = "slash", label = "Red Slash" }, { key = "outline", label = "Empty Outline" }, { key = "pulse", label = "Pulsing Edge" } }
 SP.TT_ICON_EDGES = { { key = "thin", label = "Thin Black (default)" }, { key = "none", label = "None" },
 	{ key = "thick", label = "Thick Black" }, { key = "dotted", label = "Dotted" }, { key = "spell", label = "Spell Color" } }
--- Next Shock's Look When It's Time to Cast: its choices (General > Themes cards; "cast" samples)
+-- Next Shock's Look When It's Time to Cast: its choices (Appearance > Themes cards; "cast" samples)
 SP.TT_CAST_LOOKS = { { key = "gold", label = "Gold Dotted Edge (default)" }, { key = "edge", label = "Red Edge" },
 	{ key = "dotted", label = "Dotted Red Edge" }, { key = "faded", label = "Just Faded" }, { key = "glow", label = "Red Glow" },
 	{ key = "tint", label = "Red Tint" }, { key = "slash", label = "Red Slash" }, { key = "outline", label = "Empty Outline" },
@@ -4798,7 +4798,7 @@ function SP:TT_LookSample(parent, kind, value)
 	return host
 end
 
--- General > Themes > Reset Everything: every spell's visual choices back to their defaults
+-- Appearance > Themes > Reset Everything: every spell's visual choices back to their defaults
 function SP:TT_ResetLooks()
 	for _, s in ipairs(SPELLS) do
 		if OPT[s.key].missLook ~= nil then SP:TT_Set(s.key, "missLook", nil) end
@@ -5771,7 +5771,7 @@ do
 	boot:SetScript("OnEvent", function(self)
 		self:UnregisterEvent("PLAYER_LOGIN")
 		SV()
-		-- General > Themes: each spell's looks, so presets, Your Themes and share codes carry them
+		-- Appearance > Themes: each spell's looks, so presets, Your Themes and share codes carry them
 		if SP.ThemeSpotSettings then
 			local entries = {}
 			for _, s in ipairs(SPELLS) do

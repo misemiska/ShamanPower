@@ -17,7 +17,7 @@ SP.activeTotemPlates = {}      -- unitId -> nameplate
 SP.totemPlateCache = {}        -- Recycled frames
 SP.detectedNameplateAddon = "Blizzard"
 
--- Theme (General > Themes, spot mod.plates-colors): the enemy / friendly border.
+-- Theme (Appearance > Themes, spot mod.plates-colors): the enemy / friendly border.
 -- nil on Standard: the colours set where a plate is filled stay exactly as they are.
 local function ThemePlateBorder(frame)
     if not SP.ThemeColor then return end
@@ -1247,7 +1247,7 @@ end
 -- on replaces them again if Totem Plates is on in the settings
 SP:OnOnOff(function() SP:ToggleTotemPlates() end)
 
--- Theme changed (General > Themes): repaint the plates on screen (today's
+-- Theme changed (Appearance > Themes): repaint the plates on screen (today's
 -- colours on Standard). Nothing runs otherwise.
 if SP.OnThemeChanged then
     SP:OnThemeChanged(function()

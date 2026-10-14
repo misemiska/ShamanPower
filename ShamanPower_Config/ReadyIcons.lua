@@ -110,7 +110,7 @@ local texOut = {}   -- reused: the textures of the icon being painted
 function Pic.Color(key, opt, dr, dg, db)
 	return function() return Color3(Opt(key, opt), dr, dg, db) end
 end
--- the icon's own glow shape (an icon that never picked one shows General > Themes' Glow Shape)
+-- the icon's own glow shape (an icon that never picked one shows Appearance > Themes' Glow Shape)
 function Pic.Shape(key) return Opt(key, "glowShape") or (SP.opt and SP.opt.glowShape) or "default" end
 -- the icon's glow: its own shape (or the one given) in its Glow Color; pulse: with its pulse (Glow + Pulse)
 function Pic.Glow(key, shape, pulse)
@@ -264,7 +264,7 @@ local function ColorRow(key, entry, text, opt, dr, dg, db, pic)
 		end,
 	}
 end
--- a setting shared beyond this icon (it is also on General > Themes): `scope` says how far it
+-- a setting shared beyond this icon (it is also on Appearance > Themes): `scope` says how far it
 -- reaches, in the label
 local function SharedRow(text, values, getter, setter, scope)
 	return {
@@ -318,7 +318,7 @@ local function AppearanceRows(key, entry)
 		SliderRow(key, "Opacity", "opacity", 0.2, 1, 0.05, 1, nil, true, Pic.OPACITY),
 	}
 	-- Icon Shape (3.0.9): this icon's own (a circle Earth Shock beside a square Stormstrike), else
-	-- the shape every icon shares (General > Themes); the first choice puts it back on the shared one
+	-- the shape every icon shares (Appearance > Themes); the first choice puts it back on the shared one
 	if SP.IconShapeValues and SP.IconShapeOf then
 		local function plain(label) return (label or ""):gsub(" %(default%)$", "") end
 		t[#t + 1] = {
@@ -329,7 +329,7 @@ local function AppearanceRows(key, entry)
 				if own then return plain(map[own]) or tostring(own), true end
 				return plain(map[SP:IconShapeOf("ready") or "default"]) .. " (all icons)", false
 			end,
-			tip = "This icon's shape: Square, Flat (the picture's own border removed), Rounded or Circle. Use Shared Shape: the shape every icon shares, set on General > Themes.",
+			tip = "This icon's shape: Square, Flat (the picture's own border removed), Rounded or Circle. Use Shared Shape: the shape every icon shares, set on Appearance > Themes.",
 			sub = function()
 				local map, order = SP:IconShapeValues()
 				local own = SP:ReadyReminderOwnOpt(key, "iconShape")
@@ -394,7 +394,7 @@ local function AppearanceRows(key, entry)
 		t[#t + 1] = OnOffRow(key, "Show Name", "showNames", nil, Pic.NONE)
 	end
 	-- the glow's look (its moment is under When Ready): shape, color, thickness; an icon that
-	-- never picked a shape shows General > Themes' Glow Shape
+	-- never picked a shape shows Appearance > Themes' Glow Shape
 	t[#t + 1] = { separator = true }
 	local fx = Opt(key, "readyEffect") or "glow"
 	if fx == "glow" or fx == "both" then
@@ -540,7 +540,7 @@ local function CoolRows(key, entry)
 			t[#t + 1] = SharedRow("Bar Gradient", function() return SP:GradientDirectionValues("barGradient") end,
 				function() return SP:BarGradientDirection("other") end, function(v) SP:SetBarGradientDirection("other", v) end, "Shared")
 			t[#t].pic = Pic.NONE
-			t[#t].tip = "One setting for these bars and every bar but the totem bar's, with General > Themes."
+			t[#t].tip = "One setting for these bars and every bar but the totem bar's, with Appearance > Themes."
 		end
 	end
 	t[#t + 1] = OnOffRow(key, "Show Countdown", "showCountdown", true, Pic.NUMBER)

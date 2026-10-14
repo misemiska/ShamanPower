@@ -568,7 +568,7 @@ end
 -- settings back to how they came (each alert's own values gone, the values they fall back
 -- on back to their defaults, every alert on again), and the shields' sounds (the same
 -- settings as on Shield Charges). Left alone, as on every page: where the alerts sit, and
--- what a theme holds (the alert text colors, General > Themes).
+-- what a theme holds (the alert text colors, Appearance > Themes).
 local KEEP = { color = true }
 function SP.ExpiringAlertsResetPage(sp)
 	if InCombatLockdown() then return end
@@ -729,7 +729,7 @@ local function LookRows(id)
 		{ kind = "opacity" })
 	r[#r + 1] = Slider("Text Size", 8, 24, 1, function() return RVal(id, "fontSize") or 14 end,
 		function(v) RSliderSet(id, "fontSize", v) end, nil, false, "The size of its debuff and totem name text.")
-	r[#r + 1] = ROnOff(id, "Text Outline", "fontOutline", "An outline round its text, unless General > Fonts & Textures sets one.",
+	r[#r + 1] = ROnOff(id, "Text Outline", "fontOutline", "An outline round its text, unless Appearance > Fonts & Textures sets one.",
 		{ kind = "none" })
 	r[#r + 1] = RShowHideInv(id, "Background", "hideBackground", "The dark square behind the totem's icon.",
 		{ kind = "plain" }, { kind = "none" })
@@ -956,7 +956,7 @@ end
 -- Reset This Page: every alert's menu settings back to how they came (each alert's own
 -- values gone, the values they fall back on back to their defaults, every alert on
 -- again). Left alone: where the alerts sit, and what a theme holds (the alert colors, and
--- each alert's own looks: the alert's entries in the theme cards, General > Themes).
+-- each alert's own looks: the alert's entries in the theme cards, Appearance > Themes).
 function SP.ReactiveTotemsResetPage(sp)
 	if InCombatLockdown() or not RTLoaded() then return end
 	local sv = rawget(_G, "ShamanPower_ReactiveTotems")

@@ -17,7 +17,7 @@ local ELEMENTS = {
 	{ label = "Water", r = 0.42, g = 0.58, b = 1.00 },
 	{ label = "Air",   r = 0.86, g = 0.88, b = 0.98 },
 }
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot win.rangecfg: a
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot win.rangecfg: a
 -- theme recolours these in place and puts today's numbers back on Standard;
 -- an open window repaints below (ShowSPRangeConfig).
 if SP.ThemeBind then
@@ -189,7 +189,7 @@ function SP:ShowSPRangeConfig()
 	dlg:Show()
 end
 
--- A theme change (General > Themes): the columns take the new element tints
+-- A theme change (Appearance > Themes): the columns take the new element tints
 -- (the hover border reads ELEMENTS live)
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

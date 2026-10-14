@@ -44,7 +44,7 @@ local ELEMENTS = {
 	{ label = "Water", r = 0.42, g = 0.58, b = 1.00 },
 	{ label = "Air",   r = 0.86, g = 0.88, b = 0.98 },
 }
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot win.assign: a
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot win.assign: a
 -- theme recolours these in place and puts today's numbers back on Standard;
 -- an open window repaints at the end of this file.
 if SP and SP.ThemeBind then
@@ -1151,7 +1151,7 @@ if SP and type(SP.UpdateLayout) == "function" then
 	hooksecurefunc(SP, "UpdateLayout", function() MarkDirty() end)
 end
 
--- A theme change (General > Themes): the column headings and the cells take
+-- A theme change (Appearance > Themes): the column headings and the cells take
 -- the new element tints (a hovered cell's hover reads ELEMENTS live)
 if SP and SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

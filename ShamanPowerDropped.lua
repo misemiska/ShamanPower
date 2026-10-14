@@ -120,7 +120,7 @@ local function Dress(p)
 	local a = SP.opt.durationBarOpacity or 1
 	p.bars.bg:SetAlpha(SP:DurationTrackAlpha(a))
 	p.bars.bar:SetAlpha(a)
-	-- General > Themes' borders on the totem bar's boxes (ThemePaintTotemBorders' rule)
+	-- Appearance > Themes' borders on the totem bar's boxes (ThemePaintTotemBorders' rule)
 	local t = SP.opt.theme
 	local edges = type(t) == "table" and t.borders == true
 	if edges or p.spThemeBorder then SP:ThemeBorderEdges(p, edges, "tb.boxes", e) end

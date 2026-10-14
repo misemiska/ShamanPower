@@ -169,7 +169,7 @@ function SP:CreateShieldChargeDisplays()
 	self:UpdateShieldChargeDisplays()
 end
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot
 -- mod.shieldcharges-colors: full (your shield), esfull (Earth Shield), low,
 -- last. On Standard every read is nil and today's colours below are used.
 local THEME_SPOT = "mod.shieldcharges-colors"
@@ -246,7 +246,7 @@ local shieldView   -- below: one shield's own settings (Lightning 1, Water 2, Ea
 -- The bar keeps the display's own color at every count: in combat the game
 -- fills it and cannot recolor it by count, so out of combat does the same.
 local SHIELD_COLOR = { player = { 0.2, 0.6, 1.0 }, earth = { 0.2, 0.8, 0.2 } }
--- Charge Colors (Shield Charges page and General > Themes): each shield's own
+-- Charge Colors (Shield Charges page and Appearance > Themes): each shield's own
 -- color for its charge bar and the orbs that take a tint; nil = today's color.
 local CHARGE_COLOR_KEY = { "chargeColorLS", "chargeColorWS", "chargeColorES" }
 local function customChargeColor(settings, which)
@@ -277,7 +277,7 @@ function SP:ShieldOrbOwnColor(which)
 	return c[1], c[2], c[3]
 end
 -- Each shield has its own look (Lightning / Water / Earth Shield Look, also on
--- General > Themes): "bar" (today's segmented bar) or an orb look. which: 1
+-- Appearance > Themes): "bar" (today's segmented bar) or an orb look. which: 1
 -- Lightning Shield, 2 Water Shield, 3 Earth Shield (Anniversary only).
 local LOOK_KEY = { "lookLS", "lookWS", "lookES" }
 -- The Storm family: Miska's Shield Orbs aura, its additive PowerAuras layers baked
@@ -327,7 +327,7 @@ local function orbSig(settings, which)
 end
 local function animOn(settings, which) return settings[ANIM_KEY[which]] == true and isStorm(orbLookOf(settings, which)) end
 
--- Shared with the options and General > Themes: one shield's look, and setting it
+-- Shared with the options and Appearance > Themes: one shield's look, and setting it
 function SP:GetShieldLook(which)
 	local s = self.opt and self.opt.shieldChargeDisplay or NO_SETTINGS
 	local v = s[LOOK_KEY[which]]
@@ -386,7 +386,7 @@ local OPT = {
 	-- When It's Gone (3.0.8, a shaman tank's ask): the icon's effect at 0 charges / no shield
 	goneEffect = { suffix = "goneEffect", def = "none", nilIs = "none" },
 	goneGlowColor = { suffix = "goneGlowColor", color = true },
-	goneGlowShape = { suffix = "goneGlowShape" },   -- (nil: General > Themes' Glow Shape; "default" is a real choice, Square)
+	goneGlowShape = { suffix = "goneGlowShape" },   -- (nil: Appearance > Themes' Glow Shape; "default" is a real choice, Square)
 	goneGlowThick = { suffix = "goneGlowThick", def = 0.2 },
 	sound = { sound = true },        -- (ShamanPowerShieldSound.lua keeps these two: shared with Expiring Alerts)
 	soundName = { sound = true },
@@ -409,7 +409,7 @@ for name, spec in pairs(OPT) do
 		for w = 1, 3 do KEY[w][name] = spec.key and spec.key[w] or (spec.suffix .. SFX[w]) end
 	end
 end
-SP.SHIELD_KEYS = KEY   -- (General > Themes and the tests read the key names)
+SP.SHIELD_KEYS = KEY   -- (Appearance > Themes and the tests read the key names)
 local function startOf(name, which)
 	local d = OPT[name].def
 	if type(d) == "table" and not OPT[name].color then return d[which] end
@@ -2575,7 +2575,7 @@ if ShamanPower.RegisterPreview then
 	})
 end
 
--- A theme change (General > Themes): the numbers take the new colours on the
+-- A theme change (Appearance > Themes): the numbers take the new colours on the
 -- next paint (woken now), the charge bars at once; the game-drawn displays
 -- (WoW: Forever) are rebuilt with them, never in combat.
 local THEME_ROLES = { "full", "esfull", "low", "last" }

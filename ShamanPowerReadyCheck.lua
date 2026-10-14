@@ -309,7 +309,7 @@ local function applyPos(f)
 	else f:SetPoint("CENTER", UIParent, "CENTER", 0, 180) end
 end
 
--- Theme (General > Themes, spot mod.readycheck): the panel's background and
+-- Theme (Appearance > Themes, spot mod.readycheck): the panel's background and
 -- border. nil on Standard: today's look stays exactly as it is. The background
 -- still follows the opacity setting. restore (a theme change) puts today's
 -- colours back.
@@ -651,7 +651,7 @@ function SP:UpdateReadyCheckLook()
 	if panel then applyLook(panel) end
 end
 
--- Theme changed (General > Themes): repaint the panel if it was built.
+-- Theme changed (Appearance > Themes): repaint the panel if it was built.
 if SP.OnThemeChanged then
 	-- today's colours, for the Themes tab's swatches (the dialog palette)
 	if SP.ThemeSetRoleStd then
