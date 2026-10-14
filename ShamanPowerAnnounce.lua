@@ -456,7 +456,7 @@ do
 					get = get("announceUse"), set = set("announceUse"),
 				},
 				useText = {
-					order = 1.2, type = "input", width = "full", name = "Message",
+					order = 1.2, type = "input", width = "full", name = "Used Message",
 					desc = "{spell} becomes the spell's name.",
 					disabled = function() return not cfg().announceUse end,
 					get = get("useText"), set = textSet("useText"),
@@ -467,12 +467,12 @@ do
 					get = get("announceSoon"), set = set("announceSoon"),
 				},
 				soonSeconds = {
-					order = 1.4, type = "range", name = "Seconds Before", min = 5, max = 120, step = 5,
+					order = 1.4, type = "range", name = "Seconds Before Ready", min = 5, max = 120, step = 5,
 					disabled = function() return not cfg().announceSoon end,
 					get = get("soonSeconds"), set = set("soonSeconds"),
 				},
 				soonText = {
-					order = 1.5, type = "input", width = "full", name = "Message",
+					order = 1.5, type = "input", width = "full", name = "Ready Soon Message",
 					desc = "{spell} becomes the spell's name, {sec} the seconds left.",
 					disabled = function() return not cfg().announceSoon end,
 					get = get("soonText"), set = textSet("soonText"),
@@ -488,7 +488,7 @@ do
 					get = get("withName"), set = set("withName"),
 				},
 				channel = {
-					order = 1.6, type = "select", name = "Where", width = 1.5,
+					order = 1.6, type = "select", name = "Chat Channel", width = 1.5,
 					desc = "Group chat picks party, raid or instance chat by itself. The game only lets addons use /say inside instances.",
 					values = { group = "Group chat", say = "Say (instances only)" },
 					sorting = { "group", "say" },
@@ -523,8 +523,8 @@ do
 					get = get("localCall"), set = set("localCall"),
 				},
 				triggers = {
-					order = 2.3, type = "input", width = "full", name = "Words to Listen For",
-					desc = "Separated by commas. Whole words, any capitals: \"tide\" matches \"TIDE pls\" but not \"stride\".",
+					order = 2.3, type = "input", width = "full", name = "Words to Match",
+					desc = "Separate words or phrases with commas. Capitalization doesn't matter: \"tide\" matches \"TIDE pls\" but not \"stride\".",
 					disabled = function() local a = cfg(); return not (a.reply or localCallOn(a)) end,
 					get = get("triggers"), set = textSet("triggers"),
 				},

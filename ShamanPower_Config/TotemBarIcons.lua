@@ -484,7 +484,7 @@ local function DropPlaceRow(row, e, text, icon)
 	-- the pictures: its place as a number on the icon; Not Dropped: the icon grayed (Drop All skips it)
 	for p = 1, n do list[#list + 1] = { p, ORD[p], nil, { kind = "number", text = tostring(p) } } end
 	list[#list + 1] = "-"
-	list[#list + 1] = { "not", "Not Dropped", nil, { kind = "gray" } }
+	list[#list + 1] = { "not", "Skip", nil, { kind = "gray" } }
 	local r = Choice(text, list, function()
 		return DropPlace(e) or "not", ElementOwn(e)
 	end, function(v)
@@ -499,10 +499,10 @@ end
 local function Keybind(rows, words) return { text = "Keys", words = words, sub = function() return rows() end } end
 local function KeyRows(button, flyout)
 	local r = {}
-	if button then r[#r + 1] = { text = "Button Key", value = function() return KeyText(button), false end } end
-	if flyout then r[#r + 1] = { text = button and "Flyout Key" or "Its Key", value = function() return KeyText(flyout), false end } end
+	if button then r[#r + 1] = { text = "Cast Key", value = function() return KeyText(button), false end } end
+	if flyout then r[#r + 1] = { text = button and "Flyout Key" or "Cast Key", value = function() return KeyText(flyout), false end } end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Set Keys...", tip = "Opens Keybind Mode: press the key you want on it.", onClick = KeybindMode }
+	r[#r + 1] = { text = "Open Keybind Mode...", tip = "Opens Keybind Mode: press the key you want on it.", onClick = KeybindMode }
 	return r
 end
 
@@ -523,7 +523,7 @@ local function ElementMenu(e)
 	r[#r + 1] = SEP
 	-- reset
 	r[#r + 1] = { text = "Reset This Icon", disabled = not (ElementOwn(e) or not on),
-		tip = "Back to how it came: on the bar, dropped by Drop All in its own place (" .. ORD[e] .. " of the four).",
+		tip = "Shows this button again and puts it back in its own place in Drop All (" .. ORD[e] .. " of the four).",
 		onClick = function()
 			O()[SHOW_KEY[e]] = true
 			local order = DropOrder()
@@ -599,7 +599,7 @@ local function DropAllMenu()
 					.. " saved loadouts.", true,
 					function(v) if v and not InCombatLockdown() then Run("SyncTotemSetFromAssignments") end end, { kind = "none" }),
 				SetsRow("My Assignments Follow Blizzard's Totem Bar", "totemSetsAdoptFromBar", "Pick a totem on Blizzard's own"
-					.. " totem bar and the matching ShamanPower button takes it (clearing a slot there un-assigns it here)."
+					.. " totem bar and the matching ShamanPower assignment follows it (clearing a slot there clears the assignment here)."
 					.. " Elements kept out of Drop All are left alone. Out of combat; a change made during a fight is picked up"
 					.. " when it ends.", false,
 					function(v) if v then Run("AdoptTotemBarAssignments") end end, { kind = "none" }),
@@ -680,8 +680,8 @@ local RUNNING_STYLES = {
 	{ "red", "Turns red", nil, { kind = "tint", color = { 1, 0.125, 0.125 } } },
 	{ "pulse", "Pulse", nil, { kind = "dark", alpha = 0.4 } },
 	{ "glow", "Glow", nil, { kind = "glow", color = { 1, 0.6, 0.1 } } },
-	{ "drain", "Frame drains", nil, { kind = "edge", color = { 1, 0.6, 0.1 } } },
-	{ "underbar", "Bar under it", nil, { kind = "bar", frac = 0.4, color = { 1, 0.6, 0.1 } } },
+	{ "drain", "Shrinking Border", nil, { kind = "edge", color = { 1, 0.6, 0.1 } } },
+	{ "underbar", "Bar Below Icon", nil, { kind = "bar", frac = 0.4, color = { 1, 0.6, 0.1 } } },
 }
 local function ESGet(name)
 	if not SP.CdItemOpt then return nil, false end
@@ -754,7 +754,7 @@ local function EarthShieldMenu()
 	r[#r + 1] = { text = "Players In The Flyout", subMaxHeight = 420, disabled = (not flyOn) or nil,
 		words = "who the flyout shows",
 		value = function() return WhoText(), AnyPicked() end,
-		tip = "Only these players show in the flyout: a player shows if their role OR class is picked. Nothing picked = everyone."
+		tip = "Only these players show in the flyout: a player shows if any picked role or class matches them. Nothing picked: everyone."
 			.. " Your assigned target always shows. Roles use the group roles (raid Main Tanks count as Tanks)."
 			.. ((not flyOn) and "\n\n|cffffa040The flyout is off: turn Flyout on first.|r" or ""),
 		sub = function()
@@ -776,7 +776,7 @@ local function EarthShieldMenu()
 				pick("esFlyoutClasses", c[1], ClassText(c), { kind = "swap", icon = "Interface\\Icons\\ClassIcon_" .. c[1] })
 			end
 			o[#o + 1] = SEP
-			o[#o + 1] = { text = "Everyone (Clear)", disabled = (not AnyPicked()) or nil, onClick = function()
+			o[#o + 1] = { text = "Show Everyone", disabled = (not AnyPicked()) or nil, onClick = function()
 				O().esFlyoutRoles, O().esFlyoutClasses = nil, nil
 				if not InCombatLockdown() then Run("CreateEarthShieldFlyout", true) end
 				return Changed(BtnRow)
@@ -786,7 +786,7 @@ local function EarthShieldMenu()
 	r[#r + 1] = SEP
 	-- what it plays over its last seconds
 	r[#r + 1] = ESRunningRow()
-	r[#r + 1] = Slider("Running Out At", 10, 300, 5, function() return (ESGet("runOutSecs")) or 60 end,
+	r[#r + 1] = Slider("Running Out (Seconds Left)", 10, 300, 5, function() return (ESGet("runOutSecs")) or 60 end,
 		function(v) ESSet("runOutSecs", v); BtnRow:Repaint() end,
 		function(v) return string.format("%d sec", tonumber(v) or 0) end, false,
 		"When Earth Shield counts as running out, for Running Out. It also counts on its last 2 charges.")
@@ -819,7 +819,7 @@ local function PulseOffWhy(flash)
 	if flash and o.pulseFlashOpacity == 0 then
 		return "The pulse flash is off: Totem Bar > Duration Bars > Pulse Flash Opacity is at 0%."
 	end
-	if CompactOn() then return "Compact style draws its own pulse: this setting waits for another Totem Bar Style." end
+	if CompactOn() then return "Compact draws its own pulse. This setting applies to the other styles." end
 	return nil
 end
 
@@ -870,7 +870,7 @@ local function TotemMenu(item)
 	-- what it does
 	if TempApplies(id) then
 		local off = O().usualTotemReminder ~= true
-		local temp = Choice("Counts As Temporary", { { true, "On" }, { false, "Off" } }, function()
+		local temp = Choice("Treat as Temporary", { { true, "On" }, { false, "Off" } }, function()
 			local v = TempOn(id)
 			return v, v ~= TempDefault(id)
 		end, function(v) SetTemp(id, v) return Changed(TotRow) end,
@@ -919,13 +919,13 @@ local function TotemMenu(item)
 	if not Native() then
 		-- (3.0.9) its place in the flyout, for whoever would rather click than drag it on the row
 		local pos, n = TotemPlace(item)
-		r[#r + 1] = { text = "Earlier In The Flyout", disabled = (pos <= 1) or nil,
+		r[#r + 1] = { text = "Move Earlier in Flyout", disabled = (pos <= 1) or nil,
 			tip = "One place earlier in its flyout. Drag it along its line on the row for any place.",
 			onClick = function() SetTotemPlace(item, pos - 1) return OrderChanged() end }
-		r[#r + 1] = { text = "Later In The Flyout", disabled = (pos >= n) or nil,
+		r[#r + 1] = { text = "Move Later in Flyout", disabled = (pos >= n) or nil,
 			tip = "One place later in its flyout. Drag it along its line on the row for any place.",
 			onClick = function() SetTotemPlace(item, pos + 1) return OrderChanged() end }
-		r[#r + 1] = { text = "Put Back The Usual Order", disabled = (not SP.FlyoutOrderIsUsual or SP:FlyoutOrderIsUsual(item.e)) or nil,
+		r[#r + 1] = { text = "Reset Flyout Order", disabled = (not SP.FlyoutOrderIsUsual or SP:FlyoutOrderIsUsual(item.e)) or nil,
 			tip = "The " .. ELEM[item.e] .. " flyout back in the game's order.",
 			onClick = function() SP:SetFlyoutOrder(item.e, nil) return OrderChanged() end }
 		r[#r + 1] = SEP
@@ -943,8 +943,8 @@ local function TotemMenu(item)
 				PasteTotem(TotRow.clip, item)
 				return Changed(TotRow)
 			end }
-		r[#r + 1] = { text = "Copy Settings To...", tip = "Pulse Bar, Pulse Flash and Counts As Temporary, onto the totems that"
-			.. " have them (a totem only takes what it has).", words = "the same settings onto other totems",
+		r[#r + 1] = { text = "Copy Settings To...", tip = "Pulse Bar, Pulse Flash and Treat as Temporary, onto the totems that"
+			.. " have those settings.", words = "the same settings onto other totems",
 			sub = function()
 			local o = {}
 			for e = 1, 4 do

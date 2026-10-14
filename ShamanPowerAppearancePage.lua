@@ -125,7 +125,7 @@ do
 
 	a.tb_size_desc = desc("Choose the bar's direction, overall size and the space between buttons.")
 	a.tb_icons_desc = desc("Changes the totem icons, their flyouts, the dropped-totem indicators and Drop All.")
-	a.tb_opacity_desc = desc("Set the normal opacity, then choose whether active buttons become fully visible.")
+	a.tb_opacity_desc = desc("Choose how visible the buttons are, then whether active buttons become fully visible.")
 	a.tb_panel_desc = desc("The panel behind the buttons. Its background color changes with how many assigned totems are down.")
 	a.tb_panel_note = { type = "description", name = panelNote, hidden = function() return not noPanel() end }
 	a.tb_skin = twin(tex.skin, { name = "Background Texture", width = "full", disabled = grayed,
@@ -147,7 +147,7 @@ do
 		  names = { layout = "Layout", buffscale = "Scale", totemBarPadding = "Button Spacing" } },
 		{ header = "tb_icons_header", name = "Icons", keys = { "tb_icons_desc", "icon_shape" } },
 		{ header = "tb_opacity_header", name = "Opacity", keys = { "tb_opacity_desc", "totemBarOpacity", "totemBarFullOpacityWhenActive" },
-		  names = { totemBarOpacity = "Opacity", totemBarFullOpacityWhenActive = "Full Opacity While a Totem Is Down" } },
+		  names = { totemBarOpacity = "Opacity", totemBarFullOpacityWhenActive = "Fully Visible While a Totem Is Down" } },
 		{ header = "tb_panel_header", name = "Background & Border", keys = { "tb_panel_desc", "hide_totem_bar_frame", "tb_panel_note",
 			"tb_skin", "tb_edges", "tb_color_good", "tb_color_partial", "tb_color_missing", "tb_border_color" },
 		  names = { hide_totem_bar_frame = "Hide Background and Border" } },
@@ -163,7 +163,7 @@ do
 	if r then
 		r.scale_desc.name = "These buttons also change settings outside this tab. Positions stay where they are."
 		r.scale_reset.name = "Reset Shared Sizes"
-		r.scale_reset.desc = "Totem bar scale, cooldown bar scale, the assignments window's scale and the shared cooldown flyout icon size. Each item's own flyout size stays. Asks first."
+		r.scale_reset.desc = "Resets both bars' scale, the Totem Assignments window's scale and the shared cooldown flyout icon size. Each item's own flyout size stays. Asks first."
 		r.opacity_desc.name = "Reset Shared Opacity: both bars' opacity, their Full Opacity switches and both flyouts' opacity. Each item's own flyout opacity stays."
 		r.opacity_reset.desc = r.opacity_desc.name .. " Asks first."
 		r.padding_desc.name = "Reset Both Bars' Spacing: the totem bar's and the cooldown bar's Button Spacing."
@@ -196,9 +196,9 @@ do
 	a.cooldownBarPadding = twin(app.cooldownBarPadding, { name = "Button Spacing", width = 1.0 })
 	a.cd_icons_desc = desc("Changes the cooldown icons and their shield and weapon imbue flyouts.")
 	a.icon_shape = twin(app.icon_shape, { name = "Icon Shape", width = "full" })
-	a.cd_opacity_desc = desc("Set the normal opacity, then choose whether active buttons become fully visible.")
+	a.cd_opacity_desc = desc("Choose how visible the buttons are, then whether active buttons become fully visible.")
 	a.cooldownBarOpacity = twin(app.cooldownBarOpacity, { name = "Opacity", width = 1.0 })
-	a.cooldownBarFullOpacityWhenActive = twin(app.cooldownBarFullOpacityWhenActive, { name = "Full Opacity While Active or Cooling Down", width = "full",
+	a.cooldownBarFullOpacityWhenActive = twin(app.cooldownBarFullOpacityWhenActive, { name = "Fully Visible While Active or on Cooldown", width = "full",
 		desc = "Show a button at full opacity while its buff is up or its cooldown is running, even if the opacity above is lower." .. same("Full Opacity When Active") })
 	a.cd_panel_desc = desc("The panel behind the cooldown buttons. It has one background color.")
 	a.hide_cooldown_bar_frame = twin(app.hide_cooldown_bar_frame, { name = "Hide Background and Border", width = "full",
@@ -270,7 +270,7 @@ do
 		}
 		a[prefix .. "_size"] = {
 			type = "range", name = "Icon Size", width = 1.0, min = 12, max = 56, step = 1,
-			desc = "How big the icons in " .. what .. " are. 22 is the classic size. The cooldown bar's scale still applies on top. The same setting as Flyout > Icon Size in its right-click menu.",
+			desc = "How big the icons in " .. what .. " are. 22 is the classic size. The Cooldown Bar's size also affects these icons. The same setting as Flyout > Icon Size in its right-click menu.",
 			disabled = cdbarOff,
 			get = function() return SP:CdItemOpt(t, "flyoutIconSize") or 22 end,
 			set = function(_, v) SP:SetCdItemOpt(t, "flyoutIconSize", v) end,
@@ -288,9 +288,9 @@ do
 
 	a.shared_fl_desc = desc("Shared by the totem, shield and weapon imbue flyouts.", noBoxes)
 	if a.flyout_style then
-		a.flyout_style.values = { icons = "Icons Only", frame = "Blizzard Frame" }
+		a.flyout_style.values = { icons = "Icons Only", frame = "Blizzard Background and Border" }
 		if type(a.flyout_style.desc) == "string" then
-			a.flyout_style.desc = a.flyout_style.desc:gsub("Icons only", "Icons Only"):gsub("Blizzard frame", "Blizzard Frame")
+			a.flyout_style.desc = a.flyout_style.desc:gsub("Icons only", "Icons Only"):gsub("Blizzard frame", "Blizzard Background and Border")
 		end
 	end
 	a.arrows_desc = desc("These settings also change how the flyouts open.", function()
@@ -315,7 +315,7 @@ do
 	local scope = "Resets the shared flyout background, the opening rules and the normal totem flyout icon size. The shield's and the weapon imbue's own flyout settings, the directions, the opacities and the Compact size stay."
 	a.flyout_reset_scope = desc(scope, noBoxes)
 	if a.flyout_reset then
-		a.flyout_reset.name = "Reset Flyout Appearance and Opening Rules"
+		a.flyout_reset.name = "Reset Flyout Look and Behavior"
 		a.flyout_reset.desc = scope .. " Asks first. Positions are not changed."
 		a.flyout_reset.width = "full"
 	end
@@ -344,7 +344,7 @@ do
 	local ec = F.element_colors_section
 	if ec and ec.args then
 		local a = ec.args
-		a.ec_desc = desc("Choose the shared element colors used by everything that follows this palette.")
+		a.ec_desc = desc("Choose the element colors used across ShamanPower.")
 		SP.OrderSettingsBands(ec, {
 			{ keys = { "ec_desc", "element_color_palette", "element_color_1", "element_color_2", "element_color_3", "element_color_4", "element_color_reset" } },
 		})
@@ -451,14 +451,14 @@ do
 				if SP.TownRefresh then SP:TownRefresh(true) end
 			end,
 		}
-		if a.townWhich then a.townWhich.name = "Choose which displays follow Out Of The Way. One turned off stays under its own visibility rules." end
+		if a.townWhich then a.townWhich.name = "Choose which displays follow Out Of The Way. Turn off a display here to keep using its own show and hide settings." end
 		if a.townHow then a.townHow.name = "Hide or Fade"; a.townHow.width = "full" end
 		if a.townWhere then a.townWhere.width = "full" end
 		if a.hideInTown then a.hideInTown.width = "full" end
 		if a.townMod_tb then a.townMod_tb.name = "Totem Bar and Its Flyouts" end
 		SP.OrderSettingsBands(t, {
 			{ keys = { "town_desc", "hideInTown", "townWhere", "townHow", "town_fade_opacity" } },
-			{ header = "town_which_header", name = "Affected Displays", keys = { "townWhich", "townMod_tb", "townMod_cd", "townMod_lb", "townMod_ctl",
+			{ header = "town_which_header", name = "Displays to Hide or Fade", keys = { "townWhich", "townMod_tb", "townMod_cd", "townMod_lb", "townMod_ctl",
 				"townMod_rr", "townMod_sc", "townMod_ea", "townMod_es", "townMod_pb" } },
 		})
 	end

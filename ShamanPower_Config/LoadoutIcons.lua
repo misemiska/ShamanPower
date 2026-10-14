@@ -151,7 +151,7 @@ local function DropAllRows(lo)
 	local r = {}
 	-- on, its picture: the icon grayed (left out), as Not Dropped draws on the Totem Bar page
 	for e = 1, 4 do
-		r[#r + 1] = Menu.OnOff("Leave Out " .. ELEMENTS[e], function()
+		r[#r + 1] = Menu.OnOff("Skip " .. ELEMENTS[e], function()
 			local i = IndexOf(lo)
 			local v = (i and SP:LoadoutExcluded(i, e)) and true or false
 			return v, v   -- (On is not the usual: in blue)
@@ -198,7 +198,7 @@ local function SetRows(lo)
 			.. " previous loadout. Call of the Elements follows your assignments. None: switch loadouts as usual. Saved"
 			.. " choices stay saved if their set is unavailable.",
 			{ kind = "none" }),   -- (no picture says a totem set: the captions alone)
-		{ text = "Send to Set Now", disabled = SetPageOf(lo) == 0,
+		{ text = "Copy Totems To Set", disabled = SetPageOf(lo) == 0,
 			tip = "Put all four saved totems in the chosen set. None leaves that element empty. Changes made in combat"
 				.. " take effect when the fight ends.",
 			onClick = function()
@@ -231,7 +231,7 @@ local function NameBox(lo, isNew)
 		text = text,
 		input = { text = name, maxLetters = MAX_NAME },
 		buttons = {
-			{ text = "Rename", onClick = function(dialog)
+			{ text = "Save Name", onClick = function(dialog)
 				-- combat began while it was open: say so, and keep the box up for after the fight
 				if Refuse() then return true end
 				local j = IndexOf(lo)
@@ -266,7 +266,7 @@ local function MenuItems(item)
 			tip = "It is the loadout in use: the green bar under it." }
 	else
 		r[#r + 1] = { text = "Switch To This Loadout",
-			tip = InUse(lo) and ("It is the loadout in use, but its totems changed here since: your totem bar takes its 4 totems"
+			tip = InUse(lo) and ("This loadout is in use, but its saved totems changed here since: your totem bar takes its 4 totems"
 					.. " (and its Drop All choices) again, as a click on it does. Out of a fight only.")
 				or ("Your totem bar takes its 4 totems and its Drop All choices, as a click on it (or on the loadout bar)"
 					.. " does. Out of a fight only."),
@@ -295,7 +295,7 @@ local function MenuItems(item)
 		end
 	end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Rename...", tip = "A box to type its new name in.", onClick = function() NameBox(lo, false) end }
+	r[#r + 1] = { text = "Rename...", tip = "Rename this loadout.", onClick = function() NameBox(lo, false) end }
 	r[#r + 1] = { text = "Icon...", tip = "The icon picker, beside this window. Without an icon of its own a loadout shows its first totem.",
 		onClick = function() PickIcon(lo) end }
 	r[#r + 1] = SEP

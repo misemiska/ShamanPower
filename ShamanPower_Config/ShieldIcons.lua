@@ -26,7 +26,7 @@ local SEP = { separator = true }
 
 -- (the words that say what to do in the settings' blue, so a player sees them first)
 local CAPTION = "|cff3FA9F5CLICK|r a shield to show or hide its charges. |cff3FA9F5RIGHT-CLICK|r it for all of its"
-	.. " settings: each shield has its own, and nothing is shared. |cff3FA9F5Dark|r: not learned yet (you can still set it up)."
+	.. " settings: each shield has its own display settings (its sound is also used by Expiring Alerts). |cff3FA9F5Dark|r: not learned yet (you can still set it up)."
 
 local function Red(text) print("|cff0070ddShamanPower|r: |cffe64a4a" .. text .. "|r") end
 local LOCKED_TEXT = "Shield Charges' settings can't change in combat - try again after the fight."
@@ -197,11 +197,11 @@ end
 -- The choices (the module's values; the words a new player reads)
 -- ---------------------------------------------------------------------------
 local SHOW_CHOICES = {
-	{ "up", "While It's Up", nil, { kind = "plain" } },
-	{ "always", "Always (Gray While It's Not Up)", nil, { kind = "gray" } },
+	{ "up", "While Shield Is Active", nil, { kind = "plain" } },
+	{ "always", "Always (Gray While Shield Is Missing)", nil, { kind = "gray" } },
 	-- (In Fights: the same pictures as the two above, so the words carry them)
-	{ "fightsUp", "In Fights, While It's Up", nil, { kind = "none" } },
-	{ "fights", "In Fights (Gray While It's Not Up)", nil, { kind = "none" } },
+	{ "fightsUp", "In Combat While Shield Is Active", nil, { kind = "none" } },
+	{ "fights", "In Combat (Gray While Shield Is Missing)", nil, { kind = "none" } },
 }
 local NUMPOS_CHOICES = { { "center", "Center" }, { "corner", "Bottom-Right Corner" } }
 local LOOKS = { { "bar", "Bar" }, { "glow", "Glowing Orbs" }, { "icon", "Shield Icon Orbs" }, { "flat", "Flat Orbs" },
@@ -213,7 +213,7 @@ local LOOK_EXTRA = {
 local STORM = { storm = true, tide = true, bubble = true, foam = true, stone = true, leaf = true, spike = true }
 local DIR_CHOICES = { { "below", "Below" }, { "above", "Above" }, { "right", "Vertical, Right" }, { "left", "Vertical, Left" } }
 local DIR_ALONE = { { "below", "Horizontal" }, { "right", "Vertical" } }
-local ORBCOL_CHOICES = { { "bar", "Same As Charge Color" }, { "shield", "The Shield's Own Color" } }
+local ORBCOL_CHOICES = { { "bar", "Use Charge Color" }, { "shield", "Default Shield Color" } }
 local ANIM_TEXT = { [LS] = "Animated Lightning", [WS] = "Animated Water", [ES] = "Animated Earth" }
 local ANIM_TIP = {
 	[LS] = "Blizzard's lightning spell effect crackling over each orb.",
@@ -242,7 +242,7 @@ local function GradientList()
 	return o
 end
 local function TextureList()
-	local o = { { DEFAULT_TEX, "Default (as designed)" } }
+	local o = { { DEFAULT_TEX, "Default" } }
 	for _, name in ipairs(SP.TextureList and SP:TextureList() or {}) do o[#o + 1] = { name, name } end
 	return o
 end
@@ -370,7 +370,7 @@ local function BarRows(s)
 			r[#r + 1] = Choice("Texture", TextureList(), function()
 				local v, own = Get(s, "texture")
 				return v or DEFAULT_TEX, own
-			end, function(v) return Set(s, "texture", v) end, "This shield's own bar texture: it never follows Bar Texture.",
+			end, function(v) return Set(s, "texture", v) end, "Choose this shield's texture separately from Bar Texture.",
 				{ kind = "none" })   -- (no bar texture picture yet)
 			r[#r].subMaxHeight = 300
 		end
@@ -443,7 +443,7 @@ local function ColorRows(s)
 		local grad = Val(s, "gradient") or "default"
 		-- (a gradient, and where it starts: no picture yet)
 		r[#r + 1] = ChoiceName(s, "Gradient", "gradient", GradientList(),
-			"Shades this shield's charge bar (and its Glowing and Flat orbs). Its own: never Bar Gradient's.", "default",
+			"Shade this shield's charge bar, Glowing Orbs, and Flat Orbs. Set separately from Bar Gradient.", "default",
 			{ kind = "none" })
 		if grad ~= "default" then
 			r[#r + 1] = ChoiceName(s, "Gradient Direction", "gradientDirection", GRADIENT_DIRS,
@@ -451,7 +451,7 @@ local function ColorRows(s)
 		end
 		if grad == "two" then
 			-- (no First Color of its own: it starts from the Charge Color)
-			r[#r + 1] = OnOff("Start From Its Own Color", function()
+			r[#r + 1] = OnOff("Start with Charge Color", function()
 				local c1 = Val(s, "gradientColor1")
 				return c1 == nil, c1 ~= nil
 			end, function(v)
@@ -466,7 +466,7 @@ local function ColorRows(s)
 			r[#r + 1] = ColorRow(s, "Second Color", "gradientColor2", GOLD, "The color the gradient shades into. WoW gold to start.",
 				{ kind = "bar" })
 		elseif grad == "fade" then
-			r[#r + 1] = Slider("Fade To", 0, 1, 0.01, function()
+			r[#r + 1] = Slider("Visibility at Faded End", 0, 1, 0.01, function()
 				local f = Val(s, "gradientFade")
 				if f == nil then f = 0.15 end
 				return f
@@ -489,7 +489,7 @@ local function PlayName(name)
 	SP:PlaySoundWithVolume(SP:GetSoundFile(name), 100, true)
 end
 local function SoundRows(s)
-	local r = { OnOffName(s, "Sound When It Drops", "sound", s == ES
+	local r = { OnOffName(s, "Sound When Shield Ends", "sound", s == ES
 		and "When your Earth Shield is gone from the player you put it on. The same setting as Earth Shield's sound in Expiring Alerts."
 		or ("The moment your " .. (NAMES[s] or "shield") .. " leaves you (its last charge used, run out, canceled or replaced),"
 			.. " in fights too. The same setting as this shield's sound in Expiring Alerts."), { kind = "sound" }) }
@@ -602,8 +602,8 @@ local function GoneRows(s)
 		if SP.GlowShapeValues then map, order = SP:GlowShapeValues() end   -- (two values: never through "and", which keeps one)
 		if onBar then
 			-- the bar's glow hugs the bar: the icon's two shape rows step aside and say so
-			r[#r + 1] = { text = "Glow Shape and Glow Thickness are the icon's:", disabled = true }
-			r[#r + 1] = { text = "they show when the icon is on.", disabled = true }
+			r[#r + 1] = { text = "Glow Shape and Glow Thickness affect the icon.", disabled = true }
+			r[#r + 1] = { text = "Turn on Shield Icon to change them.", disabled = true }
 		elseif map then
 			local shapes = {}
 			for _, k in ipairs(order or {}) do
@@ -618,7 +618,7 @@ local function GoneRows(s)
 			end
 		end
 	end
-	r[#r + 1] = ToAll(s, "When It's Gone", "gone")
+	r[#r + 1] = ToAll(s, "Missing Shield Effects", "gone")
 	return r
 end
 
@@ -627,7 +627,7 @@ local function MenuItems(item)
 	local r = {}
 	-- the shield itself
 	local on = Shown(s)
-	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon",
+	r[#r + 1] = { text = on and "Hide This Shield's Charges" or "Show This Shield's Charges",
 		tip = "The same as a click on its icon. Its settings stay as they are.",
 		onClick = function()
 			if HasAPI() then SP:SetShieldOpt(s, "enabled", not on) end
@@ -635,15 +635,15 @@ local function MenuItems(item)
 		end }
 	r[#r + 1] = SEP
 	-- when it shows
-	r[#r + 1] = ChoiceName(s, "When To Show", "show", SHOW_CHOICES, ShowTip(s), "up")
+	r[#r + 1] = ChoiceName(s, "Show", "show", SHOW_CHOICES, ShowTip(s), "up")
 	r[#r].words = "when this shield's charges are on screen"
 	r[#r + 1] = SEP
 	-- how it looks
-	r[#r + 1] = Slider("Scale", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
+	r[#r + 1] = Slider("Size", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
 		function(v) SliderSet(s, "scale", v) end, Pct, true,
 		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.",
 		{ kind = "size" })
-	r[#r + 1] = Slider("Opacity", 0.1, 1, 0.05, function() return Val(s, "opacity") or 1 end,
+	r[#r + 1] = Slider("Visibility", 0.1, 1, 0.05, function() return Val(s, "opacity") or 1 end,
 		function(v) SliderSet(s, "opacity", v) end, Pct, true, "How see-through this shield's charges are.",
 		{ kind = "opacity" })
 	r[#r + 1] = Group("Icon & Number", function() return IconRows(s) end, nil, nil,
@@ -653,7 +653,7 @@ local function MenuItems(item)
 	r[#r + 1] = Group("Color", function() return ColorRows(s) end, nil, nil, "the charge color, and a gradient on the bar")
 	r[#r + 1] = SEP
 	-- what it does at its moments
-	r[#r + 1] = Group("When It's Gone", function() return GoneRows(s) end,
+	r[#r + 1] = Group("While Shield Is Missing", function() return GoneRows(s) end,
 		"What this shield's icon, or its charge bar, does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
 		"the icon, or the charge bar, at 0 charges, or with no shield up")
 	r[#r + 1] = Group("Sound", function() return SoundRows(s) end,
@@ -690,8 +690,8 @@ local function MenuItems(item)
 	end }
 	local hasOwn = SP.ShieldOwnChanged and SP:ShieldOwnChanged(s)
 	r[#r + 1] = { text = "Reset This Icon", disabled = (not hasOwn) or nil,
-		tip = hasOwn and "Every setting of this shield back to its starting value. The other shields keep theirs."
-			or "Nothing to reset: every setting of this shield is at its starting value.",
+		tip = hasOwn and "Every setting of this shield back to its default. The other shields stay as they are."
+			or "Nothing to reset: this shield is at its defaults.",
 		onClick = function()
 			if SP.ResetShield then SP:ResetShield(s); Changed(s) end
 			Row:Changed(false)

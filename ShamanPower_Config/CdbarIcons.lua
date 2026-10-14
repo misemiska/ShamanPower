@@ -338,24 +338,24 @@ end
 local STYLE_CHOICES = { { "mirror", "Same As The Totem Bar" }, { "normal", "Normal" }, { "totemtimers", "TotemTimers Style" },
 	{ "single", "Single Totem" }, { "dynamic", "Dynamic (PvP)" }, { "grid", "Grid (every choice)" } }
 -- (the sweeps' pictures: Radial Swipe as it is, Grays Out as the gray; Fills Back In has no picture of its own)
-local SWEEP_CHOICES = { { "none", "None", nil, PIC.plain }, { "greys", "Vertical - Grays Out", nil, { kind = "gray" } },
-	{ "fills", "Vertical - Fills Back In", nil, PIC.none },
-	{ "radial", "Radial Swipe", nil, { kind = "sweep", frac = 0.6, text = "6m" } } }
+local SWEEP_CHOICES = { { "none", "None", nil, PIC.plain }, { "greys", "Gray Fills In", nil, { kind = "gray" } },
+	{ "fills", "Color Fills In", nil, PIC.none },
+	{ "radial", "Clock Sweep", nil, { kind = "sweep", frac = 0.6, text = "6m" } } }
 local SWEEP_CHOICES_IMBUE = { SWEEP_CHOICES[1], SWEEP_CHOICES[2], SWEEP_CHOICES[3] }
 local DIRECTION_CHOICES = { { "top", "From The Top" }, { "bottom", "From The Bottom" } }
 local BARCOLOR_CHOICES = { { false, "By Time Left" }, { true, "Spell Color" } }
 local FLYDIR_CHOICES = { { "below", "Below" }, { "auto", "Auto" }, { "above", "Above" } }
 local READY_STYLES = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
 	{ "shine", "Shine" }, { "dot", "Dot" } }
-local ALMOST_STYLES = { { "off", "Off" }, { "pulse", "Pulse" }, { "glow", "Glow" }, { "drain", "Frame drains" },
-	{ "underbar", "Bar under it" } }
+local ALMOST_STYLES = { { "off", "Off" }, { "pulse", "Pulse" }, { "glow", "Glow" }, { "drain", "Shrinking Border" },
+	{ "underbar", "Bar Below Icon" } }
 local RUNNING_STYLES = { { "off", "Off" }, { "red", "Turns red" }, { "pulse", "Pulse" }, { "glow", "Glow" },
-	{ "drain", "Frame drains" }, { "underbar", "Bar under it" } }
+	{ "drain", "Shrinking Border" }, { "underbar", "Bar Below Icon" } }
 local GONE_STYLES = {
 	[SHIELD] = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
-		{ "burst", "Shield burst" }, { "blinkflag", "Frame blink + flag" } },
+		{ "burst", "Shield burst" }, { "blinkflag", "Blinking Border and Corner Mark" } },
 	[IMBUE] = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
-		{ "flare", "Element flare" }, { "flag", "Corner flag" } },
+		{ "flare", "Element Flash" }, { "flag", "Corner Mark" } },
 }
 
 -- a choice list with its pictures (value -> pic), for the lists whose pictures are the item's own
@@ -466,7 +466,7 @@ local function AppearanceRows(t)
 	if t ~= SHIELD then
 		local where = OptGet(D, "cdbar_duration_text") or "none"
 		if where == "none" then
-			r[#r + 1] = OnOffName(t, "Time Left On The Icon", "timeOnIcon", "The time left, in the middle of the icon.",
+			r[#r + 1] = OnOffName(t, "Show Time Left", "timeOnIcon", "The time left, in the middle of the icon.",
 				{ kind = "word", text = "45" })
 		end
 	end
@@ -484,7 +484,7 @@ local function ChargeRows(t)
 		{ kind = "number", text = "3" }) }
 	if Get(t, "chargeCount") ~= false then
 		-- (no picture says a colored count: the count is the row above's)
-		r[#r + 1] = OnOffName(t, "Color The Count", "colorCount", "Green when full, yellow at half, red when low. Off: white.",
+		r[#r + 1] = OnOffName(t, "Color by Charges Left", "colorCount", "Green when full, yellow at half, red when low. Off: white.",
 			PIC.none)
 	end
 	r[#r + 1] = OnOffName(t, "Charge Bar", "chargeBar",
@@ -501,8 +501,8 @@ end
 local function EffectRows(t)
 	local r = {}
 	if SignatureOn() then
-		r[#r + 1] = { text = "Signature Moves is on (this page, Effects):", disabled = true }
-		r[#r + 1] = { text = "each effect plays the look's own move.", disabled = true }
+		r[#r + 1] = { text = "Signature Moves is on under Effects.", disabled = true }
+		r[#r + 1] = { text = "Effects use the selected look's animations.", disabled = true }
 		r[#r + 1] = SEP
 	end
 	if IsShieldOrImbue(t) then
@@ -532,7 +532,7 @@ local function EffectRows(t)
 			"The time on the button turns red while it is running out. On a button that turns red, the time stays white so you can read it.",
 			PIC.none)   -- (no picture says a red time: the time is the sweep's)
 		if shield then
-			r[#r + 1] = OnOffName(t, "Time Only While Running Out", "cueTimeOnly",
+			r[#r + 1] = OnOffName(t, "Show Time Only When Running Out", "cueTimeOnly",
 				"The shield's time stays out of sight while there is plenty left, and shows the moment it is running out (Running Out At)."
 				.. (FOREVER and " In a fight the game draws it, so it is exact to the second." or ""),
 				{ kind = "word", text = "45" })   -- (the time alone: the sweep is its own setting)
@@ -587,12 +587,12 @@ local function FlyoutRows(t)
 		function(v) SliderSet(t, "flyoutIconSize", v) end, nil, false,
 		"How big the icons in the flyout are. 22 is the classic size. The Cooldown Bar's scale still applies on top.")
 	r[#r + 1] = Slider("Opacity", 0.1, 1, 0.05, function() return Get(t, "flyoutOpacity") or 1 end,
-		function(v) SliderSet(t, "flyoutOpacity", v) end, nil, true, "How see-through the flyout is.")
+		function(v) SliderSet(t, "flyoutVisibility", v) end, nil, true, "How see-through the flyout is.")
 	r[#r + 1] = SEP
 	if t == SHIELD then
-		r[#r + 1] = CopyLine("Copy Flyout To Weapon Imbue", function() return CopyGroup(t, IMBUE, "flyout") end)
+		r[#r + 1] = CopyLine("Copy Flyout Settings To Weapon Imbue", function() return CopyGroup(t, IMBUE, "flyout") end)
 	else
-		r[#r + 1] = CopyLine("Copy Flyout To Shield", function() return CopyGroup(t, SHIELD, "flyout") end)
+		r[#r + 1] = CopyLine("Copy Flyout Settings To Shield", function() return CopyGroup(t, SHIELD, "flyout") end)
 	end
 	return r
 end
@@ -607,7 +607,7 @@ local function KeybindRows(t)
 	local r = { { text = "Button Key", value = function() return KeyText(b[1]), false end } }
 	if b[2] then r[#r + 1] = { text = "Flyout Key", value = function() return KeyText(b[2]), false end } end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Set Keys...", tip = "Opens Keybind Mode: press the key you want on the button, or on its flyout.", onClick = function()
+	r[#r + 1] = { text = "Open Keybind Mode...", tip = "Opens Keybind Mode: press the key you want on the button, or on its flyout.", onClick = function()
 		if SP.SetKeybindMode then SP:SetKeybindMode(true) end
 	end }
 	return r
@@ -625,7 +625,7 @@ local function MenuItems(item)
 	r[#r + 1] = SEP
 	-- when it shows
 	if IsShieldOrImbue(t) then
-		r[#r + 1] = Choice("When To Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
+		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
 			{ "runout", "Only When Running Out", nil, { kind = "sweep", frac = 0.15, text = "45" } } }, function()
 			local v, own = Get(t, "runOutOnly")
 			return v and "runout" or "always", own
@@ -634,15 +634,15 @@ local function MenuItems(item)
 			.. " it again. It keeps its place on the bar."
 			.. ((FOREVER and t == SHIELD) and " On WoW: Forever your shield stays on the bar during a fight: the game doesn't tell addons when it runs out there." or ""))
 		r[#r].words = "when the button is on the bar"
-		r[#r + 1] = Slider("Running Out At", 10, 300, 5, function() return Get(t, "runOutSecs") or 60 end,
+		r[#r + 1] = Slider("Running Out (Seconds Left)", 10, 300, 5, function() return Get(t, "runOutSecs") or 60 end,
 			function(v) SliderSet(t, "runOutSecs", v) end, Secs, false,
 			"When it counts as running out, for Show and for the Running Out effect."
 			.. (t == SHIELD and " A shield also counts as running out on its last charge." or ""))
 		r[#r].words = "the seconds that count as running out"
 	else
-		r[#r + 1] = Choice("When To Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.7, text = "2m" } },
-			{ "hide", "Only When Almost Ready, Then Hide Again", nil, { kind = "sweep", frac = 0.1, text = "3" } },
-			{ "keep", "Only When Almost Ready, Until Used", nil, PIC.plain } }, function()
+		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.7, text = "2m" } },
+			{ "hide", "When Almost Ready, Then Hide Once Ready", nil, { kind = "sweep", frac = 0.1, text = "3" } },
+			{ "keep", "When Almost Ready, Keep Until Used", nil, PIC.plain } }, function()
 			local on, own1 = Get(t, "runOutOnly")
 			if not on then return "always", own1 end
 			local ready, own2 = Get(t, "runOutReady")
@@ -659,13 +659,13 @@ local function MenuItems(item)
 		end, "Out of sight until its last seconds (Almost Ready At). Then Hide Again: gone again once it is ready."
 			.. " Until Used: up until you use it.")
 		r[#r].words = "when the button is on the bar"
-		r[#r + 1] = Slider("Almost Ready At", 0, 30, 1, function()
+		r[#r + 1] = Slider("Almost Ready (Seconds Left)", 0, 30, 1, function()
 			local s = Get(t, "almostSecs")
 			if s == nil then s = 5 end
 			return s
 		end, function(v) SliderSet(t, "almostSecs", v) end, Secs, false,
-			"When it counts as almost ready, for Show and for the Cooldown Almost Ready effect. At 0 seconds a cooldown has"
-			.. " no last seconds, so Cooldown Almost Ready never plays.")
+			"When it counts as almost ready, for Show and for the Cooldown Almost Ready effect. At 0 seconds the Cooldown"
+			.. " Almost Ready effect never plays.")
 		r[#r].words = "the seconds that count as almost ready"
 	end
 	r[#r + 1] = SEP
@@ -687,7 +687,7 @@ local function MenuItems(item)
 	r[#r + 1] = SEP
 	-- where it sits (Totemic Recall: which bar; the rest sit on the cooldown bar)
 	if t == RECALL then
-		r[#r + 1] = Choice("Which Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
+		r[#r + 1] = Choice("Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
 			local v, own = Get(t, "onTotemBar")
 			return v and true or false, own
 		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
@@ -725,7 +725,7 @@ local function MenuItems(item)
 		return o
 	end }
 	r[#r + 1] = { text = "Reset This Icon", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
-		tip = "Back to the bar's settings: everything this item set for itself goes.",
+		tip = "Clear this icon's changes and use the bar's settings again.",
 		onClick = function()
 			if SP.ResetCdItem then SP:ResetCdItem(t) end
 			Row:Changed(false)

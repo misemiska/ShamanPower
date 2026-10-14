@@ -77,19 +77,19 @@ local WOW_FALLBACK = {
 
 -- What the Themes tab's dropdowns and cards offer (labels as the player reads them).
 SP.THEME_LISTS = {
-	theme   = { { key = nil, label = "Use General Theme" }, { key = "standard", label = "Standard" },
+	theme   = { { key = nil, label = "Use Selected Theme" }, { key = "standard", label = "Standard" },
 	            { key = "shamanpower", label = "ShamanPower" }, { key = "minimal", label = "ShamanPower Minimal" } },
 	themes  = { { key = "standard", label = "Standard" }, { key = "shamanpower", label = "ShamanPower" },
 	            { key = "minimal", label = "ShamanPower Minimal" } },
-	palette = { { key = nil, label = "Use Theme's" }, { key = "classic", label = "Classic" }, { key = "blizzard", label = "Blizzard" },
+	palette = { { key = nil, label = "Use Theme Setting" }, { key = "classic", label = "Classic" }, { key = "blizzard", label = "Blizzard" },
 	            { key = "shamanpower", label = "ShamanPower" }, { key = "custom", label = "Custom" } },
-	shield  = { { key = nil, label = "Use Theme's" }, { key = "today", label = "Today" },
-	            { key = "palette", label = "Follow Palette" }, { key = "magic", label = "WoW Magic Blue" } },
-	showAs  = { { key = nil, label = "Use Theme's" }, { key = "both", label = "Letters + faint icon" }, { key = "letters", label = "Letters" },
+	shield  = { { key = nil, label = "Use Theme Setting" }, { key = "today", label = "Original Colors" },
+	            { key = "palette", label = "Use Element Colors" }, { key = "magic", label = "WoW Magic Blue" } },
+	showAs  = { { key = nil, label = "Use Theme Setting" }, { key = "both", label = "Letters + faint icon" }, { key = "letters", label = "Letters" },
 	            { key = "tint", label = "One-color icon" }, { key = "mini", label = "Small icon" } },
 	effects = { { key = nil, label = "Use Theme's" }, { key = "standard", label = "Standard" },
 	            { key = "elemental", label = "Elemental" }, { key = "signal", label = "Signal" } },
-	classColors = { { key = nil, label = "Use Theme's" }, { key = "wow", label = "WoW's" }, { key = "subtle", label = "Subtle" },
+	classColors = { { key = nil, label = "Use Theme's" }, { key = "wow", label = "WoW Colors" }, { key = "subtle", label = "Subtle" },
 	            { key = "stronger", label = "Stronger" }, { key = "vibrant", label = "Vibrant" }, { key = "muted", label = "Muted" } },
 }
 
@@ -259,15 +259,15 @@ SP.THEME_MODULES = {
 	{ key = "totembar", label = "Totem Bar", spots = {
 		{ id = "tb.boxes", label = "Totem Icons", box = true, palette = true, roles = E4(),
 		  note = "The totem buttons. ShamanPower Minimal draws them as flat element boxes." },
-		{ id = "tb.flyout-boxes", label = "Totem Flyout Entries", box = true, palette = true, roles = E4(),
+		{ id = "tb.flyout-boxes", label = "Totems in Flyouts", box = true, palette = true, roles = E4(),
 		  note = "The totems in each flyout. ShamanPower Minimal draws them as flat element boxes." },
 		{ id = "tb.flyout-empty", label = "Flyout Empty Choice", roles = {},
 		  note = "The Empty choice in a flyout. ShamanPower Minimal shows a dark box with a dash." },
 		{ id = "tb.flyout-art", label = "Flyout Arrow Tabs and Panel", palette = true, roles = E4(),
 		  note = "The flyout arrow tabs and panel. The ShamanPower themes draw flat tabs in the element colors." },
-		{ id = "tb.overlay-boxes", label = "Dropped-Totem Overlay", box = true, palette = true, roles = E4(),
+		{ id = "tb.overlay-boxes", label = "Dropped Totem Indicator", box = true, palette = true, roles = E4(),
 		  note = "The icon of the totem you have down. ShamanPower Minimal draws it as a flat box." },
-		{ id = "tb.overlay-border", label = "Dropped-Totem Overlay Border", palette = true, roles = E4(),
+		{ id = "tb.overlay-border", label = "Dropped Totem Indicator Border", palette = true, roles = E4(),
 		  note = "The element-colored border around a dropped totem." },
 		{ id = "tb.dropall", label = "Drop All Button", box = true, roles = E4(),
 		  note = "The Drop All button. ShamanPower Minimal draws it as a box in the color of the totem it shows." },
@@ -294,7 +294,7 @@ SP.THEME_MODULES = {
 		  note = "The party dots in class colors. Class Colors picks the set: Use Theme's follows the Class Colors cards at the top." },
 		{ id = "tb.range", label = "Range Counter Numbers", palette = true, roles = E4({ "33E633", "E63333", "3399FF", "FFFFFF" }),
 		  note = "The numbers that count who is in range of each totem." },
-		{ id = "tb.frame", label = "Frame Background and Border", roles = Panel("000000", "4D4D4D"),
+		{ id = "tb.frame", label = "Background and Border", roles = Panel("000000", "4D4D4D"),
 		  note = "The totem bar's background and border. The ShamanPower themes use navy." },
 		{ id = "tb.effects", label = "Effects Look", effects = true, hidden = true, lookOpt = "totemCueLook", signatureSpot = "tb.signature", roles = {},
 		  note = "How Totem Destroyed, Totem Expired and Totem Expiring Soon look: Standard, Elemental or Signal." },
@@ -339,7 +339,7 @@ SP.THEME_MODULES = {
 			Role("mid", "Low", "wow", "YELLOW_FONT_COLOR", "FFFF00"),
 			Role("low", "Critical", "wow", "RED_FONT_COLOR", "FF0000") },
 		  note = "The charge count on the shield button. The ShamanPower themes use WoW's green, yellow and red." },
-		{ id = "cd.strip", label = "Shield Charge Strip", shield = true, roles = { Role("strip", "Strip", "shield", "lightning", "3399FF") },
+		{ id = "cd.strip", label = "Shield Charge Bar", shield = true, roles = { Role("strip", "Strip", "shield", "lightning", "3399FF") },
 		  note = "The strip of charges under the shield button." },
 		{ id = "cd.shieldbar", label = "Shield Bar", shield = true, roles = {
 			Role("lightning", "Lightning Shield", "shield", "lightning"),
@@ -352,7 +352,7 @@ SP.THEME_MODULES = {
 			Role("low", "Low", "wow", "YELLOW_FONT_COLOR", "E6B333"),
 			Role("bad", "Critical", "wow", "RED_FONT_COLOR", "E63333") },
 		  note = "The timer bars as they run low. The ShamanPower themes use WoW's green, yellow and red." },
-		{ id = "cd.frame", label = "Frame Background and Border", roles = Panel("000000", "4D4D4D"),
+		{ id = "cd.frame", label = "Background and Border", roles = Panel("000000", "4D4D4D"),
 		  note = "The cooldown bar's background and border. The ShamanPower themes use navy." },
 		{ id = "cd.sweep", label = "Cooldown Sweep", roles = {},
 		  note = "The cooldown sweep and gray overlay. ShamanPower Minimal draws a dark band on the box." },
@@ -389,7 +389,7 @@ SP.THEME_MODULES = {
 		  note = "The icon beside the alert text. ShamanPower Minimal draws it as a flat box." },
 	} },
 	{ key = "partybuff", label = "Party Buff Tracker", spots = {
-		{ id = "mod.partybuff-frame", label = "Counter Frames", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
+		{ id = "mod.partybuff-frame", label = "Counter Backgrounds and Borders", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The party buff counters' background and border. The ShamanPower themes use navy." },
 		{ id = "mod.coverage-colors", label = "Coverage Panel", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The coverage panel's background and border." },
@@ -419,7 +419,7 @@ SP.THEME_MODULES = {
 		  note = "The range tracker's background and border. The ShamanPower themes use navy." },
 		{ id = "mod.range-boxes", label = "Totem Icons", box = true, palette = true, roles = E4(),
 		  note = "The tracked totems. ShamanPower Minimal draws them as flat boxes." },
-		{ id = "win.rangecfg", label = "Config Window Element Tints", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
+		{ id = "win.rangecfg", label = "Totem Picker Colors", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
 		  note = "The element tints in the range tracker's totem picker." },
 	} },
 	{ key = "raidcd", label = "Raid Cooldowns", spots = {
@@ -468,7 +468,7 @@ SP.THEME_MODULES = {
 		  note = "The Tremor Totem icon. ShamanPower Minimal draws it as a flat Earth box." },
 	} },
 	{ key = "readycheck", label = "Ready Check", spots = {
-		{ id = "mod.readycheck", label = "Ready Check Sweep Panel", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
+		{ id = "mod.readycheck", label = "Ready Check List", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The ready check panel's background and border." },
 	} },
 	{ key = "plates", label = "Totem Plates", spots = {
@@ -486,7 +486,7 @@ SP.THEME_MODULES = {
 		  note = "The totem pins on the minimap. ShamanPower Minimal draws them as flat boxes (too small for letters: the one-color icon)." },
 	} },
 	{ key = "assign", label = "Totem Assignments", spots = {
-		{ id = "win.assign", label = "Window Element Tints", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
+		{ id = "win.assign", label = "Totem Assignments Colors", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
 		  note = "The element tints in the Totem Assignments window." },
 	} },
 }

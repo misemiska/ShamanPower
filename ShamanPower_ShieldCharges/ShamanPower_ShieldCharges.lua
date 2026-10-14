@@ -1766,16 +1766,16 @@ function SP:ShieldGoneAsk()
 	if not avail then
 		self:ShowSPDialog({
 			key = "cdmShield",
-			title = "The Cooldown Manager is off here",
-			text = "To see your shield go in a fight on WoW: Forever, ShamanPower listens to the game's own Cooldown Manager, and the game has it turned off for this character or realm. That part cannot work here; everything else does.",
+			title = "Cooldown Manager Is Unavailable",
+			text = "WoW's Cooldown Manager is unavailable for this character or realm, so ShamanPower cannot use it to see your shield end in a fight. Every other shield feature still works.",
 			buttons = { { text = "Got It" } },
 		})
 		return
 	end
 	self:ShowSPDialog({
 		key = "cdmShield",
-		title = "One reload for your shield in fights",
-		text = "To see your shield go in a fight on WoW: Forever, ShamanPower listens to the game's own Cooldown Manager. It can set that up for you now: turn the Cooldown Manager on if it is off, switch it to a layout of ShamanPower's own that tracks only your shield and shows nothing else on screen (ShamanPower draws the shield), and reload the UI once. Your other Cooldown Manager layouts stay as they are.",
+		title = "Set Up Shield Tracking for Combat",
+		text = "ShamanPower can set up WoW's Cooldown Manager to see your shield end in a fight. It turns the Cooldown Manager on if it is off, switches it to a ShamanPower layout that tracks only your shield, hides WoW's own shield display, and reloads once. Your other Cooldown Manager layouts stay saved.",
 		buttons = {
 			{ text = "Set It Up And Reload", onClick = function()
 				local ok, why = SP:ShieldGoneSetup()

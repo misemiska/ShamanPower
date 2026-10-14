@@ -344,7 +344,7 @@ local STEPS = {
 	  desc = "Blizzard's totem bar has three sets: Call of the Elements at 20, Ancestors at 30 and Spirits at 40. ShamanPower keeps them in step with what you set here.",
 	  bullets = {
 	    "Call of the Elements always holds your assignments: change one here and the set changes; pick a totem on Blizzard's bar and the assignment follows.",
-	    "Ancestors and Spirits each take a saved loadout (Loadouts tab, Set Page). That loadout's bar button then casts the whole set in one press.",
+	    "Ancestors and Spirits each take a saved loadout (Loadouts > Loadouts: right-click a loadout, then Blizzard Totem Set). That loadout's bar button then casts the whole set in one press.",
 	    "Drop All can cast the set instead of dropping four totems one after another.",
 	  } },
 	{ id = "durationbars", title = "Duration Bars", roles = ALL, build = "BuildDurationBarsStep",
@@ -362,7 +362,7 @@ local STEPS = {
 	  toggles = {
 	    { label = "Progress bars",      bind = "cdprogress" },
 	    { label = "Cooldown sweep",     bind = "cdsweep" },
-	    { label = "Time remaining text", bind = "cdtext" },
+	    { label = "Show Time Left", bind = "cdtext" },
 	  } },
 	{ id = "effects", title = "Effects", roles = ALL, build = "BuildEffectsStep",
 	  desc = "Short animations on your bars when something happens, so you notice it mid-fight. Every one is off until you turn it on.",
@@ -463,9 +463,9 @@ local STEPS = {
 	{ id = "partybuff", title = "Party Buff Tracker", roles = ALL, module = "ShamanPower_PartyRange", flag = "PartyRangeLoaded", build = "BuildPartyBuffStep",
 	  desc = "Shows, right on your totem bar, which party members your totems are actually reaching.",
 	  bullets = {
-	    "A corner dot for each party member: class color when they have your totem buff, red when they are out of range.",
+	    "A corner dot for each party member: class color when they have your totem's buff, red when they don't.",
 	    "Or a number: how many of them the totem reaches. Or both.",
-	    "This is about YOUR totems. Totem Range (later) is about other shamans' totems reaching you.",
+	    "Party Buff Tracker is about YOUR totems. Totem Range Tracker (later) is about other shamans' totems reaching you.",
 	  } },
 	{ id = "coverage", title = "Totem Coverage", roles = ALL, module = "ShamanPower_PartyRange", flag = "PartyRangeLoaded", build = "BuildCoverageStep",
 	  when = function() return SP.CoverageAvailable and SP:CoverageAvailable() or false end,
@@ -1591,7 +1591,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				set = function(v) SetTotemBarLayout(v); notify() end, values = LAYOUT_VALUES, order = LAYOUT_ORDER })
 		end
 		if style ~= "blizzard" and style ~= "grid" then
-			row("Toggle", { label = "Show frame behind the bar", get = function() return not OPT().hideTotemBarFrame end,
+			row("Toggle", { label = "Show Bar Background and Border", get = function() return not OPT().hideTotemBarFrame end,
 				set = function(v) OPT().hideTotemBarFrame = not v; safecall("UpdateTotemBarFrame"); notify() end })
 		end
 		y = y + 6
@@ -1964,7 +1964,7 @@ function SP.Wizard.BuildDurationBarsStep(card, inner, y)
 		local callout = CreateFrame("Frame", nil, card); callout:SetPoint("TOPLEFT", card, "TOPLEFT", 18, -y); callout:SetPoint("TOPRIGHT", card, "TOPRIGHT", -18, -y)
 		Core:SolidTex(callout, "warn", "BACKGROUND", 0.10); Core:MakeBorder(callout, "warn")
 		local body = callout:CreateFontString(nil, "OVERLAY"); body:SetFontObject(Core.fonts.row); body:SetPoint("TOPLEFT", callout, "TOPLEFT", 12, -10); body:SetWidth(calW); body:SetJustifyH("LEFT"); body:SetWordWrap(true)
-		body:SetText("You picked the Compact style, which draws duration and pulse inside its lines. The options below only apply to the icon styles (Normal, TotemTimers, Dynamic, Single Totem).")
+		body:SetText("You picked the Compact style, which draws duration and pulse inside its lines. The options below only apply to the icon styles (Normal, TotemTimers Style, Dynamic, Single Totem).")
 		callout:SetHeight(20 + body:GetStringHeight())
 		y = y + callout:GetHeight() + 14
 	end
@@ -2512,7 +2512,7 @@ function SP.Wizard.BuildPartyBuffStep(card, inner, y)
 	local legend = inner:CreateFontString(nil, "OVERLAY"); legend:SetFontObject(Core.fonts.rowDim)
 	legend:SetPoint("BOTTOMLEFT", inner, "BOTTOMLEFT", 12, 14); legend:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", -12, 14)
 	legend:SetJustifyH("CENTER"); legend:SetWordWrap(true)
-	legend:SetText("Every totem has its own bubble, so someone can be inside Strength of Earth's range and outside Windfury's at the same time. A dot per member: class color = getting that totem, red = out of its range. The number = how many it reaches."
+	legend:SetText("Every totem has its own bubble, so someone can be inside Strength of Earth's range and outside Windfury's at the same time. A dot per member: class color = has that totem's buff, red = doesn't. The number = how many it reaches."
 		.. (not SPCompat.FOREVER and " Windfury (Air) only knows about melee running the companion aura - next step." or ""))
 	-- who is inside which totem's bubble right now (each totem has its own range)
 	local ENAME = { "Earth", "Fire", "Water", "Air" }
@@ -2986,8 +2986,8 @@ function SP.Wizard.BuildReadyRemindersStep(card, inner, y)
 	local legend = inner:CreateFontString(nil, "OVERLAY"); legend:SetFontObject(Core.fonts.rowDim)
 	legend:SetPoint("BOTTOMLEFT", inner, "BOTTOMLEFT", 12, 14); legend:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", -12, 14)
 	legend:SetJustifyH("CENTER"); legend:SetWordWrap(true)
-	legend:SetText("Each icon is running a pretend cooldown. In play they sit wherever you drag them:"
-		.. " turn on Unlock Position in Settings > Alerts & Reminders > Ready Reminders.")
+	legend:SetText("Each icon is running a pretend cooldown. In play they sit wherever you put them:"
+		.. " Move the Icons on Settings > Alerts & Reminders > Ready Reminders > Icons.")
 	inner:SetScript("OnUpdate", function() story:SetText(SP.readyDemoStatus or "") end)
 
 	local W = card:GetWidth() - 36
@@ -3337,7 +3337,7 @@ function SP.Wizard.BuildExpiringStep(card, inner, y)
 	local function toOff() return off() or not sget("totems", "enabled", true) end
 	row("Toggle", { label = "Totems", disabled = off, get = function() return sget("totems", "enabled", true) end, set = function(v) sub("totems").enabled = v; upd() end })
 	row("Toggle", { label = "    Destroyed by a mob", disabled = toOff, get = function() return sget("totems", "destroyed", true) end, set = function(v) sub("totems").destroyed = v; upd() end })
-	row("Toggle", { label = "    Timed out", desc = "Off by default - can be spammy.", disabled = toOff, get = function() return sget("totems", "expired", false) end, set = function(v) sub("totems").expired = v; upd() end })
+	row("Toggle", { label = "    Expired", desc = "Off by default: it can show a lot of alerts.", disabled = toOff, get = function() return sget("totems", "expired", false) end, set = function(v) sub("totems").expired = v; upd() end })
 	row("Toggle", { label = "    Sound", disabled = toOff, get = function() return sget("totems", "sound", false) end, set = function(v) sub("totems").sound = v; upd() end })
 	local function imOff() return off() or not sget("weaponImbues", "enabled", true) end
 	row("Toggle", { label = "Weapon imbues", disabled = off, get = function() return sget("weaponImbues", "enabled", true) end, set = function(v) sub("weaponImbues").enabled = v; upd() end })
@@ -3980,7 +3980,7 @@ function SP.Wizard.BuildCooldownBarStep(card, inner, y)
 		values = LAYOUT_VALUES, order = LAYOUT_ORDER })
 	wrow("Slider", { label = "Size", min = 0.4, max = 3.0, step = 0.05, get = function() return OPT().cooldownBarScale or 0.9 end,
 		set = function(v) OPT().cooldownBarScale = v; safecall("UpdateCooldownBarScale"); notify() end })
-	wrow("Toggle", { label = "Show frame behind the bar", get = function() return not OPT().hideCooldownBarFrame end,
+	wrow("Toggle", { label = "Show Bar Background and Border", get = function() return not OPT().hideCooldownBarFrame end,
 		set = function(v) OPT().hideCooldownBarFrame = not v; safecall("UpdateCooldownBarFrame"); notify() end })
 	y = y + 12
 	-- ---- spell chips in the card: which spells appear on the bar ----
@@ -4625,7 +4625,7 @@ function SP.Wizard:RenderRole()
 		{ key = "enhancement", name = "Enhancement", role = "Melee", items = {
 			{ 17364, "Stormstrike" }, { 425336, "Rage of the Farseer" },
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" },
-			{ 8512, "Totem twisting" } } },
+			(not (SPCompat and SPCompat.FOREVER)) and { 8512, "Totem twisting" } or nil } },
 		{ key = "elemental",   name = "Elemental",   role = "Caster", items = {
 			{ 408490, "Lava Burst" },
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" } } },

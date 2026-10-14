@@ -402,7 +402,7 @@ do
 		and SP.options.args.settings.args.settings_show and SP.options.args.settings.args.settings_show.args
 	if main then
 		main.share_setup = {
-			order = 91, type = "execute", name = "Share My Setup (for the developer)", width = "full",
+			order = 91, type = "execute", name = "Share Feature Use With Developer", width = "full",
 			desc = "Share which ShamanPower features you use. No name, realm or guild is included. Paste the code in #setup-stats on the ShamanPower Discord to help me see which features people use most. Also: /sp share",
 			func = function() SP:ShowShareCode() end,
 		}

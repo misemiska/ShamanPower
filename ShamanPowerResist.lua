@@ -1157,12 +1157,12 @@ if SP.options and SP.options.args and SP.options.args.buttons and SP.options.arg
 			desc = {
 				order = 0, type = "description", width = "full",
 				name = "On WoW: Forever the Fire, Frost and Nature Resistance totems reach every raid member within 30 yards, so one shaman per resistance covers the raid."
-					.. " Any shaman running ShamanPower, or the raid leader or an assistant, can ask for one with the Raid Resistance ticks in the assignments window (/sp totems)."
-					.. " ShamanPower picks the shaman whose party loses least, and only that shaman's own ShamanPower changes their totems.",
+					.. " Any shaman running ShamanPower, or the raid leader or an assistant, can ask for one with the Raid Resistance checkboxes in the assignments window (/sp totems)."
+					.. " ShamanPower picks the shaman whose party loses the fewest buffs, and only that shaman's own ShamanPower changes their totems.",
 			},
 			enabled = {
 				order = 1, type = "toggle", width = "full", name = "Raid Resistance Requests",
-				desc = "Show the Raid Resistance ticks and answer requests from the raid. Off: you do not see the ticks, and a request that picks you passes straight to the next shaman.",
+				desc = "Show the Raid Resistance checkboxes and answer requests from the raid. Off: you do not see the checkboxes, and a request that picks you passes straight to the next shaman.",
 				get = function() return SP.opt.resistRequests ~= false end,
 				set = function(_, v)
 					if v then

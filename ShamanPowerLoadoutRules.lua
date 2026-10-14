@@ -539,8 +539,8 @@ end
 local STATIC = {
 	desc = {
 		order = 0, type = "description", width = "full",
-		name = "Switch totem loadouts for you: by the kind of content you are in, by zone, by the mob you target, or by a boss encounter starting."
-			.. " Nothing switches in combat; a switch that comes up in a fight happens as soon as it ends, if it still applies."
+		name = "Switch loadouts when you enter a kind of place or a zone, target an enemy, or start a boss fight."
+			.. " Nothing switches in combat: a switch that comes up in a fight waits until it ends, and happens only if its rule still applies."
 			.. " Loadouts are made on the Loadouts tab.",
 	},
 	enabled = {
@@ -550,7 +550,7 @@ local STATIC = {
 		set = function(_, v) local d = DB(); d.enabled = v and true or nil; SP:UpdateLoadoutRuleEvents(); if v then CheckContent(true) end end,
 	},
 	announce = {
-		order = 2, type = "toggle", width = "full", name = "Say in Chat When It Switches",
+		order = 2, type = "toggle", width = "full", name = "Show Loadout Changes in My Chat",
 		desc = "A line in your own chat window, e.g. \"switched to loadout Fire Resist (Firemaw)\". Only you see it.",
 		disabled = Disabled,
 		get = function() local d = DB(); return not d or d.announce ~= false end,
@@ -559,13 +559,13 @@ local STATIC = {
 			if v then d.announce = nil else d.announce = false end
 		end,
 	},
-	content_header = { order = 10, type = "header", name = "By Content" },
+	content_header = { order = 10, type = "header", name = "By Location" },
 	content_raid = ContentSelect(11, "raid", "Raid", "The loadout to switch to when you enter a raid."),
 	content_party = ContentSelect(12, "party", "Dungeon", "The loadout to switch to when you enter a dungeon."),
 	content_pvp = ContentSelect(13, "pvp", "Battleground / Arena", "The loadout to switch to when you enter a battleground or arena."),
 	content_none = ContentSelect(14, "none", "Open World", "The loadout to switch to when you leave an instance (unless the option below takes you back to the one you had). None: back to the loadout you had before, when entering switched you."),
 	restore = {
-		order = 15, type = "toggle", width = "full", name = "On Leaving an Instance, Go Back to the Loadout I Had Before",
+		order = 15, type = "toggle", width = "full", name = "Restore Previous Loadout When Leaving",
 		desc = "Instead of the Open World choice, return to whatever loadout was active when you went in.",
 		disabled = Disabled,
 		get = function() local d = DB(); return d and d.restorePrevious == true or false end,
@@ -638,7 +638,7 @@ RebuildRuleArgs = function()
 		}
 		ruleArgs["rule_zone_" .. i] = {
 			order = base + 2, type = "input", name = "Zone (optional)", width = 1.5,
-			desc = "Zone or subzone name, exactly as the game shows it (not case sensitive). Empty = anywhere.",
+			desc = "Enter the zone or subzone name shown in the game. Capitalization doesn't matter. Leave blank to use anywhere.",
 			disabled = Disabled,
 			get = function() local r = rule(); return r and r.zone or "" end,
 			set = function(_, v) local r = rule(); if r then r.zone = (strtrim(v or "") ~= "") and strtrim(v) or nil end end,
@@ -646,7 +646,7 @@ RebuildRuleArgs = function()
 		ruleArgs["rule_target_" .. i] = {
 			-- Forever hides a mob's name AND its GUID inside dungeons and raids (measured in
 			-- Ragefire Chasm), so a target rule can only match in the open world there
-			order = base + 3, type = "input", name = FOREVER and "Target (mob name, open world only)" or "Target (mob name)", width = 1.5,
+			order = base + 3, type = "input", name = FOREVER and "Target Name (Open World Only)" or "Target Name", width = 1.5,
 			desc = FOREVER and "Switch when you target a mob with exactly this name (not case sensitive). Open world only: inside dungeons and raids the game hides mob names, so use a Zone or Boss Encounter rule there."
 				or "Switch when you target a mob with exactly this name (not case sensitive).",
 			disabled = Disabled,
@@ -675,7 +675,7 @@ RebuildRuleArgs = function()
 			desc = "Ask the raid for this resistance totem when the rule fires (zone or encounter rules; target rules do not request it)."
 				.. " An encounter rule asks with the pull, so it covers the next attempt; a zone rule has it down before the first pull."
 				.. " One shaman is picked and asked; it ends when the boss dies (a wipe keeps it) or when you leave the zone."
-				.. " A /reload inside a zone rule's zone asks again, even if the raid unticked it.",
+				.. " A /reload inside a zone rule's zone asks again, even if someone in the raid unchecked it.",
 			hidden = function() return not (FOREVER and SP.RESIST_REQUESTS) end,
 			disabled = Disabled,
 			values = { none = "None", fire = RESIST_NAMES.fire, frost = RESIST_NAMES.frost, nature = RESIST_NAMES.nature },

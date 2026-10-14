@@ -23,7 +23,7 @@ SP.TEXTURE_AREAS = {
 	{ key = "duration", label = "Totem Duration Bars", desc = "The bars that run down under your totems, on pop-outs, Grid and Blizzard's bar." },
 	{ key = "cooldown", label = "Cooldown Bar",        desc = "The progress bars on the cooldown bar and the weapon imbue bars." },
 	{ key = "pulse",    label = "Pulse Sweeps",        desc = "The sweep that shows a totem's next pulse (Tremor, Poison Cleansing ...) and Totem Plates' pulse bar." },
-	{ key = "other",    label = "Other Bars",          desc = "Ready Reminders' cooldown bar." },
+	{ key = "other",    label = "Ready Reminders Bars",          desc = "Ready Reminders' cooldown bar." },
 	{ key = "shieldcharges", label = "Shield Charge Bars", desc = "Shield Charges' charge bar and the cooldown bar's Shield Charge Bar. Their own texture: they never follow Bar Texture." },
 }
 
@@ -814,7 +814,7 @@ end
 SP.FRAME_EDGES = {
 	{ key = "default", label = "Plain (default)" },
 	{ key = "shadow",  label = "Drop Shadow" },
-	{ key = "bevel",   label = "Bevel" },
+	{ key = "bevel",   label = "Raised Edge" },
 	{ key = "thick",   label = "Thick" },
 }
 local edged = setmetatable({}, { __mode = "k" })

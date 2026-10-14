@@ -870,7 +870,7 @@ do
 			disabled = off,
 			get = function() return SP.opt.usualTotemStyle == "pulse" and "pulse" or "glow" end,
 			set = function(_, v) SP.opt.usualTotemStyle = (v == "pulse") and "pulse" or nil; apply() end }
-		args.usualTotemLabel = { order = 3.04, type = "toggle", width = "full", name = "Write BACK on the Button",
+		args.usualTotemLabel = { order = 3.04, type = "toggle", width = "full", name = "Show BACK on the Button",
 			desc = "BACK along the bottom of the button. A Compact line says Put Windfury back, with your own totem's"
 				.. " name. With Dynamic Mode the button shows the totem you dropped, so your usual totem sits in its"
 				.. " corner instead.",

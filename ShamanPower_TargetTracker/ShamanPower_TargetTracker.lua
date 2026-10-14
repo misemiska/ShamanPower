@@ -579,7 +579,7 @@ local function WhoList(place)
 		end
 	end
 	list[#list + 1] = { key = "anyone", text = "Anyone" }
-	list[#list + 1] = { key = "name", text = "A Target You Name..." }
+	list[#list + 1] = { key = "name", text = "Named Enemy..." }
 	p.who[key] = list
 	return list
 end

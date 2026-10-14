@@ -171,23 +171,23 @@ end
 -- Labels
 -- ---------------------------------------------------------------------------
 -- (the saved values stay the same: "always" is in and out of combat; the places below can still turn it off)
-local SHOW_CHOICES = { { "always", "In And Out Of Combat", pic = PIC.plain },
+local SHOW_CHOICES = { { "always", "Always", pic = PIC.plain },
 	{ "combat", "Only In Combat", pic = PIC.none }, { "nocombat", "Only Out Of Combat", pic = PIC.none } }
 local WHERE_CHOICES = {
 	{ "world", "Open World" }, { "dungeon", "Dungeons" }, { "raid", "Raids" }, { "bg", "Battlegrounds" }, { "arena", "Arenas" },
 }
 local WHERE_TIPS = { world = "Questing, duels and world PvP." }
-local SWEEP_CHOICES = { { "radial", "Radial (Clock)", pic = PIC.sweep },
-	{ "greys", "Vertical - Grays Out", pic = PIC.gray }, { "fills", "Vertical - Fills Back In", pic = PIC.none },
+local SWEEP_CHOICES = { { "radial", "Clock Sweep", pic = PIC.sweep },
+	{ "greys", "Gray Fills In", pic = PIC.gray }, { "fills", "Color Fills In", pic = PIC.none },
 	{ "none", "None", pic = PIC.plain } }
 local DIRECTION_CHOICES = { { "top", "From The Top", pic = PIC.none }, { "bottom", "From The Bottom", pic = PIC.none } }
-local SHOWON_CHOICES = { { "screen", "A Spot You Place", pic = PIC.none },
+local SHOWON_CHOICES = { { "screen", "Anywhere on Screen", pic = PIC.none },
 	{ "plate", "Your Target's Nameplate", pic = PIC.none }, { "frame", "Under The Target Frame", pic = PIC.none } }
 -- (pictures: a slashed, outlined or pulsing edge can't be drawn yet)
-local MISS_CHOICES = { { "edge", "Red Edge", pic = PIC.redEdge }, { "dotted", "Dotted Red Edge", pic = PIC.redDots },
-	{ "faded", "Just Faded", pic = PIC.faded }, { "glow", "Red Glow", pic = PIC.redGlow },
+local MISS_CHOICES = { { "edge", "Red Border", pic = PIC.redEdge }, { "dotted", "Dotted Red Border", pic = PIC.redDots },
+	{ "faded", "Faded", pic = PIC.faded }, { "glow", "Red Glow", pic = PIC.redGlow },
 	{ "tint", "Red Tint", pic = PIC.redTint }, { "slash", "Red Slash", pic = PIC.none },
-	{ "outline", "Empty Outline", pic = PIC.none }, { "pulse", "Pulsing Edge", pic = PIC.none } }
+	{ "outline", "Empty Outline", pic = PIC.none }, { "pulse", "Pulsing Border", pic = PIC.none } }
 -- Next Shock's cast-it look (Flame Shock's menu): WoW's gold dotted edge, or one of the Missing looks
 local CAST_CHOICES = { { "gold", "Gold Dotted Edge", pic = PIC.goldEdge } }
 for _, c in ipairs(MISS_CHOICES) do CAST_CHOICES[#CAST_CHOICES + 1] = c end
@@ -451,7 +451,7 @@ local function PlaceRows(key)
 	local t = {}
 	for _, w in ipairs(WHERE_CHOICES) do t[#t + 1] = WhereRow(key, w[2], w[1]) end
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = { text = "Copy When And Where To All Spells", onClick = function()
+	t[#t + 1] = { text = "Copy Show Settings To All Spells", onClick = function()
 		TT("TT_CopyGroupToAll", key, "when")
 		Row:Changed(true)
 		return true
@@ -464,9 +464,9 @@ local function AppearanceRows(key)
 	if key == "purge" then
 		t = {
 			SliderRow(key, "Size", "size", 32, 128, 1, nil, PIC.size),
-			OnOffRow(key, "Show The Buff's Picture", "buffPicture", PIC.buffPicture),
+			OnOffRow(key, "Show Buff Icon", "buffPicture", PIC.buffPicture),
 		}
-		t[2].tip = "Shows the picture of the buff you'd remove. Off: the Purge icon."
+		t[2].tip = "Show the buff you can Purge. Turn off to use the Purge icon."
 		local edge = ChoiceRow(key, "Border", "border", EDGE_CHOICES, PIC.SpellEdge(key))
 		edge.tip = "The border around Purge's icon. Spell Color: WoW's Magic blue."
 		t[#t + 1] = edge
@@ -498,10 +498,10 @@ end
 -- When It's Missing: the warning while your debuff is not on your target, and its look
 local function MissingRows(key)
 	local name = (SpellOf(key) or {}).name or "it"
-	local missing = OnOffRow(key, "Warn When It's Missing", "missing", PIC.gray)
+	local missing = OnOffRow(key, "Warn When Debuff Is Missing", "missing", PIC.gray)
 	missing.tip = "While you're targeting an enemy without your " .. name .. " on it, a gray " .. name
 		.. " with a red edge shows where yours would be, so you know to cast it again."
-	local miss = ChoiceRow(key, "Look When Missing", "missLook", MISS_CHOICES, PIC.gray)
+	local miss = ChoiceRow(key, "Warning Style", "missLook", MISS_CHOICES, PIC.gray)
 	miss.tip = "How the gray warning looks while your " .. name .. " isn't on your target."
 	if not Get(key, "missing") then
 		miss.disabled = true
@@ -524,12 +524,12 @@ local function NextShockRows()
 		.. " Enemy's Nameplate, every enemy's. Without your Flame Shock, Warn When It's Missing shows Flame Shock."
 	t[#t + 1] = on
 	if Get("ns", "on") then
-		local shock = ChoiceRow("ns", "When Flame Shock Is On, Show", "whenOn",
+		local shock = ChoiceRow("ns", "While Flame Shock Is Active", "whenOn",
 			{ { "earth", SpellName(8042, "Earth Shock"), pic = PIC.Shock("earth") },
 				{ "frost", SpellName(8056, "Frost Shock"), pic = PIC.Shock("frost") } }, PIC.Shock("earth"))
 		shock.tip = "The shock the icon shows while your Flame Shock is on that enemy."
 		t[#t + 1] = shock
-		local again = SliderRow("ns", "Show Flame Shock Again At", "refresh", 0, 6, 1,
+		local again = SliderRow("ns", "Show Flame Shock Below (Seconds)", "refresh", 0, 6, 1,
 			function(v)
 				v = floor((v or 0) + 0.5)
 				if v == 0 then return "Never" end
@@ -538,7 +538,7 @@ local function NextShockRows()
 		again.tip = "When your Flame Shock on that enemy has this many seconds left, the icon shows Flame Shock again,"
 			.. " in the look below, so you can cast it before it runs out. Never: it keeps the other shock until it ends."
 		t[#t + 1] = again
-		local look = ChoiceRow("ns", "Look When It's Time to Cast", "castLook", CAST_CHOICES, PIC.plain)
+		local look = ChoiceRow("ns", "Recast Warning Style", "castLook", CAST_CHOICES, PIC.plain)
 		look.tip = "How Flame Shock looks in its last seconds."
 		t[#t + 1] = look
 	end
@@ -548,12 +548,12 @@ end
 -- Purge: skip a buff that lasts longer than this (Longer Than only while it skips); on the
 -- first level of the menu, so it's plain to see when it's on
 local function LongRows(key, t)
-	local skip = OnOffRow(key, "Skip Long Buffs", "skipLong", PIC.none)
-	skip.tip = "Purge doesn't light up for long buffs, like Arcane Intellect (30 minutes): they're rarely worth"
-		.. " removing in a fight. Turn it off to light up for every buff you can remove."
+	local skip = OnOffRow(key, "Ignore Long Buffs", "skipLong", PIC.none)
+	skip.tip = "Purge doesn't light up for buffs that last longer than the limit below, like Arcane Intellect (30 minutes)."
+		.. " Turn it off to light up for every buff you can remove."
 	t[#t + 1] = skip
 	if Get(key, "skipLong") then
-		local long = SliderRow(key, "Longer Than", "longerThan", 1, 10, 1,
+		local long = SliderRow(key, "Ignore Buffs Longer Than", "longerThan", 1, 10, 1,
 			function(v) return string.format("%d min", floor((v or 0) + 0.5)) end)
 		long.tip = "A buff that lasts longer than this counts as long."
 		t[#t + 1] = long
@@ -609,10 +609,10 @@ local function MenuItems(key)
 		onClick = function() TT("TT_Set", key, "shown", not on); Row:Changed(false) end }
 	items[#items + 1] = { separator = true }
 	-- when and where it shows
-	local show = ChoiceRow(key, "When To Show", "show", SHOW_CHOICES, PIC.plain)
-	show.tip = "In a fight, out of one, or both. Where To Show can still turn it off in a kind of place."
+	local show = ChoiceRow(key, "Show", "show", SHOW_CHOICES, PIC.plain)
+	show.tip = "Choose whether the icon appears in combat, out of combat, or both. Show In can still keep it off in a kind of place."
 	items[#items + 1] = show
-	local places = Group("Where To Show", function() return PlaceRows(key) end, "the kinds of place it shows in")
+	local places = Group("Show In", function() return PlaceRows(key) end, "the kinds of place it shows in")
 	places.tip = "Turn it on or off in each kind of place: the open world, dungeons, raids, Battlegrounds and Arenas."
 	items[#items + 1] = places
 	if key == "purge" then
@@ -620,7 +620,7 @@ local function MenuItems(key)
 		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses", PIC.none)
 		bosses.tip = "In a boss fight, Purge also lights up when any boss has a buff you can remove, not only your target."
 		if not (Where(key, "raid") or Where(key, "dungeon")) then
-			bosses.tip = bosses.tip .. " Purge is off in Raids and Dungeons (Where To Show), so it can't light up for bosses there."
+			bosses.tip = bosses.tip .. " Purge is off in Raids and Dungeons (Show In), so it can't light up for bosses there."
 		end
 		items[#items + 1] = bosses
 	elseif key == "fs" then
@@ -636,13 +636,13 @@ local function MenuItems(key)
 	items[#items + 1] = { separator = true }
 	-- what it does at its moments
 	if key == "purge" then
-		items[#items + 1] = Group("When A Buff Can Be Removed", function()
+		items[#items + 1] = Group("When You Can Purge", function()
 			local g = OnOffRow(key, "Glow", "glow", PIC.goldGlow)
 			g.tip = "Purge's icon glows while your target has a buff you can remove."
 			return { g }
 		end, "the glow when your target has one")
 	else
-		local missing = Group("When It's Missing", function() return MissingRows(key) end, "the warning while your " .. name .. " isn't on your target")
+		local missing = Group("Missing Debuff", function() return MissingRows(key) end, "the warning while your " .. name .. " isn't on your target")
 		missing.value = function() return OnOff(Get(key, "missing")), false end
 		items[#items + 1] = missing
 	end
@@ -664,7 +664,7 @@ local function MenuItems(key)
 			.. " that has it. With Warn When It's Missing on, an enemy without it shows the gray warning. WoW's enemy"
 			.. " nameplates need to be on."
 	end
-	if off then plates.tip = plates.tip .. " It's off in " .. off .. " (Where To Show)." end
+	if off then plates.tip = plates.tip .. " It's off in " .. off .. " (Show In)." end
 	items[#items + 1] = plates
 	items[#items + 1] = { separator = true }
 	-- copy and reset

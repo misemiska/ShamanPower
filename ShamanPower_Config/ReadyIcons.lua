@@ -61,12 +61,12 @@ local Pic = {
 -- ---------------------------------------------------------------------------
 local SHOW_CHOICES = {
 	{ "ready", "Only When Ready" }, { "cooldown", "Only While On Cooldown" },
-	{ "always_bright", "While Ready And On Cooldown" }, { "always", "While Ready And On Cooldown, Dimmed" },
+	{ "always_bright", "Always" }, { "always", "Always (Dim on Cooldown)" },
 }
 local EFFECT_CHOICES = { { "glow", "Glow" }, { "pulse", "Pulse" }, { "both", "Glow + Pulse" }, { "none", "None" } }
 local SWEEP_CHOICES = {
-	{ "radial", "Radial (Clock)", nil, Pic.SWEEP },
-	{ "vertical", "Vertical - Fills Back In", nil, Pic.NONE },   -- (the sweep picture is the radial one)
+	{ "radial", "Clock Sweep", nil, Pic.SWEEP },
+	{ "vertical", "Color Fills In", nil, Pic.NONE },   -- (the sweep picture is the radial one)
 	{ "none", "None", nil, Pic.PLAIN },
 }
 local SWEEP_DIRECTION_CHOICES = { { "top", "From The Top" }, { "bottom", "From The Bottom" } }
@@ -290,8 +290,10 @@ local function SharedRow(text, values, getter, setter, scope)
 	}
 end
 -- the last line of a group: these settings of this spell on every other spell
+local COPY_NAMES = { ["When Ready"] = "Ready Effects", ["While Holding"] = "Weapon Effects", ["When It's Gone"] = "Missing Imbue Effects",
+	["While On Cooldown"] = "Cooldown Appearance" }
 local function CopyGroupRow(key, group, opts)
-	return { text = "Copy " .. group .. " To All Icons", onClick = function()
+	return { text = "Copy " .. (COPY_NAMES[group] or group) .. " To All Icons", onClick = function()
 		SP:ReadyReminderCopyGroup(key, opts)
 		Row:Changed(true)
 		return true
@@ -327,13 +329,13 @@ local function AppearanceRows(key, entry)
 				if own then return plain(map[own]) or tostring(own), true end
 				return plain(map[SP:IconShapeOf("ready") or "default"]) .. " (all icons)", false
 			end,
-			tip = "This icon's shape: Square, Flat (the picture's own border removed), Rounded or Circle. Same As All Icons: the shape every icon shares, set on General > Themes.",
+			tip = "This icon's shape: Square, Flat (the picture's own border removed), Rounded or Circle. Use Shared Shape: the shape every icon shares, set on General > Themes.",
 			sub = function()
 				local map, order = SP:IconShapeValues()
 				local own = SP:ReadyReminderOwnOpt(key, "iconShape")
 				local shared = SP:IconShapeOf("ready") or "default"
 				local list = {
-					{ text = "Same As All Icons  (" .. plain(map[shared]) .. ")", selected = own == nil,
+					{ text = "Use Shared Shape  (" .. plain(map[shared]) .. ")", selected = own == nil,
 					  onClick = function() return Set(key, "iconShape", nil) end },
 					{ separator = true },
 				}
@@ -352,7 +354,7 @@ local function AppearanceRows(key, entry)
 			return {
 				{ text = "Show", selected = not hidden, pic = Pic.PLAIN,
 				  onClick = function() return Set(key, "hideBackground", false) end },
-				{ text = "Hide (Background And Border)", selected = hidden, pic = Pic.NONE,
+				{ text = "Hide Both", selected = hidden, pic = Pic.NONE,
 				  onClick = function() return Set(key, "hideBackground", true) end },
 			}
 		end,
@@ -379,7 +381,7 @@ local function AppearanceRows(key, entry)
 			t[#t + 1] = SharedRow("Keep Borders Square", function() return { [true] = "On", [false] = "Off" }, { true, false } end,
 				function() return SP.opt and SP.opt.iconBordersSquare == true end, function(v) SP:SetIconBordersSquare(v) end, "Every Bar")
 			t[#t].pic = Pic.NONE   -- (square or round corners: no picture kind draws them)
-			t[#t].tip = "One setting for every bar and these icons, with General > Themes: round a Rounded or Circle icon a border follows the shape as a ring, unless this is on."
+			t[#t].tip = "Keep borders square around rounded or circular icons. This changes all bars and Ready Reminders. The same setting is on General → Themes."
 		end
 		t[#t + 1] = ColorRow(key, entry, "Border Color", "borderColor", 0.2, 0.7, 1.0, Pic.EDGE)
 	end
@@ -412,7 +414,7 @@ local function AppearanceRows(key, entry)
 		end
 	else
 		local moment = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or "When Ready"
-		t[#t + 1] = { text = "Glow: off  (" .. moment .. " > Effect)", disabled = true,
+		t[#t + 1] = { text = "No glow yet: pick one under " .. moment .. " > Effect", disabled = true,
 			tip = "This icon's effect has no glow, so there is no glow look to set. Pick Glow or Glow + Pulse under " .. moment .. " > Effect." }
 	end
 	t[#t + 1] = { separator = true }
@@ -421,11 +423,11 @@ local function AppearanceRows(key, entry)
 end
 
 local HOLD_CHOICES = {
-	{ "never", "Never", nil, Pic.PLAIN },
+	{ "never", "No Glow", nil, Pic.PLAIN },
 	{ "shield", "A Shield", nil, { kind = "word", text = "SHIELD" } },
-	{ "2h", "A Two-Hander", nil, { kind = "word", text = "2-HAND" } },
+	{ "2h", "Two-Handed Weapon", nil, { kind = "word", text = "2-HAND" } },
 	{ "dual", "Two Weapons", nil, { kind = "word", text = "DUAL" } },
-	{ "one", "A One-Hander Alone", nil, { kind = "word", text = "1-HAND" } },
+	{ "one", "One-Handed Weapon Only", nil, { kind = "word", text = "1-HAND" } },
 }
 local function ReadyRows(key, entry, groupName)
 	local fx = Opt(key, "readyEffect") or "glow"
@@ -435,7 +437,7 @@ local function ReadyRows(key, entry, groupName)
 	t[1].tip = "What the icon does at that moment: a glow (its shape and color are under Appearance), a pulse, both, or nothing."
 	if entry.weaponSet then   -- (A28) the set whose hold plays the effect
 		local g = ChoiceRow(key, "Glow While Holding", "wsGlow", HOLD_CHOICES, "never")
-		g.tip = "The Effect above plays only while you hold this set, so the wrong set stands out."
+		g.tip = "Use this effect while these weapons are equipped."
 		t[#t + 1] = g
 	end
 	if fx == "glow" or fx == "both" then
@@ -450,12 +452,12 @@ end
 
 -- A25: When The Cooldown Resets (Stormstrike on WoW: Forever, where a tank's dodge or parry resets
 -- it): the icon's burst / word, the Ready Flash saying so, its own sound; each its own switch
-local RESET_VISUALS = { { "none", "None" }, { "burst", "Glow Burst" }, { "word", "\"Reset\" Word" }, { "both", "Glow Burst + Word" } }
+local RESET_VISUALS = { { "none", "None" }, { "burst", "Glow Burst" }, { "word", "\"RESET\" Text" }, { "both", "Glow Burst and \"RESET\" Text" } }
 local function ResetRows(key, entry)
 	local vis = Opt(key, "resetVisual") or "none"
 	local t = {}
-	-- (Glow Burst + Word: one kind per picture, and the word alone is "Reset" Word's)
-	local v = ChoiceRow(key, "Visual On The Icon", "resetVisual", Pic.With(RESET_VISUALS, {
+	-- (Glow Burst + Word: one kind per picture, and the word alone is "RESET" Text's)
+	local v = ChoiceRow(key, "Icon Effect", "resetVisual", Pic.With(RESET_VISUALS, {
 		none = Pic.PLAIN, burst = { kind = "glow", shape = "proc", color = Pic.Color(key, "resetColor", 1, 0.82, 0) },
 		word = Pic.RESET_WORD, both = Pic.NONE }), "none")
 	v.tip = "What the icon does the moment its cooldown is reset (a dodge or parry as a tank). The burst is the Proc Glow ring, the word is RESET over the icon."
@@ -464,7 +466,7 @@ local function ResetRows(key, entry)
 		t[#t + 1] = ColorRow(key, entry, "Burst Color", "resetColor", 1, 0.82, 0, { kind = "glow", shape = "proc" })
 	end
 	if vis ~= "none" then
-		local l = SliderRow(key, "Show For", "resetLength", 0.5, 3, 0.1, 1.5, function(x) return Secs(x) end)
+		local l = SliderRow(key, "Show for (Seconds)", "resetLength", 0.5, 3, 0.1, 1.5, function(x) return Secs(x) end)
 		l.tip = "How long the burst or the word stays before the ready look takes over."
 		t[#t + 1] = l
 	end
@@ -472,7 +474,7 @@ local function ResetRows(key, entry)
 	fl.tip = "Your Ready Flash, in place of the plain ready one."
 	t[#t + 1] = fl
 	if Opt(key, "resetFlash") then
-		local fw = OnOffRow(key, "Word Under The Flash", "resetFlashWord", true, Pic.FLASH)
+		local fw = OnOffRow(key, "Show Reset Message", "resetFlashWord", true, Pic.FLASH)
 		fw.tip = "The flash says " .. entry.name .. " reset! under the icon. Off: just the icon."
 		t[#t + 1] = fw
 	end
@@ -544,8 +546,8 @@ local function CoolRows(key, entry)
 	t[#t + 1] = OnOffRow(key, "Show Countdown", "showCountdown", true, Pic.NUMBER)
 	if Opt(key, "showCountdown") ~= false then
 		t[#t + 1] = ChoiceRow(key, "Countdown Position", "textPosition", TEXTPOS_CHOICES, "center", Pic.NONE)
-		t[#t + 1] = SliderRow(key, "Countdown Size", "textSize", 0, 40, 1, 0, function(v) if (v or 0) <= 0 then return "Auto" end return tostring(v) end)
-		t[#t + 1] = SliderRow(key, "Countdown Only Under", "countdownUnder", 0, 60, 1, 0, function(v) return Secs(v, "Always") end)
+		t[#t + 1] = SliderRow(key, "Countdown Text Size", "textSize", 0, 40, 1, 0, function(v) if (v or 0) <= 0 then return "Auto" end return tostring(v) end)
+		t[#t + 1] = SliderRow(key, "Show Countdown Below", "countdownUnder", 0, 60, 1, 0, function(v) return Secs(v, "Always") end)
 	end
 	t[#t + 1] = { separator = true }
 	t[#t + 1] = CopyGroupRow(key, "While On Cooldown", COOL_KEYS)
@@ -556,9 +558,9 @@ local function RangeRows(key, entry)
 	-- the pictures: each look; the switch shows the look the icon has
 	local looks = { red = { kind = "tint", color = Pic.Color(key, "rangeColor", 0.64, 0.15, 0.15) },
 		gray = Pic.GRAY, dim = Pic.FADED }
-	local t = { OnOffRow(key, "Show Out of Range", "outOfRange", nil, looks[Opt(key, "rangeLook") or "red"] or looks.red) }
+	local t = { OnOffRow(key, "Warn When Out of Range", "outOfRange", nil, looks[Opt(key, "rangeLook") or "red"] or looks.red) }
 	if Opt(key, "outOfRange") then
-		t[#t + 1] = ChoiceRow(key, "Out of Range Look", "rangeLook", Pic.With(RANGE_CHOICES, looks), "red")
+		t[#t + 1] = ChoiceRow(key, "Warning Style", "rangeLook", Pic.With(RANGE_CHOICES, looks), "red")
 		if (Opt(key, "rangeLook") or "red") == "red" then
 			t[#t + 1] = ColorRow(key, entry, "Out of Range Color", "rangeColor", 0.64, 0.15, 0.15, Pic.TINT)
 		end
@@ -594,7 +596,7 @@ local function SoundRows(key, entry)
 		t[#t + 1] = SliderRow(key, "Volume", "soundVolume", 0, 100, 1, 100, function(v) return string.format("%d%%", v or 0) end)
 		-- a sound turned on in this menu always plays: the minimum only filters the old default
 		if not Opt(key, "ownSound") and not ws then
-			t[#t + 1] = SliderRow(key, "Only For Cooldowns Over", "soundMinCooldown", 0, 300, 5, 20, function(v) return Secs(v, "Always") end)
+			t[#t + 1] = SliderRow(key, "Minimum Cooldown (Seconds)", "soundMinCooldown", 0, 300, 5, 20, function(v) return Secs(v, "Always") end)
 		end
 	end
 	t[#t + 1] = { separator = true }
@@ -695,18 +697,18 @@ end
 -- named after the buff, right under When Ready. Off to start. Show The Buff picks the
 -- look; only the rows that do something in that look are there. Before the buff can come
 -- up (the talent, the set bonus or the spell itself missing), a plain line says why first.
-local BUFF_LOOK_CHOICES = { { "off", "Off" }, { "corner", "In The Icon's Corner" }, { "own", "As Its Own Icon" },
-	{ "edge", "As An Edge Around The Icon" }, { "swap", "Replaces The Icon" } }
+local BUFF_LOOK_CHOICES = { { "off", "Off" }, { "corner", "In the Corner" }, { "own", "Separate Icon" },
+	{ "edge", "Border Around Icon" }, { "swap", "Replace Spell Icon" } }
 local BUFF_LOOK_SHORT = { off = "Off", corner = "Corner", own = "Own Icon", edge = "Edge", swap = "Replaces" }
 local BUFF_CORNER_CHOICES = { { "tr", "Top Right" }, { "tl", "Top Left" }, { "br", "Bottom Right" }, { "bl", "Bottom Left" } }
 local BUFF_SIDE_CHOICES = { { "above", "Above" }, { "below", "Below" }, { "left", "Left" }, { "right", "Right" },
-	{ "spot", "In Its Own Spot" } }
+	{ "spot", "Separate Position" } }
 local BUFF_TIPS = {
-	show = "Where the buff shows while it's on you. Replaces The Icon: the buff's own picture takes this icon's place while it's on. It stays on screen while this icon hides between casts, except as an edge or a replacement (they need the icon) and in a grid (there a hidden icon's place goes to the next icon; In Its Own Spot still stays). In a grid its own icon goes In Its Own Spot, since next to this icon is the next icon. Off: nothing changes.",
+	show = "Where the buff shows while it's on you. Replace Spell Icon: the buff's own picture takes this icon's place while it's on. It stays on screen while this icon hides between casts, except as an edge or a replacement (they need the icon) and in a grid (there a hidden icon's place goes to the next icon; Separate Position still stays). In a grid its own icon goes Separate Position, since next to this icon is the next icon. Off: nothing changes.",
 	corner = "Which corner of this icon the buff sits in.",
-	cornerSize = "How big the buff is, as a share of this icon.",
-	side = "Where the buff's own icon goes: next to this icon, or In Its Own Spot, anywhere on your screen (Move This Buff places it). In its own spot it shows even with this icon hidden.",
-	ownSize = "How big the buff's icon is, as a share of this icon.",
+	cornerSize = "How big the buff is, as a percentage of this icon's size.",
+	side = "Where the buff's own icon goes: next to this icon, or Separate Position, anywhere on your screen (Move This Buff places it). In a separate position it shows even with this icon hidden.",
+	ownSize = "How big the buff's icon is, as a percentage of this icon's size.",
 	move = "Opens Unlock UI with just this buff's box. Drag it where you want it, then press Done.",
 	edge = "The edge's color while the buff is on you. It starts as WoW's mana-bar blue.",
 	time = "The seconds the buff has left.",
@@ -757,15 +759,15 @@ local function BuffRows(key, entry)
 	local grid = ShamanPower_ReadyReminders and ShamanPower_ReadyReminders.arrange == "grid"
 	if never and (look == "corner" or look == "edge" or look == "swap" or (look == "own" and side ~= "spot")) then
 		t[#t + 1] = { text = "Show: Never keeps this icon off your screen:", disabled = true }
-		t[#t + 1] = { text = "the buff shows only In Its Own Spot.", disabled = true }
+		t[#t + 1] = { text = "the buff shows only in a Separate Position.", disabled = true }
 		t[#t + 1] = { separator = true }
 	elseif grid and look == "own" and side ~= "spot" then
-		t[#t + 1] = { text = "In a grid the icons sit side by side:", disabled = true }
-		t[#t + 1] = { text = "the buff's own icon shows only In Its Own Spot.", disabled = true }
+		t[#t + 1] = { text = "There is no room beside icons in Grid.", disabled = true }
+		t[#t + 1] = { text = "Use a separate position for the buff icon.", disabled = true }
 		t[#t + 1] = { separator = true }
 	end
 	t[#t + 1] = {
-		text = "Show The Buff", tip = BUFF_TIPS.show,
+		text = "Buff Display", tip = BUFF_TIPS.show,
 		value = function()
 			local cur = Opt(key, "buffLook") or "off"
 			return LabelOf(BUFF_LOOK_CHOICES, cur), cur ~= "off"
@@ -791,7 +793,7 @@ local function BuffRows(key, entry)
 		row.tip = BUFF_TIPS.corner; t[#t + 1] = row
 		row = SliderRow(key, "Size", "buffSize", 0.3, 0.7, 0.05, 0.45, nil, true); row.tip = BUFF_TIPS.cornerSize; t[#t + 1] = row
 	elseif look == "own" then
-		row = ChoiceRow(key, "Side", "buffSide", never and NeverChoices(BUFF_SIDE_CHOICES, side)
+		row = ChoiceRow(key, "Position", "buffSide", never and NeverChoices(BUFF_SIDE_CHOICES, side)
 			or grid and GridSides(BUFF_SIDE_CHOICES, side) or BUFF_SIDE_CHOICES, "above", Pic.NONE)
 		row.tip = BUFF_TIPS.side; t[#t + 1] = row
 		row = SliderRow(key, "Size", "buffOwnSize", 0.3, 1, 0.05, 1, nil, true); row.tip = BUFF_TIPS.ownSize; t[#t + 1] = row
@@ -800,14 +802,14 @@ local function BuffRows(key, entry)
 				onClick = function() SP:ReadyReminderBuffMove(key); return false end }
 		end
 	elseif look == "edge" then
-		row = ColorRow(key, entry, "Edge Color", "buffEdgeColor", 0, 0, 1, Pic.EDGE)
+		row = ColorRow(key, entry, "Border Color", "buffEdgeColor", 0, 0, 1, Pic.EDGE)
 		row.tip = BUFF_TIPS.edge; t[#t + 1] = row
 	end
 	if look ~= "off" and info.timed then
 		row = OnOffRow(key, "Time Left", "buffTime", true, { kind = "number", text = "12" })
 		row.tip = BUFF_TIPS.time; t[#t + 1] = row
 		if Opt(key, "buffTime") ~= false then
-			row = SliderRow(key, "Time Turns Gold Under", "buffGoldUnder", 0, 10, 1, 3, function(v) return Secs(v, "Never") end)
+			row = SliderRow(key, "Turn Time Gold Below (Seconds)", "buffGoldUnder", 0, 10, 1, 3, function(v) return Secs(v, "Never") end)
 			row.tip = BUFF_TIPS.gold
 			t[#t + 1] = row
 		end
@@ -844,13 +846,13 @@ local function MenuItems(key)
 		onClick = function() SP:ReadyReminderSetSpell(key, not on); Row:Changed(false) end }
 	items[#items + 1] = { separator = true }
 	-- when it shows
-	items[#items + 1] = entry.weaponSet and { text = "When To Show", words = "always on screen: it shows what you hold",
+	items[#items + 1] = entry.weaponSet and { text = "Show", words = "always on screen: it shows what you hold",
 		  value = function() return "Always", false end,
 		  tip = "Weapon Set is always on screen: it shows what you hold. Only In Combat below hides it out of a fight." }
-		or entry.imbue and { text = "When To Show", words = "only while an imbue is missing",
+		or entry.imbue and { text = "Show", words = "only while an imbue is missing",
 		  value = function() return "Only When Missing", false end,
-		  tip = "Weapon Imbue shows while an imbue is missing (the main hand; with two weapons, either hand) and hides while your imbues are on. That is all it does." }
-		or { text = "When To Show", words = "when the icon is on screen",
+		  tip = "Weapon Imbue shows while an imbue is missing (the main hand; with two weapons, either hand) and hides while your imbues are on." }
+		or { text = "Show", words = "when the icon is on screen",
 		  value = function() return LabelOf(SHOW_CHOICES, SP:ReadyReminderShowOf(key)), false end,
 		  tip = "Only When Ready: the icon comes up when the spell is ready and goes while it cools. Only While On Cooldown: the other way round. While Ready And On Cooldown: always there, with the cooldown sweep and countdown over it; Dimmed: faded while it cools (While On Cooldown sets how).",
 		  sub = function()
@@ -891,7 +893,7 @@ local function MenuItems(key)
 	if buffInfo then items[#items + 1] = BuffGroup(key, entry, buffInfo) end
 	items[#items + 1] = { separator = true }
 	-- what it does at its moments
-	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or "When Ready"
+	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "While Imbue Is Missing" or "When Ready"
 	items[#items + 1] = Group(readyName, function() return ReadyRows(key, entry, readyName) end,
 		entry.weaponSet and "the effect while you hold a set" or entry.imbue and "the effect while an imbue is missing" or "the effect the moment it's ready")
 	if entry.weaponSet then   -- (A28)
@@ -918,7 +920,7 @@ local function MenuItems(key)
 				local r = i and SP:ReadyRows()[i]
 				return r and (r.name or ("Row " .. i)) or "Not On A Row", i ~= nil
 			end,
-			tip = "The row this icon sits on. Not On A Row: off your screen until you put it on one (drag it onto a row in the Spells row, or pick one here).",
+			tip = "The row this icon sits on. Not On A Row: off your screen until you put it on one (pick one here, or drag the icon onto a row under Spells).",
 			sub = function()
 				local cur = SP:ReadyRowOf(key)
 				local list = {}
@@ -1062,7 +1064,7 @@ local function RowMenuItems(i)
 	local r = SP:ReadyRows()[i]
 	if not r then return {} end
 	local t = {}
-	t[#t + 1] = { text = "Rename...", tip = "A box to type its new name in.", onClick = function() NameBox(i); return false end }
+	t[#t + 1] = { text = "Rename...", tip = "Rename this row.", onClick = function() NameBox(i); return false end }
 	t[#t + 1] = SEP_ROW
 	t[#t + 1] = Menu.Slider("Spacing", 0, 40, 1, function() return tonumber(r.spacing) or 8 end,
 		function(v) SP:ReadyRowSet(i, "spacing", v); Row:Changed(true) end,
@@ -1268,22 +1270,22 @@ local function FlashMenuItems(key)
 		t[#t + 1] = { separator = true }
 	end
 	-- when
-	t[#t + 1] = { text = "Flash Early", tip = "Seconds before this spell is ready, once per cooldown. Off: the tab's Flash Early.",
+	t[#t + 1] = { text = "Flash Early", tip = "Flash this many seconds before the spell is ready. Use Page Setting follows Flash Early on this tab.",
 		slider = { min = 0, max = 5, step = 0.5,
 			get = function() return tonumber(SP:ReadyReminderOwnOpt(key, "flashEarly")) or 0 end,
 			set = function(v) SP:ReadyReminderSetIconOpt(key, "flashEarly", v > 0 and v or nil); FlashRow:Repaint() end,
-			format = function(v) return Secs(v, "Off") end } }
+			format = function(v) return Secs(v, "Use Page Setting") end } }
 	t[#t + 1] = { separator = true }
 	-- where
 	t[#t + 1] = { text = "Position", pic = Pic.NONE, words = "where this spell's flash plays",
-		value = function() return own and "Its Own Spot" or "The Shared Spot", own end,
+		value = function() return own and "Separate Position" or "Shared Position", own end,
 		tip = "Where this spell's flash plays: the shared spot, or a spot of its own (Unlock UI opens with its box; drop it where you want it).",
 		sub = function() return {
-			{ text = "The Shared Spot", selected = not own, onClick = function() SP:ReadyFlashUseShared(key); FlashRow:Changed(true); return true end },
-			{ text = "Its Own Spot", selected = own, onClick = function() if SP.ReadyFlashMoveSpell then SP:ReadyFlashMoveSpell(key) end; return false end },
+			{ text = "Shared Position", selected = not own, onClick = function() SP:ReadyFlashUseShared(key); FlashRow:Changed(true); return true end },
+			{ text = "Separate Position", selected = own, onClick = function() if SP.ReadyFlashMoveSpell then SP:ReadyFlashMoveSpell(key) end; return false end },
 		} end }
 	if own then
-		t[#t + 1] = { text = "Move This Flash", tip = "Unlock UI with just this spell's flash box.",
+		t[#t + 1] = { text = "Move This Flash", tip = "Open Unlock UI to move this spell's Ready Flash.",
 			onClick = function() if SP.ReadyFlashMoveSpell then SP:ReadyFlashMoveSpell(key) end; return false end }
 	end
 	t[#t + 1] = { separator = true }
@@ -1384,7 +1386,7 @@ end
 -- ---------------------------------------------------------------------------
 local Notice = {}
 ns.CustomRows.readyNotice = Notice
-local NOTICE_TEXT = "Ready Reminders has moved to a per-spell settings menu."
+local NOTICE_TEXT = "Right-click a spell to change its Ready Reminders settings."
 
 function Notice:Render(body, x, y, width)
 	if not (SP.ReadyReminderNoticeShown and SP.ReadyReminderNoticeShown()) then return nil, 0 end

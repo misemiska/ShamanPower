@@ -1092,7 +1092,7 @@ function Core:RequestReload(reason)
 	if not reloadDlg then
 		local f = self:CreateDialog({
 			name = "ShamanPowerReloadPrompt", width = 430, height = 168,
-			title = "One more click", footer = 46, special = true, strata = "FULLSCREEN_DIALOG",
+			title = "Reload to Finish", footer = 46, special = true, strata = "FULLSCREEN_DIALOG",
 		})
 		local t = f.body:CreateFontString(nil, "OVERLAY")
 		t:SetFontObject(self.fonts.row)

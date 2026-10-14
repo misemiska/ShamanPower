@@ -30,7 +30,7 @@ local WORD_GAP    = 10
 local X_SIZE      = 16
 local ADD_W       = 110
 local NOTE_GAP    = 14
-local CAPTION = "Turn one of these on or off by itself in a place or against a boss. Example: in Molten Core, fighting"
+local CAPTION = "Choose what to turn on or off in a place or against an enemy. For example, turn on Purge Reminder against Shazzrah in Molten Core. Example: in Molten Core, fighting"
 	.. " Shazzrah, turn the Purge Reminder on."
 local NOTE_FOREVER = "On WoW: Forever a boss rule turns on at the pull; a rule that names a target works in the open world."
 local NAME_DIALOG = "SPTargetTrackerRuleName"
@@ -116,7 +116,7 @@ local function AskName(i)
 	end
 	SP:ShowSPDialog({
 		key = NAME_DIALOG,
-		title = "A Target You Name",
+		title = "Enemy Name",
 		text = text,
 		input = { text = (rule.who == "name" and rule.name) or "", maxLetters = 60 },
 		buttons = {

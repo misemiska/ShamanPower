@@ -4626,7 +4626,7 @@ function R.FlashTab.inject(root)
 			desc = "Plays one flash on the shared spot with the look above.",
 			func = function() SP:ReadyFlashTest(nil) end },
 		whenHeader = { order = 2, type = "header", name = "When" },
-		flashMin = { order = 2.1, type = "range", name = "Only For Cooldowns Over", min = 0, max = 120, step = 5, width = 1.0,
+		flashMin = { order = 2.1, type = "range", name = "Minimum Cooldown (Seconds)", min = 0, max = 120, step = 5, width = 1.0,
 			desc = "Seconds. A spell with a shorter cooldown never flashes. 0: every spell you turned on flashes.",
 			get = function() return sv().flashMin or 10 end, set = function(_, v) sv().flashMin = v end },
 		flashEarly = { order = 2.2, type = "range", name = "Flash Early", min = 0, max = 5, step = 0.5, width = 1.0,
@@ -4649,7 +4649,7 @@ function R.FlashTab.inject(root)
 				if #names == 0 then return "Every spell flashes on the shared spot. Right-click a spell above to give it a spot of its own." end
 				return "Spells with a spot of their own: " .. table.concat(names, ", ") .. ". Right-click a spell above to move it or send it back to the shared spot."
 			end },
-		ownReset = { order = 3.4, type = "execute", name = "Reset Their Spots", width = 1.0,
+		ownReset = { order = 3.4, type = "execute", name = "Use Shared Position for All Spells", width = 1.0,
 			desc = "Every spell flashes on the shared spot again.",
 			hidden = function() return #R.FlashTab.ownSpots() == 0 end,
 			func = function() SP:ReadyFlashResetSpellSpots() end },
@@ -4725,7 +4725,7 @@ local function InjectOptions()
 				desc = function()
 					if gridOn() then return "Puts the grid back on its default spot." end
 					if rowsOn() then return "Puts every row back on its default spot, one under the other." end
-					return "Lays the icons out again in a row or column (see Arrange As)."
+					return "Lays the icons out again in a row or column (see Layout After Reset)."
 				end, width = 1.0,
 				func = function() SP:ResetReadyReminderPositions() end },
 			arrange = { order = 4.9, type = "select", name = "Placement", width = 1.4,
@@ -4758,11 +4758,11 @@ local function InjectOptions()
 				desc = "A new empty row under the others. Put spells on it in the Spells row above (click a spell on Not On A Row, or drag it); right-click the row's name for its spacing, direction and spot.",
 				hidden = function() return not rowsOn() end,
 				func = function() SP:ReadyRowAdd() end },
-			layout = { order = 5.1, type = "select", name = "Reset Layout", width = 1.0,
+			layout = { order = 5.1, type = "select", name = "Layout After Reset", width = 1.0,
 				hidden = function() return not freeOn() end,
 				values = { row = "Row", column = "Column" },
 				get = function() return SV().layout or "row" end, set = function(_, v) SV().layout = v end },
-			spacing = { order = 5.2, type = "range", name = "Reset Spacing", min = 0, max = 40, step = 1, width = 1.0,
+			spacing = { order = 5.2, type = "range", name = "Icon Spacing", min = 0, max = 40, step = 1, width = 1.0,
 				desc = "The gap between the icons: in the grid, or on every row at once (a row's own menu can give that row its own).",
 				hidden = function() return not (gridOn() or rowsOn()) end,
 				get = function() return SV().spacing or 8 end,

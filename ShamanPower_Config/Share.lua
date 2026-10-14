@@ -190,10 +190,26 @@ end
 -- ---------------------------------------------------------------------------
 -- Inject Export / Import into the Profiles options page.
 -- ---------------------------------------------------------------------------
+-- the Profiles page's own words (AceDBOptions' library text, overridden here so a library update never undoes it)
+local function PlainProfileWords(args)
+	local function word(key, field, text) if args[key] then args[key][field] = text end end
+	word("desc", "name", "Use profiles to save different settings for each character.")
+	word("choosedesc", "name", "Enter a name to create a profile, or choose a saved profile.")
+	word("new", "name", "New Profile Name")
+	word("new", "desc", "Create a profile with default settings.")
+	word("choose", "name", "Use Profile")
+	word("copydesc", "name", "Replace this profile's settings with settings from another profile.")
+	word("copyfrom", "desc", "Replace this profile's settings with settings from another profile.")
+	word("deldesc", "name", "Delete a profile you no longer use.")
+	word("delete", "desc", "Delete the selected profile.")
+	word("descreset", "name", "Restore this profile's default settings.")
+	word("reset", "desc", "Restore this profile's default settings.")
+end
 local function InjectProfileButtons()
 	local root = SP.options
 	local profiles = root and root.args and root.args.profiles
 	if not (profiles and profiles.args) or profiles.args.spShareHeader then return end
+	PlainProfileWords(profiles.args)
 	profiles.args.spShareHeader = { order = 0.1, type = "header", name = "Share" }
 	profiles.args.spShareDesc = {
 		order = 0.15, type = "description", fontSize = "medium",
@@ -278,7 +294,7 @@ local function InjectCompanionPage()
 					.. "You do |cffE6EAF0not|r install it. Send it to your melee; they import it into WeakAuras once and never touch it again.",
 			},
 			str = {
-				order = 3, type = "execute", name = "Show WeakAura String",
+				order = 3, type = "execute", name = "Show WeakAura Import Code",
 				desc = "Show the WeakAura import string to copy and send to a melee player.",
 				func = function() SP:ShowWindfuryCompanion(false) end,
 			},

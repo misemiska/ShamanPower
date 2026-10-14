@@ -203,8 +203,8 @@ do
 			local why = "Every totem uses the list's Icon Size (Appearance) while Place Each Totem Freely is off. Turn it on"
 				.. " (Behavior) to give each totem its own spot and size."
 			if own then why = why .. " This totem's own size (" .. own .. ") stays saved for then." end
-			r[#r + 1] = { text = "Size", disabled = true, tip = why, value = function() return "Same As The List", false end }
-			r[#r + 1] = { text = "Own sizes need Place Each Totem Freely (Behavior)", disabled = true, tip = why }
+			r[#r + 1] = { text = "Size", disabled = true, tip = why, value = function() return "Use List Size", false end }
+			r[#r + 1] = { text = "Turn on Place Each Totem Freely under Behavior to set this totem's size.", disabled = true, tip = why }
 		end
 		-- copy and reset
 		if Free() then
@@ -339,7 +339,7 @@ end
 local Popouts
 do
 	local ELEMENT_KEYS = { "totem_earth", "totem_fire", "totem_water", "totem_air" }
-	local LOCKED = "In a fight: these wait until it ends"
+	local LOCKED = "Change these settings after combat."
 	local LOCKED_TEXT = "Pop-Out Trackers can't change in combat - try again after the fight."
 
 	local function Frames() return SP.poppedOutFrames or {} end
@@ -556,7 +556,7 @@ do
 			return o
 		end }
 		r[#r + 1] = { text = "Reset This Tracker", disabled = lock or not HasOwn(key),
-			tip = "Its Scale, Opacity, Hide Background And Border and Flyout Direction back to the defaults. Where it sits stays.",
+			tip = "Restore this tracker's default size, visibility, background, border, and flyout direction. Keep its position.",
 			onClick = function()
 				Apply(RESET, key)
 				Changed(Popouts, false)
@@ -564,7 +564,7 @@ do
 		r[#r + 1] = SEP
 		-- its settings panel
 		r[#r + 1] = { text = "Open Tracker Settings", disabled = lock,
-			tip = "The small panel its cog (or SHIFT+middle-click) opens on the tracker itself: the same settings.",
+			tip = "Opens the same settings panel as the tracker's cog (or SHIFT+middle-click on it).",
 			onClick = function()
 				local f = Frames()[key]
 				if f and SP.ShowPopOutSettingsPanel then SP:ShowPopOutSettingsPanel(key, f) end
@@ -770,8 +770,8 @@ do
 			end
 		end
 		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Clear Its Assignments", disabled = lock or not Assigned(key),
-			tip = "The same as setting each of its lines to None.",
+		r[#r + 1] = { text = "Clear Assignments", disabled = lock or not Assigned(key),
+			tip = "Clear all assignments for this cooldown.",
 			onClick = function()
 				if not CanAssign() then return end
 				if key == "bl" then

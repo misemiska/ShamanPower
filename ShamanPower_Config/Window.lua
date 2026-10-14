@@ -2662,7 +2662,7 @@ local function RenderPageInner(self, entry, query, keepScroll)
 	if #pageWidgets == 0 then
 		frame.emptyText:SetText(
 			(query and query ~= "") and "No settings match that search."
-			or "Nothing to configure here.")
+			or "No settings on this page.")
 		frame.emptyText:Show()
 	else
 		frame.emptyText:Hide()
@@ -3549,8 +3549,8 @@ do
 		if InCombatLockdown() then print(RESET_COMBAT) return end
 		sp:ShowSPDialog({
 			key = "resetPage", title = "Reset This Page",
-			text = "Reset every " .. Tree:StripColor(entry.label) .. " setting to how it came?"
-				.. " Where things sit on screen and your theme stay.",
+			text = "Reset all " .. Tree:StripColor(entry.label) .. " settings to their defaults?"
+				.. " Your positions and your theme stay.",
 			buttons = {
 				{ text = "Reset", onClick = function()
 					-- combat began while it was open: say so, and keep the question up for after the fight
@@ -3670,7 +3670,7 @@ local function InjectOptions()
 		args = {
 			uiOpacity = {
 				order = 1,
-				name = "Background Opacity",
+				name = "Window Background Opacity",
 				desc = "How solid the panels of the options and assignment windows are. Text, icons and borders always stay fully visible.",
 				type = "range",
 				min = 0.2, max = 1, step = 0.05, isPercent = true,
