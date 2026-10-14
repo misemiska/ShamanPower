@@ -151,6 +151,9 @@ function SP:ShowImportDialog()
 			if ok then
 				importDlg:SetStatus("Imported into profile: " .. res, "on")
 				C_Timer.After(1.2, function() importDlg:Hide() end)
+				-- the import re-applies what it can live; the bars' size and look, the cooldown bar's
+				-- items, the shields, the alerts and the themes come up exactly only on a reload
+				Core:RequestReload("Imported into profile '" .. tostring(res) .. "'. A reload finishes applying it to the bars and every module.")
 			else
 				importDlg:SetStatus("Import failed: " .. tostring(res), "warn")
 			end
@@ -220,7 +223,10 @@ local function InjectProfileButtons()
 				return b and ("Backed up " .. b.date .. " (" .. b.reason .. "). Comes back as a new profile; your current profile is kept.") or ""
 			end,
 			hidden = function() return not (SP.db.global.setupBackups and SP.db.global.setupBackups[1]) end,
-			func = function() SP:RestoreSetupBackup(1) end,
+			func = function()
+				local ok, res = SP:RestoreSetupBackup(1)
+				if ok then Core:RequestReload("Your previous setup is back as profile '" .. tostring(res) .. "'. A reload finishes applying it to the bars and every module.") end
+			end,
 		}
 		for i, preset in ipairs(SP.Presets) do
 			profiles.args["spPreset" .. i] = {
