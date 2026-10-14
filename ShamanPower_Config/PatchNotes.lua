@@ -50,6 +50,7 @@ ns.PATCH_NOTES = {
 			"After updating, fully close and restart the game once: 3.0.9 adds new files (Click Through, the cooldown bar's Hide Out of Combat, the Appearance page), and a /reload alone does not load them.",
 		},
 		fixes = {
+			"A setup code carries Your Themes now (Profiles > Export This Profile): the saved themes from General > Themes come along to another account or game, and the profile keeps pointing at its own theme after the import. A theme with the same name as one already there is replaced; the rest stay. Codes made before this are still fine, they just bring no themes.",
 			"Importing a setup code (Profiles > Import a Code) and Restore My Previous Setup now end with the reload prompt. The import put every setting in place but could only re-apply part of it live: the bars' size and look, the cooldown bar's items, the shields, the alerts and the themes came up fully only on the next reload, so an import looked half-applied until then.",
 			"The Drop All button (and Totemic Call on the totem bar) now takes the Totem Bar Icon Shape: Flat, Rounded and Circle used to leave it square.",
 		},

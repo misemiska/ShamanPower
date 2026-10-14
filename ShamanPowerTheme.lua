@@ -2203,6 +2203,10 @@ function Cards.LooksChanged()
 end
 function Cards.Migrate()
 	if not ready then return end
+	-- an import in progress (ShamanPowerShare.lua): the profile is empty between its creation
+	-- and its fill, with the modules' tables still the old ones; migrating that would save a
+	-- stray "My Look" theme nobody asked for. The real data migrates once it is in.
+	if SP.shareImporting then return end
 	-- The optional module loads after this file. Register its per-icon defaults
 	-- once the spell catalog exists, so old theme baselines keep their card.
 	if SP.ReadyReminderSpells and not Cards.addedReadyDirections then
@@ -2784,6 +2788,33 @@ function SP:ThemeImport(text)
 	if name == "" then name = "Shared Theme" end
 	local id = Cards.Add(Cards.Unique(name), p.base, flat)
 	return Cards.Find(id), nil, skipped
+end
+
+-- A full setup code (ShamanPowerShare.lua) carries the account's saved themes: each one
+-- comes in as a theme of this account, a same-named theme replaced in place (its number
+-- kept), the rest added with new numbers. Returns the code's theme numbers -> the numbers
+-- here, so the imported profile's card refs ("mine:<n>") can follow them.
+function SP:ThemeTakeShared(list)
+	local map = {}
+	if type(list) ~= "table" or not (SP.db and SP.db.global) then return map end
+	for _, th in ipairs(list) do
+		if type(th) == "table" then
+			local flat = Cards.Clean(type(th.flat) == "table" and th.flat or {})
+			local name = Cards.CleanName(th.name)
+			if name == "" then name = "Shared Theme" end
+			local base = THEMES[th.base] and th.base or "standard"
+			local mine = Cards.ByName(name)
+			local id
+			if mine then
+				mine.flat, mine.base, mine.updated = Copy(flat), base, time()
+				id = mine.id
+			else
+				id = Cards.Add(name, base, flat)
+			end
+			if tonumber(th.id) then map[tonumber(th.id)] = id end
+		end
+	end
+	return map
 end
 
 -- profile change (and anyone who needs a full re-resolve): reconcile every
