@@ -639,11 +639,11 @@ local function MenuItems(item)
 	r[#r].words = "when this shield's charges are on screen"
 	r[#r + 1] = SEP
 	-- how it looks
-	r[#r + 1] = Slider("Size", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
+	r[#r + 1] = Slider("Scale", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
 		function(v) SliderSet(s, "scale", v) end, Pct, true,
 		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.",
 		{ kind = "size" })
-	r[#r + 1] = Slider("Visibility", 0.1, 1, 0.05, function() return Val(s, "opacity") or 1 end,
+	r[#r + 1] = Slider("Opacity", 0.1, 1, 0.05, function() return Val(s, "opacity") or 1 end,
 		function(v) SliderSet(s, "opacity", v) end, Pct, true, "How see-through this shield's charges are.",
 		{ kind = "opacity" })
 	r[#r + 1] = Group("Icon & Number", function() return IconRows(s) end, nil, nil,
