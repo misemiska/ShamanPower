@@ -749,6 +749,16 @@ local function PaneAnimated()
 	return not (sp and sp.UIAnimationsOn) or sp:UIAnimationsOn() ~= false
 end
 
+-- The window may slide past any edge of the screen (the owner, 3.0.9: it is big, and sometimes it
+-- covers the very thing a setting changes), as long as a strip of it stays on screen to drag it
+-- back by. The frame drags by any part of itself, so that strip is enough.
+local KEEP_ON_SCREEN = 120
+local function ApplyClamp(frame)
+	local offX, offY = WIN_W - KEEP_ON_SCREEN, WIN_H - KEEP_ON_SCREEN
+	-- (a clamp rectangle smaller than the frame: left in, right in, top down, bottom up)
+	frame:SetClampRectInsets(offX, -offX, -offY, offY)
+end
+
 function SPConfig:SetPreviewPaneOpen(on, silent)
 	if not frame then return end
 	self:BuildPreviewPane()
@@ -760,11 +770,9 @@ function SPConfig:SetPreviewPaneOpen(on, silent)
 		local st = PreviewStore()
 		if st then st.configPreviewOpen = on end
 	end
-	-- keep the whole assembly on screen when the window is dragged (wide while it slides)
-	if on then frame:SetClampRectInsets(0, PREVIEW_W + 4, 0, 0) end
+	ApplyClamp(frame)
 	local function closed()
 		pane:Hide()
-		frame:SetClampRectInsets(0, 0, 0, 0)
 		SPConfig:ReleasePreview()
 	end
 	if silent or not PaneAnimated() then
@@ -1189,6 +1197,7 @@ local function BuildWindow()
 	-- window's child frames can sit above this one's base and eat the drag.
 	frame:SetToplevel(true)
 	frame:SetClampedToScreen(true)
+	ApplyClamp(frame)
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
 	frame:RegisterForDrag("LeftButton")

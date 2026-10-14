@@ -231,7 +231,7 @@ local function ButtonClick(b, button)
 		Row:OpenMenu(s.key)
 		return
 	end
-	-- 3.0.9: Click an Icon Opens Its Screen (General > Main): the spell's own screen (IconScreen.lua)
+	-- the icon screens (IconScreen.lua, held for 3.1.0 and not loaded until then): the spell's own screen
 	if ns.IconScreen and ns.IconScreen:Wants(Row) then
 		ns.IconScreen:Open(Row, s.key)
 		return
@@ -451,7 +451,7 @@ local function PlaceRows(key)
 	local t = {}
 	for _, w in ipairs(WHERE_CHOICES) do t[#t + 1] = WhereRow(key, w[2], w[1]) end
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = { text = "Copy Show And Places To All Spells", onClick = function()
+	t[#t + 1] = { text = "Copy When And Where To All Spells", onClick = function()
 		TT("TT_CopyGroupToAll", key, "when")
 		Row:Changed(true)
 		return true
@@ -459,21 +459,20 @@ local function PlaceRows(key)
 	return t
 end
 
-local function LookRows(key)
+local function AppearanceRows(key)
 	local t
 	if key == "purge" then
 		t = {
-			SliderRow(key, "Icon Size", "size", 32, 128, 1, nil, PIC.size),
-			OnOffRow(key, "Glow", "glow", PIC.goldGlow),
+			SliderRow(key, "Size", "size", 32, 128, 1, nil, PIC.size),
 			OnOffRow(key, "Show The Buff's Picture", "buffPicture", PIC.buffPicture),
 		}
-		t[3].tip = "Shows the picture of the buff you'd remove. Off: the Purge icon."
-		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES, PIC.SpellEdge(key))
-		edge.tip = "The edge around Purge's icon. Spell Color: WoW's Magic blue."
+		t[2].tip = "Shows the picture of the buff you'd remove. Off: the Purge icon."
+		local edge = ChoiceRow(key, "Border", "border", EDGE_CHOICES, PIC.SpellEdge(key))
+		edge.tip = "The border around Purge's icon. Spell Color: WoW's Magic blue."
 		t[#t + 1] = edge
 	else
 		t = {
-			SliderRow(key, "Icon Size", "size", 16, 64, 1, nil, PIC.size),
+			SliderRow(key, "Size", "size", 16, 64, 1, nil, PIC.size),
 			OnOffRow(key, "Show Time Left", "timeLeft", PIC.ticking),
 			ChoiceRow(key, "Sweep", "sweep", SWEEP_CHOICES, PIC.plain),
 		}
@@ -487,17 +486,28 @@ local function LookRows(key)
 			t[#t + 1] = direction
 		end
 		if key == "ss" then t[#t + 1] = OnOffRow(key, "Show Charges", "charges", PIC.charges) end
-		local name = (SpellOf(key) or {}).name or "it"
-		local miss = ChoiceRow(key, "Look When Missing", "missLook", MISS_CHOICES, PIC.gray)
-		miss.tip = "How the gray warning looks while your " .. name .. " isn't on your target (Warn When It's Missing)."
-		t[#t + 1] = miss
-		local edge = ChoiceRow(key, "Icon Edge", "border", EDGE_CHOICES, PIC.SpellEdge(key))
-		edge.tip = "The edge around this spell's icon. Spell Color: the spell's element color."
+		local edge = ChoiceRow(key, "Border", "border", EDGE_CHOICES, PIC.SpellEdge(key))
+		edge.tip = "The border around this spell's icon. Spell Color: the spell's element color."
 		t[#t + 1] = edge
 	end
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = CopyGroupRow(key, "Look", "look")
+	t[#t + 1] = CopyGroupRow(key, "Appearance", "look")   -- (the module's "look" group: its glow and missing look too)
 	return t
+end
+
+-- When It's Missing: the warning while your debuff is not on your target, and its look
+local function MissingRows(key)
+	local name = (SpellOf(key) or {}).name or "it"
+	local missing = OnOffRow(key, "Warn When It's Missing", "missing", PIC.gray)
+	missing.tip = "While you're targeting an enemy without your " .. name .. " on it, a gray " .. name
+		.. " with a red edge shows where yours would be, so you know to cast it again."
+	local miss = ChoiceRow(key, "Look When Missing", "missLook", MISS_CHOICES, PIC.gray)
+	miss.tip = "How the gray warning looks while your " .. name .. " isn't on your target."
+	if not Get(key, "missing") then
+		miss.disabled = true
+		miss.tip = "Turn on Warn When It's Missing to use this. " .. miss.tip
+	end
+	return { missing, miss }
 end
 
 -- Next Shock (Flame Shock's menu): its settings live under Target Tracker's "ns"
@@ -566,8 +576,9 @@ local function CopyItems(key)
 	return items
 end
 
--- every setting of the spell, the most used first: Show (in or out of combat) and the places,
--- Purge's Position, Look, then what that spell has of its own (each row's tooltip says what it does)
+-- every setting of the spell, in the order every icon menu shares (3.0.9): the icon itself, when
+-- and where it shows, Appearance, its moments (When It's Missing; Purge: When A Buff Can Be
+-- Removed), where it sits, Copy / Paste / Reset (each row's tooltip says what it does)
 local function OffPlaces(key)
 	local off = {}
 	for _, w in ipairs(WHERE_CHOICES) do
@@ -592,51 +603,71 @@ local function MenuItems(key)
 	if not spell then return {} end
 	local name = spell.name
 	local items = {}
-	local show = ChoiceRow(key, "Show", "show", SHOW_CHOICES, PIC.plain)
-	show.tip = "In a fight, out of one, or both. The places below can still turn it off in a kind of place."
+	-- the icon itself
+	local on = Shown(key)
+	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
+		onClick = function() TT("TT_Set", key, "shown", not on); Row:Changed(false) end }
+	items[#items + 1] = { separator = true }
+	-- when and where it shows
+	local show = ChoiceRow(key, "When To Show", "show", SHOW_CHOICES, PIC.plain)
+	show.tip = "In a fight, out of one, or both. Where To Show can still turn it off in a kind of place."
 	items[#items + 1] = show
-	local places = Group("Places", function() return PlaceRows(key) end, "the kinds of place it shows in")
+	local places = Group("Where To Show", function() return PlaceRows(key) end, "the kinds of place it shows in")
 	places.tip = "Turn it on or off in each kind of place: the open world, dungeons, raids, Battlegrounds and Arenas."
 	items[#items + 1] = places
+	if key == "purge" then
+		LongRows(key, items)
+		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses", PIC.none)
+		bosses.tip = "In a boss fight, Purge also lights up when any boss has a buff you can remove, not only your target."
+		if not (Where(key, "raid") or Where(key, "dungeon")) then
+			bosses.tip = bosses.tip .. " Purge is off in Raids and Dungeons (Where To Show), so it can't light up for bosses there."
+		end
+		items[#items + 1] = bosses
+	elseif key == "fs" then
+		local ns = Group("Next Shock", NextShockRows, "which shock to press next, on Flame Shock's icon")
+		ns.value = function() return OnOff(Get("ns", "on")), false end
+		ns.tip = "Flame Shock's icon shows which shock to press next, on each enemy by its own Flame Shock."
+		items[#items + 1] = ns
+	end
+	items[#items + 1] = { separator = true }
+	-- how it looks
+	items[#items + 1] = Group("Appearance", function() return AppearanceRows(key) end,
+		key == "purge" and "size, the buff's picture, border" or "size, time left, sweep, charges, border")
+	items[#items + 1] = { separator = true }
+	-- what it does at its moments
+	if key == "purge" then
+		items[#items + 1] = Group("When A Buff Can Be Removed", function()
+			local g = OnOffRow(key, "Glow", "glow", PIC.goldGlow)
+			g.tip = "Purge's icon glows while your target has a buff you can remove."
+			return { g }
+		end, "the glow when your target has one")
+	else
+		local missing = Group("When It's Missing", function() return MissingRows(key) end, "the warning while your " .. name .. " isn't on your target")
+		missing.value = function() return OnOff(Get(key, "missing")), false end
+		items[#items + 1] = missing
+	end
+	items[#items + 1] = { separator = true }
+	-- where it sits
 	if key == "purge" then
 		local pos = ChoiceRow(key, "Position", "showOn", SHOWON_CHOICES, PIC.none)
 		pos.tip = "Where Purge shows: a spot you place on your screen (Move Purge on this page), on your target's"
 			.. " nameplate, or under the target frame."
 		items[#items + 1] = pos
-		items[#items + 1] = Group("Look", function() return LookRows(key) end, "size, glow, the buff's picture and its edge")
-		LongRows(key, items)
-		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses", PIC.none)
-		bosses.tip = "In a boss fight, Purge also lights up when any boss has a buff you can remove, not only your target."
-		local off = OffPlaces(key)
-		if not (Where(key, "raid") or Where(key, "dungeon")) then
-			bosses.tip = bosses.tip .. " Purge is off in Raids and Dungeons (Places), so it can't light up for bosses there."
-		end
-		items[#items + 1] = bosses
-		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate", PIC.plain)
+	end
+	local off = OffPlaces(key)
+	local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate", PIC.plain)
+	if key == "purge" then
 		plates.tip = "Not only your target: Purge lights up on the nameplate of every enemy with a buff you can remove."
 			.. " Skip Long Buffs counts there too. WoW's enemy nameplates need to be on."
-		if off then plates.tip = plates.tip .. " It's off in " .. off .. " (Places)." end
-		items[#items + 1] = plates
 	else
-		items[#items + 1] = Group("Look", function() return LookRows(key) end,
-			"size, time left, sweep, look when missing, edge")
-		local missing = OnOffRow(key, "Warn When It's Missing", "missing", PIC.gray)
-		missing.tip = "While you're targeting an enemy without your " .. name .. " on it, a gray " .. name
-			.. " with a red edge shows where yours would be, so you know to cast it again."
-		items[#items + 1] = missing
-		local plates = OnOffRow(key, "Show On Every Enemy's Nameplate", "everyPlate", PIC.plain)
 		plates.tip = "Not only your target: your " .. name .. " and its time left show on the nameplate of every enemy"
 			.. " that has it. With Warn When It's Missing on, an enemy without it shows the gray warning. WoW's enemy"
 			.. " nameplates need to be on."
-		items[#items + 1] = plates
-		if key == "fs" then
-			local ns = Group("Next Shock", NextShockRows, "which shock to press next, on Flame Shock's icon")
-			ns.value = function() return OnOff(Get("ns", "on")), false end
-			ns.tip = "Flame Shock's icon shows which shock to press next, on each enemy by its own Flame Shock."
-			items[#items + 1] = ns
-		end
 	end
+	if off then plates.tip = plates.tip .. " It's off in " .. off .. " (Where To Show)." end
+	items[#items + 1] = plates
 	items[#items + 1] = { separator = true }
+	-- copy and reset
 	items[#items + 1] = { text = "Copy Settings", onClick = function() TT("TT_Copy", key); return true end }
 	local from = TT("TT_ClipboardFrom")
 	local fromSpell = from and SpellOf(from)
@@ -649,11 +680,7 @@ local function MenuItems(key)
 		end }
 	items[#items + 1] = { text = "Copy Settings To...", disabled = #Row.list < 2, subMaxHeight = 420,
 		words = "every setting of this spell onto another", sub = function() return CopyItems(key) end }
-	items[#items + 1] = { separator = true }
-	local on = Shown(key)
-	items[#items + 1] = { text = on and "Hide This Spell" or "Show This Spell",
-		onClick = function() TT("TT_Set", key, "shown", not on); Row:Changed(false) end }
-	items[#items + 1] = { text = "Reset This Spell", disabled = not HasOwn(key),
+	items[#items + 1] = { text = "Reset This Icon", disabled = not HasOwn(key),
 		onClick = function() TT("TT_Reset", key); Row:Changed(false) end }
 	return items
 end

@@ -259,7 +259,7 @@ end
 -- reads plain fields and builds nothing.
 -- ---------------------------------------------------------------------------
 local ICON_KEYS = { "mode", "outOfRange", "readyEffect", "glowColor", "glowShape", "glowThick", "glowCombatOnly", "soundOnReady", "soundName",
-	"onlyInCombat", "showCountdown", "iconSize", "countdownUnder", "flash",
+	"onlyInCombat", "showCountdown", "iconSize", "iconShape", "countdownUnder", "flash",
 	"flashAnim", "flashSize", "flashHold", "flashEarly", "flashName",
 	-- D40: every setting the page had is the icon's own now (the page's saved value is
 	-- what an icon that never set one uses, so nothing on screen changed on the update)
@@ -1304,6 +1304,13 @@ function SP:UpdateReadyReminderAppearance(key)
 	local e = f.entry
 	local size = IconOpt(e, "iconSize") or 48
 	f:SetSize(size, size)
+	-- Icon Shape (3.0.9): this spell's own, else the shape every icon shares: the icon and what is
+	-- drawn on it, the backing (shaped on the frame's rectangle) and the swipe
+	local ownShape = IconOpt(e, "iconShape")
+	if SP.SetIconShapeOwn then
+		SP:SetIconShapeOwn(f.icon, ownShape, f.cooldown)
+		SP:SetIconShapeOwn(f, ownShape)
+	end
 	-- Fills Back In: the remaining gray sheet sits opposite the edge where color returns.
 	local fromTop = IconOpt(e, "sweepDirection") == "top"
 	f.overlay:ClearAllPoints()
@@ -1332,7 +1339,7 @@ function SP:UpdateReadyReminderAppearance(key)
 	-- follows the shape as a ring, unless Keep Borders Square
 	local hideBg = IconOpt(e, "hideBackground") and true or false
 	local borderOn = not hideBg and not IconOpt(e, "hideBorder")
-	local ringFile = SP.BorderRingFile and SP:BorderRingFile("ready")
+	local ringFile = SP.BorderRingFile and SP:BorderRingFile("ready", ownShape)
 	f.bg:SetShown(not hideBg); f.border:SetShown(borderOn and not ringFile)
 	f.border:SetBackdropBorderColor(color(IconOpt(e, "borderColor"), 0.2, 0.7, 1.0))
 	if ringFile then
@@ -1740,8 +1747,10 @@ end
 -- Icon Shape (Ready Reminders) on the buff's backing and icon, with masks of our own: the
 -- shared shape walk runs whenever a shape changes, in a fight too, and must never reach
 -- the game's button (Paint runs only while the button may be touched).
-function Buff.Shape(P)
-	local file = SP.IconShapeMaskFile and SP.IconShapeOf and SP:IconShapeMaskFile(SP:IconShapeOf("ready")) or false
+function Buff.Shape(P, own)
+	local shape = own
+	if shape == nil then shape = SP.IconShapeOf and SP:IconShapeOf("ready") elseif shape == "default" then shape = nil end
+	local file = shape and SP.IconShapeMaskFile and SP:IconShapeMaskFile(shape) or false
 	if P.maskFile == file or not P.bg.AddMaskTexture then return end
 	if P.maskFile then
 		P.bg:RemoveMaskTexture(P.bgMask)
@@ -1763,8 +1772,8 @@ end
 
 -- the edge: `t` px thick, `out` px outside the parts' frame; a ring round a Rounded /
 -- Circle icon (Keep Borders Square off), as the icon's own border does
-function Buff.Edges(P, t, out, r, g, b, shown)
-	local ringFile = shown and SP.BorderRingFile and SP:BorderRingFile("ready") or nil
+function Buff.Edges(P, t, out, r, g, b, shown, own)
+	local ringFile = shown and SP.BorderRingFile and SP:BorderRingFile("ready", own) or nil
 	local E, art = P.edges, P.art
 	for i = 1, 4 do E[i]:SetShown(shown and not ringFile) end
 	if ringFile then
@@ -1790,7 +1799,8 @@ function Buff.Paint(B)
 	local P = B.P
 	if not P then return end
 	local entry, look, s = B.entry, B.look, B.size or 24
-	Buff.Shape(P)
+	local ownShape = IconOpt(entry, "iconShape")   -- (Icon Shape: the spell's own, else the shared one)
+	Buff.Shape(P, ownShape)
 	if look == "swap" then
 		-- Replaces The Icon: the buff's own icon over this icon's picture while it is on (the
 		-- game paints it on WoW: Forever), with the time in the corner; the icon's border and
@@ -1799,7 +1809,7 @@ function Buff.Paint(B)
 		P.icon:ClearAllPoints()
 		P.icon:SetPoint("TOPLEFT", P.art, "TOPLEFT", 2, -2); P.icon:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 2)
 		P.icon:Show()
-		Buff.Edges(P, 2, 2, 0, 0, 0, false)
+		Buff.Edges(P, 2, 2, 0, 0, 0, false, ownShape)
 		SP:SetSPFont(P.time, "alerts", math.max(10, math.floor(s * 0.30)), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 3)
@@ -1807,7 +1817,7 @@ function Buff.Paint(B)
 		-- the icon's border, in the edge's color, with the time in the icon's corner
 		P.bg:Hide(); P.icon:Hide()
 		local r, g, b = color(IconOpt(entry, "buffEdgeColor"), 0, 0, 1)
-		Buff.Edges(P, 2, 2, r, g, b, true)
+		Buff.Edges(P, 2, 2, r, g, b, true, ownShape)
 		SP:SetSPFont(P.time, "alerts", math.max(10, math.floor(s * 0.30)), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 3)
@@ -1818,7 +1828,7 @@ function Buff.Paint(B)
 		P.icon:SetPoint("TOPLEFT", P.art, "TOPLEFT", 1, -1); P.icon:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -1, 1)
 		P.icon:Show()
 		local r, g, b = color(IconOpt(entry, "borderColor"), 0.2, 0.7, 1.0)
-		Buff.Edges(P, 1, 1, r, g, b, true)
+		Buff.Edges(P, 1, 1, r, g, b, true, ownShape)
 		SP:SetSPFont(P.time, "alerts", math.max(8, math.floor(s * 0.55 + 0.5)), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("CENTER", P.art, "CENTER", 1, 0)
@@ -1831,7 +1841,7 @@ function Buff.Paint(B)
 		P.icon:SetPoint("TOPLEFT", P.art, "TOPLEFT", e, -e); P.icon:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -e, e)
 		P.icon:Show()
 		local r, g, b = color(IconOpt(entry, "borderColor"), 0.2, 0.7, 1.0)
-		Buff.Edges(P, e, e, r, g, b, not hideBg and not IconOpt(entry, "hideBorder"))
+		Buff.Edges(P, e, e, r, g, b, not hideBg and not IconOpt(entry, "hideBorder"), ownShape)
 		SP:SetSPFont(P.time, "alerts", math.max(8, math.floor(s * 0.34 + 0.5)), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("CENTER", P.art, "CENTER", 0, 0)
@@ -2590,7 +2600,13 @@ local function flashLook(entry, f)
 		hideBg, hideBorder, borderColor = sv.hideBackground, sv.hideBorder, sv.borderColor
 	end
 	local borderOn = not hideBg and not hideBorder
-	local ringFile = SP.BorderRingFile and SP:BorderRingFile("ready")
+	-- Icon Shape: the spell's own (else the shared one) on the flash's icon, its backing and its ring
+	local ownShape = entry and IconOpt(entry, "iconShape") or nil
+	if SP.SetIconShapeOwn then
+		SP:SetIconShapeOwn(body.icon, ownShape)
+		SP:SetIconShapeOwn(body, ownShape)
+	end
+	local ringFile = SP.BorderRingFile and SP:BorderRingFile("ready", ownShape)
 	body.bg:SetShown(not hideBg)
 	body.border:SetShown(borderOn and not ringFile)
 	do

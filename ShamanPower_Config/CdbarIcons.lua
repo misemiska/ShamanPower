@@ -419,7 +419,7 @@ local function CopyEffectsToCooldowns(t)
 end
 local function CopyLine(text, fn) return { text = text, onClick = fn } end
 
-local function LookRows(t)
+local function AppearanceRows(t)
 	local r = {}
 	if IsShieldOrImbue(t) then
 		-- (TotemTimers Style: the other shield / imbue in the corner; Single Totem: in place of the icon; Dynamic
@@ -475,7 +475,7 @@ local function LookRows(t)
 			{ kind = "number", text = "5" })
 	end
 	r[#r + 1] = SEP
-	r[#r + 1] = CopyLine("Copy Look To All Items", function() return CopyGroup(t, "all", "look") end)
+	r[#r + 1] = CopyLine("Copy Appearance To All Items", function() return CopyGroup(t, "all", "look") end)
 	return r
 end
 
@@ -512,7 +512,7 @@ local function EffectRows(t)
 				.. (FOREVER and " In a fight it pulses red while no shield is up (at 100% Cooldown Bar opacity)." or ""))
 			or "When the imbue drops off (it ran out, or you swapped weapons), the button plays this in blue.", PIC.gone)
 		if Get(t, "cueGone") then
-			r[#r + 1] = OnOffName(t, shield and "Red X Until You Cast a Shield Again" or "Red X Until You Imbue Again", "cueMark",
+			r[#r + 1] = OnOffName(t, "Red X When It's Gone", "cueMark",
 				shield and ("Also a red X on the button until you cast a shield again (5 seconds at most)."
 					.. (FOREVER and " In a fight it shows while no shield is up instead (at 100% Cooldown Bar opacity)." or ""))
 				or "Also a red X on the button until you put an imbue on again (5 seconds at most).", PIC.redx)
@@ -538,7 +538,6 @@ local function EffectRows(t)
 				{ kind = "word", text = "45" })   -- (the time alone: the sweep is its own setting)
 		end
 		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Test This Item's Effects", onClick = function() return TestItem(t) end }
 		if shield then
 			r[#r + 1] = CopyLine("Copy Effects To Weapon Imbue", function() return CopyGroup(t, IMBUE, "effects") end)
 		else
@@ -552,7 +551,6 @@ local function EffectRows(t)
 		r[#r + 1] = OnOffName(t, "Time Turns Gold When Almost Ready", "cueTimeColor",
 			"The time on the button turns gold over its last seconds (Almost Ready At).", PIC.none)   -- (as Time Turns Red)
 		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Test This Item's Effects", onClick = function() return TestItem(t) end }
 		r[#r + 1] = CopyLine("Copy Effects To All Cooldowns", function() return CopyEffectsToCooldowns(t) end)
 	end
 	return r
@@ -609,7 +607,7 @@ local function KeybindRows(t)
 	local r = { { text = "Button Key", value = function() return KeyText(b[1]), false end } }
 	if b[2] then r[#r + 1] = { text = "Flyout Key", value = function() return KeyText(b[2]), false end } end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Set Keys In Keybind Mode", onClick = function()
+	r[#r + 1] = { text = "Set Keys...", tip = "Opens Keybind Mode: press the key you want on the button, or on its flyout.", onClick = function()
 		if SP.SetKeybindMode then SP:SetKeybindMode(true) end
 	end }
 	return r
@@ -618,8 +616,16 @@ end
 local function MenuItems(item)
 	local t = item.key
 	local r = {}
+	-- the icon itself
+	local on = ShownOnBar(t)
+	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon", onClick = function()
+		OptSet(I, SHOW_OPTION[t], not on)
+		Row:Changed(false)
+	end }
+	r[#r + 1] = SEP
+	-- when it shows
 	if IsShieldOrImbue(t) then
-		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
+		r[#r + 1] = Choice("When To Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
 			{ "runout", "Only When Running Out", nil, { kind = "sweep", frac = 0.15, text = "45" } } }, function()
 			local v, own = Get(t, "runOutOnly")
 			return v and "runout" or "always", own
@@ -634,7 +640,7 @@ local function MenuItems(item)
 			.. (t == SHIELD and " A shield also counts as running out on its last charge." or ""))
 		r[#r].words = "the seconds that count as running out"
 	else
-		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.7, text = "2m" } },
+		r[#r + 1] = Choice("When To Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.7, text = "2m" } },
 			{ "hide", "Only When Almost Ready, Then Hide Again", nil, { kind = "sweep", frac = 0.1, text = "3" } },
 			{ "keep", "Only When Almost Ready, Until Used", nil, PIC.plain } }, function()
 			local on, own1 = Get(t, "runOutOnly")
@@ -662,34 +668,34 @@ local function MenuItems(item)
 			.. " no last seconds, so Cooldown Almost Ready never plays.")
 		r[#r].words = "the seconds that count as almost ready"
 	end
-	if t == RECALL then
-		r[#r + 1] = Choice("Where", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
-			local v, own = Get(t, "onTotemBar")
-			return v and true or false, own
-		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
-			PIC.none)
-		r[#r].words = "which bar the button sits on"
-	end
-	r[#r + 1] = Group("Look", function() return LookRows(t) end, nil, nil,
+	r[#r + 1] = SEP
+	-- how it looks
+	r[#r + 1] = Group("Appearance", function() return AppearanceRows(t) end, nil, nil,
 		IsShieldOrImbue(t) and "button style, sweep and progress bar" or "sweep and progress bar")
 	if t == SHIELD then
 		r[#r + 1] = Group("Charges", function() return ChargeRows(t) end, nil, nil, "the count and the bar for its charges")
-	end
-	r[#r + 1] = Group("Effects", function() return EffectRows(t) end, nil, nil,
-		IsShieldOrImbue(t) and "what the button plays when it is gone or running out"
-		or "what the button plays when it is ready or almost ready")
-	if t == SHIELD then
-		r[#r + 1] = Group("Clicks", function() return ClickRows(t) end, nil, nil, "what a click on the button casts")
 	end
 	if IsShieldOrImbue(t) then
 		r[#r + 1] = Group("Flyout", function() return FlyoutRows(t) end, nil, nil,
 			"where the flyout opens, its size and opacity")
 	end
-	if BINDINGS[t] then
-		r[#r + 1] = Group("Keybind", function() return KeybindRows(t) end, nil, nil,
-			BINDINGS[t][2] and "the keys for the button and its flyout" or "the key for the button")
-	end
 	r[#r + 1] = SEP
+	-- what it plays at its moments
+	r[#r + 1] = Group("Effects", function() return EffectRows(t) end, nil, nil,
+		IsShieldOrImbue(t) and "what the button plays when it is gone or running out"
+		or "what the button plays when it is ready or almost ready")
+	r[#r + 1] = SEP
+	-- where it sits (Totemic Recall: which bar; the rest sit on the cooldown bar)
+	if t == RECALL then
+		r[#r + 1] = Choice("Which Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
+			local v, own = Get(t, "onTotemBar")
+			return v and true or false, own
+		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
+			PIC.none)
+		r[#r].words = "which bar the button sits on"
+		r[#r + 1] = SEP
+	end
+	-- copy and reset
 	r[#r + 1] = { text = "Copy Settings", disabled = not HasAPI("CdItemSnapshot"), onClick = function()
 		Row.clip = { from = t, name = NAMES[t] or ("Item " .. t), snap = SP:CdItemSnapshot(t) }
 		return true
@@ -718,18 +724,22 @@ local function MenuItems(item)
 		o[#o + 1] = { text = "All Items", onClick = function() Copy(t, "all"); Row:Changed(false) end }
 		return o
 	end }
-	r[#r + 1] = SEP
-	local on = ShownOnBar(t)
-	r[#r + 1] = { text = on and "Hide This Item" or "Show This Item", onClick = function()
-		OptSet(I, SHOW_OPTION[t], not on)
-		Row:Changed(false)
-	end }
-	r[#r + 1] = { text = "Reset This Item", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
+	r[#r + 1] = { text = "Reset This Icon", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
 		tip = "Back to the bar's settings: everything this item set for itself goes.",
 		onClick = function()
 			if SP.ResetCdItem then SP:ResetCdItem(t) end
 			Row:Changed(false)
 		end }
+	r[#r + 1] = SEP
+	-- its clicks, keys and test
+	if t == SHIELD then
+		r[#r + 1] = Group("Clicks", function() return ClickRows(t) end, nil, nil, "what a click on the button casts")
+	end
+	if BINDINGS[t] then
+		r[#r + 1] = Group("Keys", function() return KeybindRows(t) end, nil, nil,
+			BINDINGS[t][2] and "the keys for the button and its flyout" or "the key for the button")
+	end
+	r[#r + 1] = { text = "Test This Icon's Effects", onClick = function() return TestItem(t) end }
 	return r
 end
 

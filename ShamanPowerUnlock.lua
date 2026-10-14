@@ -491,11 +491,128 @@ local function SnapAxis(pos, half, targets, n, origin, step)
 	return pos
 end
 
+-- ---------------------------------------------------------------------------
+-- The real thing rides inside the box (3.0.9, sheet A34). While a box is dragged its
+-- frame follows it, placed each tick from where the frame started plus how far the box
+-- has gone (never read back: a frame placed this frame can still report its old spot).
+-- A faint box with the name and "was here" marks the old spot until the drop. Every
+-- animation playing on the frame is paused while it is held and plays on at the drop,
+-- so the icons sit still and can be lined up. Every box the same way.
+-- ---------------------------------------------------------------------------
+local Live = {}    -- the drag in progress: mover, frame, the frame's start point, the box's start center
+local held = {}    -- the animation groups paused for it
+local ghost        -- the old spot's box (one, reused)
+local PAUSE_EVERY = 0.25   -- (a loop the frame's own code starts mid-drag is paused too, this often)
+local BOX_FILL, BOX_FILL_HELD = 0.35, 0.18
+
+local function PauseTree(obj)
+	if obj.GetAnimationGroups then
+		for _, ag in ipairs({ obj:GetAnimationGroups() }) do
+			if ag:IsPlaying() and not ag:IsPaused() then ag:Pause(); held[#held + 1] = ag end
+		end
+	end
+	if obj.GetRegions then for _, r in ipairs({ obj:GetRegions() }) do PauseTree(r) end end
+	if obj.GetChildren then for _, c in ipairs({ obj:GetChildren() }) do PauseTree(c) end end
+end
+local function PlayHeld()
+	for i = #held, 1, -1 do
+		local ag = held[i]
+		if ag:IsPaused() then ag:Play() end
+		held[i] = nil
+	end
+end
+
+local function GhostShow(mover)
+	if not ghost then
+		ghost = CreateFrame("Frame", nil, UIParent)
+		ghost:SetFrameStrata("DIALOG")   -- (under the boxes: a marker, never in the way)
+		ghost:EnableMouse(false)
+		local bg = ghost:CreateTexture(nil, "BACKGROUND")
+		bg:SetAllPoints(ghost)
+		bg:SetColorTexture(0, 0.439, 0.867, 0.12)
+		for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+			local t = ghost:CreateTexture(nil, "BORDER")
+			t:SetColorTexture(0.247, 0.663, 1, 0.4)
+			if side == "TOP" or side == "BOTTOM" then
+				t:SetHeight(2); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
+			else
+				t:SetWidth(2); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
+			end
+		end
+		ghost.name = ghost:CreateFontString(nil, "OVERLAY")
+		ghost.name:SetFontObject("ShamanPowerDialogFontDim")
+		ghost.name:SetPoint("CENTER", ghost, "CENTER", 0, 6)
+		ghost.name:SetJustifyH("CENTER")
+		ghost.name:SetWordWrap(true)
+		ghost.was = ghost:CreateFontString(nil, "OVERLAY")
+		ghost.was:SetFontObject("ShamanPowerDialogFontTiny")
+		ghost.was:SetPoint("TOP", ghost.name, "BOTTOM", 0, -2)
+		ghost.was:SetText("was here")
+	end
+	local cx, cy = mover:GetCenter()
+	if not cx then return end
+	local s = mover:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local w, h = mover:GetSize()
+	ghost:SetSize(w * s, h * s)
+	ghost:ClearAllPoints()
+	ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * s, cy * s)
+	ghost.name:SetWidth(math.max(20, w * s - 12))
+	ghost.name:SetText(mover.spLabel or "")
+	ghost:Show()
+end
+
+local function LiveStart(mover)
+	local mf = mover.moveFrame
+	if not mf then return end
+	local point, rel, relPoint, x0, y0 = mf:GetPoint(1)
+	if not point then return end
+	local cx, cy = mover:GetCenter()
+	if not cx then return end
+	local uis = UIParent:GetEffectiveScale()
+	local s = mover:GetEffectiveScale() / uis
+	Live.mover, Live.frame = mover, mf
+	Live.point, Live.rel, Live.relPoint, Live.x0, Live.y0 = point, rel, relPoint, x0 or 0, y0 or 0
+	Live.cx0, Live.cy0 = cx * s, cy * s
+	Live.k = uis / mf:GetEffectiveScale()
+	Live.dx, Live.dy, Live.pausedAt = 0, 0, GetTime()
+	GhostShow(mover)
+	-- the box lighter and without its name while held: the frame inside shows through (the
+	-- readout above carries the name)
+	if mover.spBg then mover.spBg:SetColorTexture(0, 0.439, 0.867, BOX_FILL_HELD) end
+	if mover.text then mover.text:Hide() end
+	PauseTree(mf)
+end
+
+-- the box's center is at x, y (UIParent px): the frame goes with it
+local function LiveFollow(mover, x, y)
+	if Live.mover ~= mover then return end
+	local dx, dy = x - Live.cx0, y - Live.cy0
+	if dx ~= Live.dx or dy ~= Live.dy then
+		Live.dx, Live.dy = dx, dy
+		local mf = Live.frame
+		mf:ClearAllPoints()
+		mf:SetPoint(Live.point, Live.rel, Live.relPoint, Live.x0 + dx * Live.k, Live.y0 + dy * Live.k)
+		mover.spLivePlaced = true   -- (the drop saves it where it is: ShamanPower.lua GetBarMover)
+	end
+	local now = GetTime()
+	if now - Live.pausedAt >= PAUSE_EVERY then Live.pausedAt = now; PauseTree(Live.frame) end
+end
+
+-- the drop, or the mode ending mid-drag: the old spot's box goes, the animations play on
+local function LiveEnd()
+	if not Live.mover then return end
+	if Live.mover.spBg then Live.mover.spBg:SetColorTexture(0, 0.439, 0.867, BOX_FILL) end
+	if Live.mover.text then Live.mover.text:Show() end
+	if ghost then ghost:Hide() end
+	PlayHeld()
+	wipe(Live)
+end
+
 -- Dragging by hand (not StartMoving), so the box snaps while it moves; the drop
--- then moves the real frame as before (ShamanPower.lua GetBarMover).
+-- then saves the real frame, moved along with the box (ShamanPower.lua GetBarMover).
 local tx, ty = {}, {}   -- snap targets, refilled each drag frame
 local function DragUpdate(self)
-	if not ACTIVE or InCombatLockdown() then self:SetScript("OnUpdate", nil); ShowGuides(); return end
+	if not ACTIVE or InCombatLockdown() then self:SetScript("OnUpdate", nil); ShowGuides(); LiveEnd(); return end
 	local uis = UIParent:GetEffectiveScale()
 	local cx, cy = GetCursorPosition()
 	local x, y = cx / uis + self.spDragDX, cy / uis + self.spDragDY
@@ -525,6 +642,7 @@ local function DragUpdate(self)
 	ShowGuides(gx, gy)
 	self:ClearAllPoints()
 	self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / s, y / s)
+	LiveFollow(self, x, y)
 	DragCoords(self)
 end
 
@@ -1842,6 +1960,7 @@ function SP:UnlockDragStart(mover)
 	if not fx then return false end
 	mover.spDragDX, mover.spDragDY = fx * s - cx / uis, fy * s - cy / uis
 	mover:SetScript("OnUpdate", DragUpdate)
+	LiveStart(mover)
 	ShowCoords(mover, true)
 	return true
 end
@@ -1849,6 +1968,7 @@ end
 function SP:UnlockDragStop(mover)
 	if not mover:GetScript("OnUpdate") then return false end
 	mover:SetScript("OnUpdate", nil)
+	if Live.mover == mover then LiveEnd() end
 	ShowGuides()
 	if RO.box == mover then ReadoutRelease() end
 	return true
@@ -2267,6 +2387,7 @@ local function OffNow()
 	ACTIVE = false
 	Select(nil)
 	ShowGuides()
+	LiveEnd()
 	if readout then readout:Hide() end
 	RO.hold, RO.box = false, nil
 	for _, m in pairs(SP.barMovers or {}) do m:EnableMouseWheel(false); m:SetScript("OnUpdate", nil) end

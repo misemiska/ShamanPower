@@ -347,7 +347,7 @@ local function BarRows(s)
 		for _, l in ipairs(LookList(s)) do
 			if l[1] == "bar" then looks.bar = barPic else looks[l[1]] = Pic.Orbs(s, l[1], nil, 1) end
 		end
-		r[#r + 1] = ChoiceName(s, "Look", "look", Pic.with(LookList(s), looks),
+		r[#r + 1] = ChoiceName(s, "Style", "look", Pic.with(LookList(s), looks),
 			"The bar, or one orb per charge. Works in fights.", "bar", { kind = "none" })
 		-- with the icon and the number both off there is nothing to sit beside: only flat or upright
 		local alone = not Val(s, "icon") and Val(s, "number") == false
@@ -476,7 +476,7 @@ local function ColorRows(s)
 	end
 	r[#r + 1] = SEP
 	local colorOwn = select(2, Get(s, "chargeColor"))
-	r[#r + 1] = { text = "Default Color", tip = colorOwn and "This shield's charges back to their usual color."
+	r[#r + 1] = { text = "Reset Charge Color", tip = colorOwn and "This shield's charges back to their usual color."
 			or "This shield's charges already have their usual color.",
 		disabled = (not colorOwn) or nil,
 		onClick = function() return Set(s, "chargeColor", nil) end }
@@ -514,10 +514,6 @@ local function SoundRows(s)
 				return items
 			end,
 		}
-		r[#r + 1] = { text = "Test Sound", onClick = function()
-			if SP.TestShieldSound then SP:TestShieldSound(s) end
-			return true
-		end }
 	end
 	r[#r + 1] = SEP
 	r[#r + 1] = ToAll(s, "Sound", "sound")
@@ -606,7 +602,7 @@ local function GoneRows(s)
 		if SP.GlowShapeValues then map, order = SP:GlowShapeValues() end   -- (two values: never through "and", which keeps one)
 		if onBar then
 			-- the bar's glow hugs the bar: the icon's two shape rows step aside and say so
-			r[#r + 1] = { text = "Glow Shape and Proc Glow Thickness are the icon's:", disabled = true }
+			r[#r + 1] = { text = "Glow Shape and Glow Thickness are the icon's:", disabled = true }
 			r[#r + 1] = { text = "they show when the icon is on.", disabled = true }
 		elseif map then
 			local shapes = {}
@@ -616,8 +612,8 @@ local function GoneRows(s)
 			local shared = SP.opt and SP.opt.glowShape or "default"
 			r[#r + 1] = ChoiceName(s, "Glow Shape", "goneGlowShape", shapes, "This shield's glow shape (an unset one follows General > Themes' Glow Shape).", shared)
 			if (Val(s, "goneGlowShape") or shared) == "proc" then
-				r[#r + 1] = Slider("Proc Glow Thickness", 0, 0.6, 0.01, function() return tonumber(Val(s, "goneGlowThick")) or 0.2 end,
-					function(v) SliderSet(s, "goneGlowThick", v) end, Pct, true, "How thick the ring is. It grows outward from the icon's edge.",
+				r[#r + 1] = Slider("Glow Thickness", 0, 0.6, 0.01, function() return tonumber(Val(s, "goneGlowThick")) or 0.2 end,
+					function(v) SliderSet(s, "goneGlowThick", v) end, Pct, true, "How thick the Proc Glow ring is. It grows outward from the icon's edge.",
 					{ kind = "thick", shape = "proc", color = goneColor })
 			end
 		end
@@ -629,8 +625,20 @@ end
 local function MenuItems(item)
 	local s = item.key
 	local r = {}
-	r[#r + 1] = ChoiceName(s, "Show", "show", SHOW_CHOICES, ShowTip(s), "up")
+	-- the shield itself
+	local on = Shown(s)
+	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon",
+		tip = "The same as a click on its icon. Its settings stay as they are.",
+		onClick = function()
+			if HasAPI() then SP:SetShieldOpt(s, "enabled", not on) end
+			Row:Changed(false)
+		end }
+	r[#r + 1] = SEP
+	-- when it shows
+	r[#r + 1] = ChoiceName(s, "When To Show", "show", SHOW_CHOICES, ShowTip(s), "up")
 	r[#r].words = "when this shield's charges are on screen"
+	r[#r + 1] = SEP
+	-- how it looks
 	r[#r + 1] = Slider("Scale", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
 		function(v) SliderSet(s, "scale", v) end, Pct, true,
 		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.",
@@ -643,13 +651,16 @@ local function MenuItems(item)
 	r[#r + 1] = Group("Charge Bar", function() return BarRows(s) end, nil, nil,
 		"a bar or orbs, one per charge, and how they look")
 	r[#r + 1] = Group("Color", function() return ColorRows(s) end, nil, nil, "the charge color, and a gradient on the bar")
-	r[#r + 1] = Group("Sound", function() return SoundRows(s) end,
-		"The same setting as this shield's sound in Expiring Alerts: each shield has its own.", nil,
-		"a sound the moment the shield drops")
+	r[#r + 1] = SEP
+	-- what it does at its moments
 	r[#r + 1] = Group("When It's Gone", function() return GoneRows(s) end,
 		"What this shield's icon, or its charge bar, does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
 		"the icon, or the charge bar, at 0 charges, or with no shield up")
+	r[#r + 1] = Group("Sound", function() return SoundRows(s) end,
+		"The same setting as this shield's sound in Expiring Alerts: each shield has its own.", nil,
+		"a sound the moment the shield drops")
 	r[#r + 1] = SEP
+	-- copy and reset
 	r[#r + 1] = { text = "Copy Settings", disabled = (not HasAPI()) or nil,
 		tip = "Remembers every setting of this shield as it is now, for Paste Settings on another shield.",
 		onClick = function()
@@ -677,22 +688,22 @@ local function MenuItems(item)
 		o[#o + 1] = { text = "All Shields", onClick = function() CopyTo(s, "all"); Row:Changed(false) end }
 		return o
 	end }
-	r[#r + 1] = SEP
-	local on = Shown(s)
-	r[#r + 1] = { text = on and "Hide This Shield" or "Show This Shield",
-		tip = "The same as a click on its icon. Its settings stay as they are.",
-		onClick = function()
-			if HasAPI() then SP:SetShieldOpt(s, "enabled", not on) end
-			Row:Changed(false)
-		end }
 	local hasOwn = SP.ShieldOwnChanged and SP:ShieldOwnChanged(s)
-	r[#r + 1] = { text = "Reset This Shield", disabled = (not hasOwn) or nil,
+	r[#r + 1] = { text = "Reset This Icon", disabled = (not hasOwn) or nil,
 		tip = hasOwn and "Every setting of this shield back to its starting value. The other shields keep theirs."
 			or "Nothing to reset: every setting of this shield is at its starting value.",
 		onClick = function()
 			if SP.ResetShield then SP:ResetShield(s); Changed(s) end
 			Row:Changed(false)
 		end }
+	-- its test
+	if Val(s, "sound") then
+		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Test Sound", onClick = function()
+			if SP.TestShieldSound then SP:TestShieldSound(s) end
+			return true
+		end }
+	end
 	return r
 end
 
@@ -726,7 +737,7 @@ Row = ns.IconRow.New({
 		end
 		lines[#lines + 1] = Shown(s) and "Its charges show on your screen." or "Hidden: a click brings it back, with all its settings."
 		if SP.ShieldOwnChanged and SP:ShieldOwnChanged(s) then
-			lines[#lines + 1] = "It has settings changed from its starting values (Reset This Shield in its menu clears them)."
+			lines[#lines + 1] = "It has settings changed from its starting values (Reset This Icon in its menu clears them)."
 		end
 		return table.concat(lines, "\n\n")
 	end,

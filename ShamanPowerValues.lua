@@ -131,6 +131,10 @@ SHAMANPOWER_DEFAULT_VALUES = {
         swapFlyoutClickButtons = false,  -- Swap flyout mouse buttons (left=assign, right=cast instead of default)
         totemBarClickThrough = "off",  -- Click Through The Totem Bar: off / combat / always (ShamanPowerClickThrough.lua)
         cdbarClickThrough = "off",     -- Click Through The Cooldown Bar: off / combat / always
+        cdbarHideOutOfCombat = false,  -- Appearance > Visibility > Cooldown Bar Auto-Hide: Hide Out of Combat (3.0.9)
+        cdbarFadeInsteadOfHide = false,  -- ... fade to cdbarFadeOpacity instead of hiding
+        cdbarFadeOpacity = 0.25,       -- ... the faded opacity (cdbarFadeSmooth: nil = glide, false = at once)
+        cdbarShowWithTarget = false,   -- ... back while targeting something attackable
         flyoutRequiresClick = false,  -- Require right-click to show flyout instead of mouseover
         flyoutSingleOpen = true,      -- In-combat arrow flyouts: opening one closes the others (false = they stay open)
         flyoutCloseOnCast = true,     -- Box-mode flyouts: picking from a flyout closes it (false = it stays open)

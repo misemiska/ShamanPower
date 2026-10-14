@@ -183,7 +183,7 @@ local function SetRows(lo)
 		if known[page] then pages[#pages + 1] = { page, PAGE_NAMES[page] } end
 	end
 	return {
-		Menu.Choice("Set Page", pages, function()
+		Menu.Choice("Blizzard Totem Set", pages, function()
 			local p = SetPageOf(lo)
 			return p, p ~= 0
 		end, function(page)
@@ -290,10 +290,8 @@ local function MenuItems(item)
 	if HasSetControls() then
 		local known = KnownPages()
 		if known[2] or known[3] then
-			r[#r + 1] = Menu.Group("Blizzard Totem Set", function() return SetRows(lo) end, nil, function()
-				local p = SetPageOf(lo)
-				return PAGE_NAMES[p] or "None", p ~= 0
-			end, "the set this loadout fills")
+			-- (its two rows right here: a group for two controls was one level too many)
+			for _, row in ipairs(SetRows(lo)) do r[#r + 1] = row end
 		end
 	end
 	r[#r + 1] = SEP

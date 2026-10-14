@@ -388,15 +388,19 @@ local function EAMenu(item)
 	if not EALoaded() then return { { text = NOT_LOADED, disabled = true } } end
 	local it = item
 	local r = {}
+	-- the alert itself
+	r[#r + 1] = TurnLine(it, AlertOn(it))
 	if it.kind == "shield" then
 		local shows, tip = ShieldShows(it)
 		r[#r + 1] = InfoLine("It Shows", function() return shows end, tip)
+		r[#r + 1] = SEP
 		r[#r + 1] = Group("Sound", function() return ShieldSoundRows(it) end,
 			"The same setting as this shield's sound on Shield Charges: each shield has its own.",
 			function() return SoundValue(it) end, "a sound the moment this shield fades")
 	elseif it.kind == "totem" then
 		local shows, tip = TotemShows(it)
 		r[#r + 1] = InfoLine("It Shows", function() return shows end, tip)
+		r[#r + 1] = SEP
 		r[#r + 1] = Group("When One Is Destroyed", function() return DestroyedRows(it) end, nil, nil,
 			"on your screen, in your chat, in big text, to your group")
 		r[#r + 1] = OnOffName(it, "When One Expires", "expired",
@@ -410,6 +414,7 @@ local function EAMenu(item)
 	else
 		r[#r + 1] = InfoLine("It Shows", function() return "Weapon Imbue (" .. (it.key == "mh" and "MH" or "OH") .. ") FADED!" end,
 			"When the imbue on your " .. it.hand .. " weapon runs out or comes off (a weapon swap too). In fights too, on both games.")
+		r[#r + 1] = SEP
 		local other = EAByKey[it.key == "mh" and "oh" or "mh"]
 		r[#r + 1] = Group("Sound", function()
 			return PlaySoundRows(it, "When this weapon's imbue fades. How loud: the page's Volume.",
@@ -453,8 +458,6 @@ local function EAMenu(item)
 			o[#o + 1] = { text = "All Alerts", onClick = function() CopyTo(it, EAList()); EARow:Changed(false) end }
 			return o
 		end }
-	r[#r + 1] = SEP
-	r[#r + 1] = TurnLine(it, AlertOn(it))
 	local own = EAOwn(it)
 	r[#r + 1] = { text = "Reset This Alert", disabled = (not own) or nil,
 		tip = own and "Back to the settings it used before it had its own (what the page had)."
@@ -718,7 +721,7 @@ end
 
 local function LookRows(id)
 	local r = {}
-	r[#r + 1] = Slider("Icon Size", 32, 256, 4, function() return RVal(id, "iconSize") or 64 end,
+	r[#r + 1] = Slider("Size", 32, 256, 4, function() return RVal(id, "iconSize") or 64 end,
 		function(v) RSliderSet(id, "iconSize", v) end, nil, false,
 		"How big this alert is. In Unlock UI, the mouse wheel over its box does the same.", { kind = "size" })
 	r[#r + 1] = Slider("Opacity", 0.2, 1, 0.1, function() return RVal(id, "opacity") or 1 end,
@@ -726,7 +729,7 @@ local function LookRows(id)
 		{ kind = "opacity" })
 	r[#r + 1] = Slider("Text Size", 8, 24, 1, function() return RVal(id, "fontSize") or 14 end,
 		function(v) RSliderSet(id, "fontSize", v) end, nil, false, "The size of its debuff and totem name text.")
-	r[#r + 1] = ROnOff(id, "Outline", "fontOutline", "An outline round its text, unless General > Fonts & Textures sets one.",
+	r[#r + 1] = ROnOff(id, "Text Outline", "fontOutline", "An outline round its text, unless General > Fonts & Textures sets one.",
 		{ kind = "none" })
 	r[#r + 1] = RShowHideInv(id, "Background", "hideBackground", "The dark square behind the totem's icon.",
 		{ kind = "plain" }, { kind = "none" })
@@ -741,7 +744,7 @@ local function LookRows(id)
 	r[#r + 1] = RShowHide(id, "Totem Name", "showTotemName", "The totem to drop, like " .. ((RTData(id) and RTData(id).totemName) or "Tremor Totem") .. ".",
 		{ kind = "word", text = "TOTEM" }, { kind = "plain" })
 	r[#r + 1] = SEP
-	r[#r + 1] = RCopyLine("Copy Look To All Alerts", id, RT_LOOK)
+	r[#r + 1] = RCopyLine("Copy Appearance To All Alerts", id, RT_LOOK)
 	return r
 end
 
@@ -762,10 +765,10 @@ local function KeyRows(it)
 			"The key found right now." .. (FOREVER and " In a fight the game draws these alerts: a key you change during a fight shows after it." or ""))
 	end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Set Keys In Keybind Mode", onClick = function()
+	r[#r + 1] = { text = "Set Keys...", tip = "Opens Keybind Mode: press the key you want on this alert's totem.", onClick = function()
 		if SP.SetKeybindMode then SP:SetKeybindMode(true) end
 	end }
-	r[#r + 1] = RCopyLine("Copy Spell Keybind To All Alerts", id, RT_KEYS)
+	r[#r + 1] = RCopyLine("Copy Key Text To All Alerts", id, RT_KEYS)
 	return r
 end
 
@@ -824,17 +827,32 @@ local function RTMenu(it)
 	if not RTLoaded() then return { { text = RT_NOT_LOADED, disabled = true } } end
 	local id = it.key
 	local r = {}
+	-- the alert itself
+	local on = SP:ReactiveAlertOn(id)
+	r[#r + 1] = { text = on and "Turn This Alert Off" or "Turn This Alert On",
+		tip = "The same as a click on its icon. Its settings stay as they are.",
+		onClick = function()
+			if RTRefuse() then return end
+			SP:SetReactiveAlertOn(id, not on)
+			RTRow:Changed(false)
+		end }
 	local shows, tip = RTShows(id)
 	r[#r + 1] = InfoLine("It Shows", function() return shows end, tip)
+	r[#r + 1] = SEP
+	-- when it shows
 	r[#r + 1] = ROnOff(id, "Hide While " .. it.totem .. " Is Down", "hideWhenTotemActive",
 		"No alert while your " .. it.totem .. " is already down."
 		.. (FOREVER and " In dungeons and raids the game can hide which totem is down: then the alert shows." or ""),
 		{ kind = "hidden" })
-	r[#r + 1] = Group("Look", function() return LookRows(id) end, nil, nil,
+	r[#r + 1] = SEP
+	-- how it looks
+	r[#r + 1] = Group("Appearance", function() return LookRows(id) end, nil, nil,
 		"size, opacity, text, background, border, what it says")
-	r[#r + 1] = Group("Spell Keybind", function() return KeyRows(it) end, nil,
+	r[#r + 1] = Group("Key Text", function() return KeyRows(it) end, nil,
 		function() return GroupValue(id, "showSpellKeybind", "noKeyText") end,
 		"the key that casts its totem, under the totem's name")
+	r[#r + 1] = SEP
+	-- what it does when it shows
 	r[#r + 1] = Group("Glow", function() return GlowRows(id) end, nil,
 		function() return GroupValue(id, "showGlow", "glowIntensity") end,
 		"a pulsing glow round the alert, in its color")
@@ -842,6 +860,7 @@ local function RTMenu(it)
 		function() return GroupValue(id, "playSound", "soundName", "soundVolume") end,
 		"a sound when the alert shows")
 	r[#r + 1] = SEP
+	-- copy and reset
 	r[#r + 1] = { text = "Copy Settings",
 		tip = "Remembers every setting of this alert as it is now, for Paste Settings on another alert.",
 		onClick = function()
@@ -874,15 +893,6 @@ local function RTMenu(it)
 		o[#o + 1] = { text = "All Alerts", onClick = function() RCopyTo(id, "all"); RTRow:Changed(false); PreviewChanged() end }
 		return o
 	end }
-	r[#r + 1] = SEP
-	local on = SP:ReactiveAlertOn(id)
-	r[#r + 1] = { text = on and "Turn This Alert Off" or "Turn This Alert On",
-		tip = "The same as a click on its icon. Its settings stay as they are.",
-		onClick = function()
-			if RTRefuse() then return end
-			SP:SetReactiveAlertOn(id, not on)
-			RTRow:Changed(false)
-		end }
 	local own = SP:ReactiveOwnChanged(id)
 	r[#r + 1] = { text = "Reset This Alert", disabled = (not own) or nil,
 		tip = own and "Back to the settings it used before it had its own (what the page had)."

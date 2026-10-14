@@ -5809,6 +5809,7 @@ function ShamanPower:GetBarMover(key, moveFrame, sizeFrame, label, onMoved)
 	local bg = mover:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints(mover)
 	bg:SetColorTexture(0, 0.439, 0.867, 0.35)
+	mover.spBg = bg   -- (Unlock UI lightens it while the box is dragged: the frame inside shows through)
 	local edge = {}
 	for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
 		local t = mover:CreateTexture(nil, "BORDER")
@@ -5844,7 +5845,14 @@ function ShamanPower:GetBarMover(key, moveFrame, sizeFrame, label, onMoved)
 		local snapped = ShamanPower.UnlockDragStop and ShamanPower:UnlockDragStop(self)
 		self:StopMovingOrSizing()
 		local mf, sf = self.moveFrame, self.sizeFrame
-		if mf and sf then
+		if mf and sf and self.spLivePlaced then
+			-- Unlock UI moved the frame along with the box as it was dragged (3.0.9, A34): it sits
+			-- where the box is; only the save and the boxes' refresh are left (a delta read off a
+			-- frame placed this frame could still be its old spot)
+			self.spLivePlaced = nil
+			if self.onMoved and not InCombatLockdown() then self.onMoved() end
+			C_Timer.After(0, RefreshShownBarMovers)
+		elseif mf and sf then
 			-- Shift the moved frame by how far the mover moved from the bar,
 			-- in physical px. Works even when the moved frame is a 1x1 anchor.
 			local mcx, mcy = self:GetCenter()
@@ -12876,6 +12884,7 @@ function ShamanPower:RecreateCooldownBar()
 	end
 	if self.cooldownBar then
 		if self.TownDriveHidden then self:TownDriveHidden(self.cooldownBar, false) end   -- (A27) off the Out Of The Way driver: a retired bar never comes back in a fight
+		if self.CdBarDrive then self:CdBarDrive(self.cooldownBar, nil) end   -- (3.0.9) and off the Hide Out of Combat driver
 		self.cooldownBar:Hide()
 		self.cooldownBar:SetParent(nil)
 		self.cooldownBar = nil
@@ -13530,6 +13539,8 @@ end
 -- (A27) Hide In Town, the cooldown bar: hidden by a secure state driver (a fight shows it again),
 -- or faded through its opacity; off the rule, shown as its settings say
 function ShamanPower:TownApplyCooldownBar()
+	-- (3.0.9) Cooldown Bar > Visibility's Hide Out of Combat shares the one driver: that file applies both rules
+	if self.ApplyCooldownBarVisibility then return self:ApplyCooldownBarVisibility(false) end
 	local bar = self.cooldownBar
 	if not bar then return end
 	local on = self.opt.showCooldownBar and not self:IsOff() and self.cooldownButtons and #self.cooldownButtons > 0
@@ -13559,7 +13570,8 @@ function ShamanPower:UpdateCooldownBarOpacity()
 	if self.cooldownBar then
 		if fullWhenActive and self.cooldownButtons then
 			-- Set bar to full opacity, but we'll control individual button opacity
-			self.cooldownBar:SetAlpha(1.0 * (self.TownAlphaMul and self:TownAlphaMul("cd") or 1))   -- (A27)
+			self.cooldownBar:SetAlpha(1.0 * (self.TownAlphaMul and self:TownAlphaMul("cd") or 1)   -- (A27)
+				* (self.CdBarAlphaMul and self:CdBarAlphaMul() or 1))   -- (3.0.9) Hide Out of Combat's Fade Instead of Hide
 
 			-- Check each button for active state
 			for i = 1, #self.cooldownButtons do
@@ -13618,7 +13630,8 @@ function ShamanPower:UpdateCooldownBarOpacity()
 				btn:SetAlpha(btn._roHidden and 0 or (isActive and 1.0 or opacity))
 			end
 		else
-			self.cooldownBar:SetAlpha(opacity * (self.TownAlphaMul and self:TownAlphaMul("cd") or 1))   -- (A27)
+			self.cooldownBar:SetAlpha(opacity * (self.TownAlphaMul and self:TownAlphaMul("cd") or 1)   -- (A27)
+				* (self.CdBarAlphaMul and self:CdBarAlphaMul() or 1))   -- (3.0.9) Hide Out of Combat's Fade Instead of Hide
 			-- Reset all buttons to inherit bar opacity
 			if self.cooldownButtons then
 				for i = 1, #self.cooldownButtons do

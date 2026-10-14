@@ -4,9 +4,12 @@
 -- spell this game version has, learned or not (not learned: dark), in the list's
 -- order, as 36 px spell icons on thin plates. A hidden one is gray and dim; a small
 -- accentHi corner marks an icon with settings of its own. Left-click: show or hide
--- it. Right-click: EVERY setting of that spell, in ns.ContextMenu, grouped (Look,
--- When Ready, While On Cooldown, Out of Range, Sound), with sliders
--- in the rows (D41 A), Copy / Paste and Copy <Group> To All Icons. An icon that
+-- it. Right-click: EVERY setting of that spell, in ns.ContextMenu, in the order every
+-- icon menu shares (3.0.9, G's menu review): the icon itself (Hide / Show), when it
+-- shows, how it looks (Appearance, While On Cooldown, its buff), what it does at its
+-- moments (When Ready, When The Cooldown Resets, Out of Range, Sound), where it sits
+-- (On Row), Copy / Paste / Reset, then its tests; sliders in the rows (D41 A), each
+-- group ending in Copy <Group> To All Icons. An icon that
 -- never set a value uses the saved default (the old page's value), so nothing on
 -- screen changed on the update; Reset This Icon goes back to those.
 --
@@ -58,7 +61,7 @@ local Pic = {
 -- ---------------------------------------------------------------------------
 local SHOW_CHOICES = {
 	{ "ready", "Only When Ready" }, { "cooldown", "Only While On Cooldown" },
-	{ "always_bright", "Always (Sweep + Countdown)" }, { "always", "Always, Dimmed While On Cooldown" },
+	{ "always_bright", "While Ready And On Cooldown" }, { "always", "While Ready And On Cooldown, Dimmed" },
 }
 local EFFECT_CHOICES = { { "glow", "Glow" }, { "pulse", "Pulse" }, { "both", "Glow + Pulse" }, { "none", "None" } }
 local SWEEP_CHOICES = {
@@ -236,36 +239,36 @@ local function SliderRow(key, text, opt, lo, hi, step, fallback, format, isPerce
 		},
 	}
 end
+-- (a click on the row opens the picker: no "Pick Color..." level in between)
 local function ColorRow(key, entry, text, opt, dr, dg, db, pic)
 	return {
 		text = text, pic = pic,
 		swatch = { Color3(Opt(key, opt), dr, dg, db) },
-		sub = function()
-			return { { text = "Pick Color...", onClick = function()
-				if not SP.OpenColorPicker then return false end
-				local before = SP:ReadyReminderOwnOpt(key, opt)
-				local r, g, b = Color3(Opt(key, opt), dr, dg, db)
-				SP:OpenColorPicker({
-					r = r, g = g, b = b, hasAlpha = false, title = entry.name .. " " .. text,
-					onChange = function(nr, ng, nb)
-						SP:ReadyReminderSetIconOpt(key, opt, { r = nr, g = ng, b = nb })
-						Row:Changed(false)
-					end,
-					-- Cancel: exactly as it was
-					onCancel = function()
-						SP:ReadyReminderSetIconOpt(key, opt, before)
-						Row:Changed(false)
-					end,
-				})
-				return false   -- the menu closes; the color picker is open
-			end } }
+		onClick = function()
+			if not SP.OpenColorPicker then return false end
+			local before = SP:ReadyReminderOwnOpt(key, opt)
+			local r, g, b = Color3(Opt(key, opt), dr, dg, db)
+			SP:OpenColorPicker({
+				r = r, g = g, b = b, hasAlpha = false, title = entry.name .. " " .. text,
+				onChange = function(nr, ng, nb)
+					SP:ReadyReminderSetIconOpt(key, opt, { r = nr, g = ng, b = nb })
+					Row:Changed(false)
+				end,
+				-- Cancel: exactly as it was
+				onCancel = function()
+					SP:ReadyReminderSetIconOpt(key, opt, before)
+					Row:Changed(false)
+				end,
+			})
+			return false   -- the menu closes; the color picker is open
 		end,
 	}
 end
--- a setting every spell shares (it is also on General > Themes)
-local function SharedRow(text, values, getter, setter)
+-- a setting shared beyond this icon (it is also on General > Themes): `scope` says how far it
+-- reaches, in the label
+local function SharedRow(text, values, getter, setter, scope)
 	return {
-		text = text .. " (All Spells)",
+		text = text .. " (" .. (scope or "All Icons") .. ")",
 		value = function()
 			local map = values()
 			return (map and map[getter()]) or tostring(getter() or ""), false
@@ -298,23 +301,48 @@ local function Group(text, rows, words)
 	return { text = text, words = words, sub = function() return rows() end }
 end
 
-local LOOK_KEYS = { "iconSize", "opacity", "hideBackground", "hideBorder", "borderColor", "showNames" }
-local READY_KEYS = { "readyEffect", "glowColor", "glowShape", "glowThick", "glowCombatOnly" }
+local LOOK_KEYS = { "iconSize", "opacity", "iconShape", "hideBackground", "hideBorder", "borderColor", "showNames",
+	"glowColor", "glowShape", "glowThick" }
+local READY_KEYS = { "readyEffect", "glowCombatOnly", "wsGlow" }
 local COOL_KEYS = { "dimOpacity", "desaturate", "sweepStyle", "sweepDirection", "barStyle", "barHeight", "barColor", "showCountdown",
 	"textPosition", "textSize", "countdownUnder" }
 local RANGE_KEYS = { "outOfRange", "rangeLook", "rangeColor" }
 local SOUND_KEYS = { "soundOnReady", "soundName", "soundVolume", "soundMinCooldown" }
 local FADE_KEYS = { "fadeInsteadOfHide", "fadeOpacity" }
 
-local function LookRows(key, entry)
+local function AppearanceRows(key, entry)
 	local t = {
-		SliderRow(key, "Icon Size", "iconSize", 24, 96, 2, 48, nil, nil, Pic.SIZE),
+		SliderRow(key, "Size", "iconSize", 24, 96, 2, 48, nil, nil, Pic.SIZE),
 		SliderRow(key, "Opacity", "opacity", 0.2, 1, 0.05, 1, nil, true, Pic.OPACITY),
 	}
-	if SP.IconShapeValues and SP.IconShapeOf and SP.SetIconShape then
-		t[#t + 1] = SharedRow("Icon Shape", function() return SP:IconShapeValues() end,
-			function() return SP:IconShapeOf("ready") or "default" end, function(v) SP:SetIconShape(v, "ready") end)
-		t[#t].pic = Pic.NONE   -- (no picture kind draws a rounded or round icon)
+	-- Icon Shape (3.0.9): this icon's own (a circle Earth Shock beside a square Stormstrike), else
+	-- the shape every icon shares (General > Themes); the first choice puts it back on the shared one
+	if SP.IconShapeValues and SP.IconShapeOf then
+		local function plain(label) return (label or ""):gsub(" %(default%)$", "") end
+		t[#t + 1] = {
+			text = "Icon Shape", pic = Pic.NONE,
+			value = function()
+				local map = SP:IconShapeValues()
+				local own = SP:ReadyReminderOwnOpt(key, "iconShape")
+				if own then return plain(map[own]) or tostring(own), true end
+				return plain(map[SP:IconShapeOf("ready") or "default"]) .. " (all icons)", false
+			end,
+			tip = "This icon's shape: Square, Flat (the picture's own border removed), Rounded or Circle. Same As All Icons: the shape every icon shares, set on General > Themes.",
+			sub = function()
+				local map, order = SP:IconShapeValues()
+				local own = SP:ReadyReminderOwnOpt(key, "iconShape")
+				local shared = SP:IconShapeOf("ready") or "default"
+				local list = {
+					{ text = "Same As All Icons  (" .. plain(map[shared]) .. ")", selected = own == nil,
+					  onClick = function() return Set(key, "iconShape", nil) end },
+					{ separator = true },
+				}
+				for _, k in ipairs(order or {}) do
+					list[#list + 1] = { text = plain(map[k]), selected = own == k, onClick = function() return Set(key, "iconShape", k) end }
+				end
+				return list
+			end,
+		}
 	end
 	t[#t + 1] = {
 		text = "Background",
@@ -349,46 +377,74 @@ local function LookRows(key, entry)
 		local shape = SP.IconShapeOf and SP:IconShapeOf("ready")
 		if (shape == "rounded" or shape == "circle") and SP.SetIconBordersSquare then
 			t[#t + 1] = SharedRow("Keep Borders Square", function() return { [true] = "On", [false] = "Off" }, { true, false } end,
-				function() return SP.opt and SP.opt.iconBordersSquare == true end, function(v) SP:SetIconBordersSquare(v) end)
+				function() return SP.opt and SP.opt.iconBordersSquare == true end, function(v) SP:SetIconBordersSquare(v) end, "Every Bar")
 			t[#t].pic = Pic.NONE   -- (square or round corners: no picture kind draws them)
+			t[#t].tip = "One setting for every bar and these icons, with General > Themes: round a Rounded or Circle icon a border follows the shape as a ring, unless this is on."
 		end
 		t[#t + 1] = ColorRow(key, entry, "Border Color", "borderColor", 0.2, 0.7, 1.0, Pic.EDGE)
 	end
-	-- (Show Spell Name: the name under the icon, which no picture kind draws)
-	t[#t + 1] = OnOffRow(key, "Show Spell Name", "showNames", nil, Pic.NONE)
+	-- (the name under the icon, which no picture kind draws; a Weapon Set's is its set's word)
+	if entry.weaponSet then
+		local w = OnOffRow(key, "Show Weapon Set Name", "wsWord", true, { kind = "word", text = "SHIELD" })
+		w.tip = "Shield, Two-Hander, Two Weapons or One-Hander under the icon."
+		t[#t + 1] = w
+	else
+		t[#t + 1] = OnOffRow(key, "Show Name", "showNames", nil, Pic.NONE)
+	end
+	-- the glow's look (its moment is under When Ready): shape, color, thickness; an icon that
+	-- never picked a shape shows General > Themes' Glow Shape
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = CopyGroupRow(key, "Look", LOOK_KEYS)
-	return t
-end
-
-local function ReadyRows(key, entry)
 	local fx = Opt(key, "readyEffect") or "glow"
-	local name = entry.weaponSet and "Effect While Holding" or (SP:ReadyReminderShowOf(key) == "cooldown" and "Effect While Shown" or "Ready Effect")
-	-- (Pulse: the icon's own grow-and-shrink, caught mid-grow)
-	local t = { ChoiceRow(key, name, "readyEffect", Pic.With(EFFECT_CHOICES,
-		{ glow = Pic.Glow(key), pulse = Pic.PULSE, both = Pic.Glow(key, nil, true), none = Pic.PLAIN }), "glow") }
 	if fx == "glow" or fx == "both" then
-		t[#t + 1] = ColorRow(key, entry, "Glow Color", "glowColor", 0.3, 0.8, 1.0, { kind = "glow", shape = Pic.Shape(key) })
 		if SP.GlowShapeValues then
-			-- this icon's own shape and thickness (an icon that never picked one shows General > Themes' Glow Shape)
 			local map, order = SP:GlowShapeValues()
 			local choices = {}
 			for _, k in ipairs(order or {}) do choices[#choices + 1] = { k, map[k], nil, Pic.Glow(key, k) } end
 			local shared = SP.opt and SP.opt.glowShape or "default"
 			t[#t + 1] = ChoiceRow(key, "Glow Shape", "glowShape", choices, shared)
-			if (Opt(key, "glowShape") or shared) == "proc" and SP.ProcGlowOut then
-				local row = SliderRow(key, "Proc Glow Thickness", "glowThick", 0, 0.6, 0.01, SP.PROC_GLOW_OUT or 0.2, nil, true,
-					{ kind = "thick", shape = "proc", color = Pic.Color(key, "glowColor", 0.3, 0.8, 1.0) })
-				row.tip = "How thick the ring is. It grows outward from the icon's edge."
-				t[#t + 1] = row
-			end
 		end
+		t[#t + 1] = ColorRow(key, entry, "Glow Color", "glowColor", 0.3, 0.8, 1.0, { kind = "glow", shape = Pic.Shape(key) })
+		if SP.GlowShapeValues and (Opt(key, "glowShape") or (SP.opt and SP.opt.glowShape) or "default") == "proc" and SP.ProcGlowOut then
+			local row = SliderRow(key, "Glow Thickness", "glowThick", 0, 0.6, 0.01, SP.PROC_GLOW_OUT or 0.2, nil, true,
+				{ kind = "thick", shape = "proc", color = Pic.Color(key, "glowColor", 0.3, 0.8, 1.0) })
+			row.tip = "How thick the Proc Glow ring is. It grows outward from the icon's edge."
+			t[#t + 1] = row
+		end
+	else
+		local moment = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or "When Ready"
+		t[#t + 1] = { text = "Glow: off  (" .. moment .. " > Effect)", disabled = true,
+			tip = "This icon's effect has no glow, so there is no glow look to set. Pick Glow or Glow + Pulse under " .. moment .. " > Effect." }
+	end
+	t[#t + 1] = { separator = true }
+	t[#t + 1] = CopyGroupRow(key, "Appearance", LOOK_KEYS)
+	return t
+end
+
+local HOLD_CHOICES = {
+	{ "never", "Never", nil, Pic.PLAIN },
+	{ "shield", "A Shield", nil, { kind = "word", text = "SHIELD" } },
+	{ "2h", "A Two-Hander", nil, { kind = "word", text = "2-HAND" } },
+	{ "dual", "Two Weapons", nil, { kind = "word", text = "DUAL" } },
+	{ "one", "A One-Hander Alone", nil, { kind = "word", text = "1-HAND" } },
+}
+local function ReadyRows(key, entry, groupName)
+	local fx = Opt(key, "readyEffect") or "glow"
+	-- (Pulse: the icon's own grow-and-shrink, caught mid-grow)
+	local t = { ChoiceRow(key, "Effect", "readyEffect", Pic.With(EFFECT_CHOICES,
+		{ glow = Pic.Glow(key), pulse = Pic.PULSE, both = Pic.Glow(key, nil, true), none = Pic.PLAIN }), "glow") }
+	t[1].tip = "What the icon does at that moment: a glow (its shape and color are under Appearance), a pulse, both, or nothing."
+	if entry.weaponSet then   -- (A28) the set whose hold plays the effect
+		local g = ChoiceRow(key, "Glow While Holding", "wsGlow", HOLD_CHOICES, "never")
+		g.tip = "The Effect above plays only while you hold this set, so the wrong set stands out."
+		t[#t + 1] = g
+	end
+	if fx == "glow" or fx == "both" then
 		local co = OnOffRow(key, "Glow Only In Combat", "glowCombatOnly", nil, Pic.Glow(key))
 		co.tip = "Out of a fight the icon shows with no glow; the glow comes in a fight."
 		t[#t + 1] = co
 	end
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = CopyGroupRow(key, "When Ready", READY_KEYS)
+	t[#t + 1] = CopyGroupRow(key, groupName or "When Ready", READY_KEYS)
 	return t
 end
 
@@ -408,7 +464,7 @@ local function ResetRows(key, entry)
 		t[#t + 1] = ColorRow(key, entry, "Burst Color", "resetColor", 1, 0.82, 0, { kind = "glow", shape = "proc" })
 	end
 	if vis ~= "none" then
-		local l = SliderRow(key, "Length", "resetLength", 0.5, 3, 0.1, 1.5, function(x) return Secs(x) end)
+		local l = SliderRow(key, "Show For", "resetLength", 0.5, 3, 0.1, 1.5, function(x) return Secs(x) end)
 		l.tip = "How long the burst or the word stays before the ready look takes over."
 		t[#t + 1] = l
 	end
@@ -442,35 +498,22 @@ local function ResetRows(key, entry)
 		}
 		t[#t + 1] = SliderRow(key, "Volume", "resetVolume", 0, 100, 1, 100, function(x) return string.format("%d%%", x or 0) end)
 	end
-	if vis ~= "none" or Opt(key, "resetFlash") or Opt(key, "resetSound") then
-		t[#t + 1] = { separator = true }
-		t[#t + 1] = { text = "Test", onClick = function() if SP.ReadyReminderResetTest then SP:ReadyReminderResetTest(key) end; return true end }
-	end
 	return t
 end
+-- (its Test sits in the menu's test section, at the bottom)
+local function ResetConfigured(key)
+	return (Opt(key, "resetVisual") or "none") ~= "none" or Opt(key, "resetFlash") or Opt(key, "resetSound")
+end
 
--- A28: Weapon Set: the word under the icon, the set whose hold plays the effect, the swap switches
+-- A28: Weapon Set: the set whose hold plays the effect (HOLD_CHOICES, under While Holding), and
+-- the swap switches, a group of their own (the word under the icon is Appearance's)
 -- (the pictures: the word the icon shows for that set; four glows alike would not say which)
-local HOLD_CHOICES = {
-	{ "never", "Never", nil, Pic.PLAIN },
-	{ "shield", "A Shield", nil, { kind = "word", text = "SHIELD" } },
-	{ "2h", "A Two-Hander", nil, { kind = "word", text = "2-HAND" } },
-	{ "dual", "Two Weapons", nil, { kind = "word", text = "DUAL" } },
-	{ "one", "A One-Hander Alone", nil, { kind = "word", text = "1-HAND" } },
-}
-local function WeaponSetRows(key, entry)
+local function SwapRows(key, entry)
 	local t = {}
-	local w = OnOffRow(key, "Word Under The Icon", "wsWord", true, { kind = "word", text = "SHIELD" })
-	w.tip = "Shield, Two-Hander, Two Weapons or One-Hander under the icon."
-	t[#t + 1] = w
-	local g = ChoiceRow(key, "Glow While Holding", "wsGlow", HOLD_CHOICES, "never")
-	g.tip = "The icon's effect (Effect While Holding: glow, pulse, your Glow Shape and Glow Color) plays only while you hold this set, so the wrong set stands out."
-	t[#t + 1] = g
-	t[#t + 1] = { separator = true }
-	local so = OnOffRow(key, "Sound On A Swap", "wsSound", nil, Pic.SOUND)
+	local so = OnOffRow(key, "Play Sound", "wsSound", nil, Pic.SOUND)
 	so.tip = "The icon's Sound (its group below) plays the moment the set changes."
 	t[#t + 1] = so
-	local fl = OnOffRow(key, "Ready Flash On A Swap", "wsFlash", nil, Pic.FLASH)
+	local fl = OnOffRow(key, "Ready Flash", "wsFlash", nil, Pic.FLASH)
 	fl.tip = "Your Ready Flash shows the new set the moment it changes."
 	t[#t + 1] = fl
 	return t
@@ -493,11 +536,12 @@ local function CoolRows(key, entry)
 		t[#t + 1] = ColorRow(key, entry, "Bar Color", "barColor", 0.3, 0.8, 1.0, Pic.BAR)
 		if SP.opt and SP.opt.barGradient and SP.GradientDirectionValues and SP.BarGradientDirection and SP.SetBarGradientDirection then
 			t[#t + 1] = SharedRow("Bar Gradient", function() return SP:GradientDirectionValues("barGradient") end,
-				function() return SP:BarGradientDirection("other") end, function(v) SP:SetBarGradientDirection("other", v) end)
+				function() return SP:BarGradientDirection("other") end, function(v) SP:SetBarGradientDirection("other", v) end, "Shared")
 			t[#t].pic = Pic.NONE
+			t[#t].tip = "One setting for these bars and every bar but the totem bar's, with General > Themes."
 		end
 	end
-	t[#t + 1] = OnOffRow(key, "Countdown Text", "showCountdown", true, Pic.NUMBER)
+	t[#t + 1] = OnOffRow(key, "Show Countdown", "showCountdown", true, Pic.NUMBER)
 	if Opt(key, "showCountdown") ~= false then
 		t[#t + 1] = ChoiceRow(key, "Countdown Position", "textPosition", TEXTPOS_CHOICES, "center", Pic.NONE)
 		t[#t + 1] = SliderRow(key, "Countdown Size", "textSize", 0, 40, 1, 0, function(v) if (v or 0) <= 0 then return "Auto" end return tostring(v) end)
@@ -514,9 +558,9 @@ local function RangeRows(key, entry)
 		gray = Pic.GRAY, dim = Pic.FADED }
 	local t = { OnOffRow(key, "Show Out of Range", "outOfRange", nil, looks[Opt(key, "rangeLook") or "red"] or looks.red) }
 	if Opt(key, "outOfRange") then
-		t[#t + 1] = ChoiceRow(key, "Look", "rangeLook", Pic.With(RANGE_CHOICES, looks), "red")
+		t[#t + 1] = ChoiceRow(key, "Out of Range Look", "rangeLook", Pic.With(RANGE_CHOICES, looks), "red")
 		if (Opt(key, "rangeLook") or "red") == "red" then
-			t[#t + 1] = ColorRow(key, entry, "Color", "rangeColor", 0.64, 0.15, 0.15, Pic.TINT)
+			t[#t + 1] = ColorRow(key, entry, "Out of Range Color", "rangeColor", 0.64, 0.15, 0.15, Pic.TINT)
 		end
 	end
 	t[#t + 1] = { separator = true }
@@ -552,7 +596,6 @@ local function SoundRows(key, entry)
 		if not Opt(key, "ownSound") and not ws then
 			t[#t + 1] = SliderRow(key, "Only For Cooldowns Over", "soundMinCooldown", 0, 300, 5, 20, function(v) return Secs(v, "Always") end)
 		end
-		t[#t + 1] = { text = "Test Sound", onClick = function() SP:ReadyReminderPlaySound(nil, key); return true end }
 	end
 	t[#t + 1] = { separator = true }
 	t[#t + 1] = CopyGroupRow(key, "Sound", SOUND_KEYS)
@@ -793,17 +836,23 @@ local function MenuItems(key)
 	for _, e in ipairs(Ordered()) do if e.key == key then entry = e break end end
 	if not entry then return {} end
 	local show = SP:ReadyReminderShowOf(key)
-	local combat = OnOffRow(key, "Only In Combat", "onlyInCombat", nil, Pic.PLAIN)   -- (on: the icon as a fight shows it)
-	combat.words = "only in fights; out of one it hides, or fades"
-	local items = {
-		entry.weaponSet and { text = "Show", words = "always on screen: it shows what you hold",
+	local rowsOn = SP.ReadyRowsOn and SP:ReadyRowsOn()
+	local items = {}
+	-- the icon itself
+	local on = SP.ReadyReminderOn(entry) and true or false
+	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
+		onClick = function() SP:ReadyReminderSetSpell(key, not on); Row:Changed(false) end }
+	items[#items + 1] = { separator = true }
+	-- when it shows
+	items[#items + 1] = entry.weaponSet and { text = "When To Show", words = "always on screen: it shows what you hold",
 		  value = function() return "Always", false end,
 		  tip = "Weapon Set is always on screen: it shows what you hold. Only In Combat below hides it out of a fight." }
-		or entry.imbue and { text = "Show", words = "only while an imbue is missing",
+		or entry.imbue and { text = "When To Show", words = "only while an imbue is missing",
 		  value = function() return "Only When Missing", false end,
 		  tip = "Weapon Imbue shows while an imbue is missing (the main hand; with two weapons, either hand) and hides while your imbues are on. That is all it does." }
-		or { text = "Show", words = "when the icon is on screen",
+		or { text = "When To Show", words = "when the icon is on screen",
 		  value = function() return LabelOf(SHOW_CHOICES, SP:ReadyReminderShowOf(key)), false end,
+		  tip = "Only When Ready: the icon comes up when the spell is ready and goes while it cools. Only While On Cooldown: the other way round. While Ready And On Cooldown: always there, with the cooldown sweep and countdown over it; Dimmed: faded while it cools (While On Cooldown sets how).",
 		  sub = function()
 			local cur = SP:ReadyReminderShowOf(key)
 			-- the pictures: the moment each shows (its Ready Effect, the cooldown sweep), dimmed as Opacity has it
@@ -819,11 +868,50 @@ local function MenuItems(key)
 				end }
 			end
 			return list
-		  end },
-		combat,
-	}
-	-- Rows placement: the row it sits on (Not On A Row: off your screen)
-	if SP.ReadyRowsOn and SP:ReadyRowsOn() then
+		  end }
+	local combat = OnOffRow(key, "Only In Combat", "onlyInCombat", nil, Pic.PLAIN)   -- (on: the icon as a fight shows it)
+	combat.words = "only in fights; out of one it hides, or fades"
+	items[#items + 1] = combat
+	-- right under Only In Combat: only does something while it is on, and the icon is ever on screen
+	if Opt(key, "onlyInCombat") and show ~= "flash" then items[#items + 1] = FadeRow(key) end
+	if entry.combo then
+		items[#items + 1] = Group("Shocks", function() return ShockRows() end, "how its one icon shows the three shocks")
+	end
+	items[#items + 1] = { separator = true }
+	-- how it looks
+	items[#items + 1] = Group("Appearance", function() return AppearanceRows(key, entry) end,
+		"size, opacity, shape, background, border, name, the glow's look")
+	-- the cooling settings only do something while it shows on cooldown
+	if not entry.weaponSet and (show == "cooldown" or show == "always" or show == "always_bright") then
+		items[#items + 1] = Group("While On Cooldown", function() return CoolRows(key, entry) end,
+			"how it looks while it's on cooldown")
+	end
+	-- D52: the buff this spell puts on you (only a spell that puts one on you, in this game)
+	local buffInfo = SP.ReadyReminderBuffInfo and SP:ReadyReminderBuffInfo(key)
+	if buffInfo then items[#items + 1] = BuffGroup(key, entry, buffInfo) end
+	items[#items + 1] = { separator = true }
+	-- what it does at its moments
+	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or "When Ready"
+	items[#items + 1] = Group(readyName, function() return ReadyRows(key, entry, readyName) end,
+		entry.weaponSet and "the effect while you hold a set" or entry.imbue and "the effect while an imbue is missing" or "the effect the moment it's ready")
+	if entry.weaponSet then   -- (A28)
+		items[#items + 1] = Group("On A Weapon Swap", function() return SwapRows(key, entry) end, "a sound, the Ready Flash")
+	end
+	-- A25: a spell whose cooldown resets (Stormstrike on WoW: Forever: a tank's dodge or parry)
+	if entry.reset and SPCompat and SPCompat.FOREVER then
+		items[#items + 1] = Group("When The Cooldown Resets", function() return ResetRows(key, entry) end,
+			"a tank's dodge or parry resets it: burst, word, flash, sound")
+	end
+	if not entry.imbue and not entry.weaponSet then
+		items[#items + 1] = Group("Out of Range", function() return RangeRows(key, entry) end,
+			"how it looks when your target is out of range")
+	end
+	items[#items + 1] = Group("Sound", function() return SoundRows(key, entry) end,
+		entry.weaponSet and "the sound a swap plays" or entry.imbue and "the sound when an imbue goes missing"
+		or "the sound the moment it's ready")
+	items[#items + 1] = { separator = true }
+	-- where it sits (Rows placement: the row it is on; Not On A Row: off your screen)
+	if rowsOn then
 		items[#items + 1] = { text = "On Row", pic = Pic.NONE, words = "the row this icon sits on",
 			value = function()
 				local i = SP:ReadyRowOf(key)
@@ -844,41 +932,9 @@ local function MenuItems(key)
 				end }
 				return list
 			end }
+		items[#items + 1] = { separator = true }
 	end
-	-- right under it: only does something while Only In Combat is on, and the icon is ever on screen
-	if Opt(key, "onlyInCombat") and show ~= "flash" then items[#items + 1] = FadeRow(key) end
-	if entry.combo then
-		items[#items + 1] = Group("Shocks", function() return ShockRows() end, "how its one icon shows the three shocks")
-	end
-	items[#items + 1] = Group("Look", function() return LookRows(key, entry) end,
-		"size, opacity, background, border, name")
-	if entry.weaponSet then   -- (A28)
-		items[#items + 1] = Group("Weapon Set", function() return WeaponSetRows(key, entry) end,
-			"the word under it, the set that lights it, the swap")
-	end
-	local readyName = entry.weaponSet and "Effect While Holding" or entry.imbue and "When Missing" or "When Ready"
-	items[#items + 1] = Group(readyName, function() return ReadyRows(key, entry) end, "the effect, its color and shape")
-	-- A25: a spell whose cooldown resets (Stormstrike on WoW: Forever: a tank's dodge or parry)
-	if entry.reset and SPCompat and SPCompat.FOREVER then
-		items[#items + 1] = Group("When The Cooldown Resets", function() return ResetRows(key, entry) end,
-			"a tank's dodge or parry resets it: burst, word, flash, sound")
-	end
-	-- D52: the buff this spell puts on you (only a spell that puts one on you, in this game)
-	local buffInfo = SP.ReadyReminderBuffInfo and SP:ReadyReminderBuffInfo(key)
-	if buffInfo then items[#items + 1] = BuffGroup(key, entry, buffInfo) end
-	-- the cooling settings only do something while it shows on cooldown
-	if not entry.weaponSet and (show == "cooldown" or show == "always" or show == "always_bright") then
-		items[#items + 1] = Group("While On Cooldown", function() return CoolRows(key, entry) end,
-			"how it looks while it's on cooldown")
-	end
-	if not entry.imbue and not entry.weaponSet then
-		items[#items + 1] = Group("Out of Range", function() return RangeRows(key, entry) end,
-			"how it looks when your target is out of range")
-	end
-	items[#items + 1] = Group("Sound", function() return SoundRows(key, entry) end,
-		entry.weaponSet and "the sound a swap plays" or entry.imbue and "the sound when an imbue goes missing"
-		or "the sound the moment it's ready")
-	items[#items + 1] = { separator = true }
+	-- copy and reset
 	items[#items + 1] = { text = "Copy Settings", onClick = function()
 		Row.clip = { from = key, name = entry.name, snap = SP:ReadyReminderOwnSnapshot(key) }
 		return true
@@ -895,12 +951,43 @@ local function MenuItems(key)
 	items[#items + 1] = { text = "Copy Settings To...", disabled = #Row.list < 2, subMaxHeight = 420,
 		words = "put this icon's settings on another icon",
 		sub = function() return CopyItems(key) end }
-	items[#items + 1] = { separator = true }
-	local on = SP.ReadyReminderOn(entry) and true or false
-	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
-		onClick = function() SP:ReadyReminderSetSpell(key, not on); Row:Changed(false) end }
+	-- Rows placement: this icon's settings onto the other icons on its row, one click (the owner,
+	-- 3.0.9: a different look per row without copying icon by icon). Its own item, never inside
+	-- Copy Settings To...; the row's name on the right, as On Row shows it
+	if rowsOn then
+		local ri = SP:ReadyRowOf(key)
+		local r = ri and SP:ReadyRows()[ri]
+		local rowName = r and (r.name or ("Row " .. ri)) or nil
+		local mates = {}
+		if r then
+			local usable = {}
+			for _, e in ipairs(Ordered()) do if SP.ReadyReminderUsable(e) then usable[e.key] = true end end
+			for _, k in ipairs(r.spells) do
+				if k ~= key and usable[k] then mates[#mates + 1] = k end
+			end
+		end
+		items[#items + 1] = { text = "Copy Settings To This Row", disabled = #mates == 0,
+			words = "this icon's settings on the rest of its row",
+			value = function() return rowName or "Not On A Row", false end,
+			tip = rowName and ("Puts this icon's settings on every other icon on " .. rowName .. ", so the whole row looks like this one.")
+				or "This icon is on no row. Put it on one (On Row, above) and this copies its settings to that row.",
+			onClick = function() SP:ReadyReminderCopyIcon(key, mates); Row:Changed(false) end }
+	end
 	items[#items + 1] = { text = "Reset This Icon", disabled = not SP:ReadyReminderHasOwn(key),
 		onClick = function() SP:ReadyReminderResetIcon(key); Row:Changed(false) end }
+	-- its tests
+	local tests = {}
+	if entry.weaponSet or Opt(key, "soundOnReady") then
+		tests[#tests + 1] = { text = "Test Sound", onClick = function() SP:ReadyReminderPlaySound(nil, key); return true end }
+	end
+	if entry.reset and SPCompat and SPCompat.FOREVER and ResetConfigured(key) then
+		tests[#tests + 1] = { text = "Test Cooldown Reset", tip = "Plays what you set under When The Cooldown Resets, once.",
+			onClick = function() if SP.ReadyReminderResetTest then SP:ReadyReminderResetTest(key) end; return true end }
+	end
+	if #tests > 0 then
+		items[#items + 1] = { separator = true }
+		for _, t in ipairs(tests) do items[#items + 1] = t end
+	end
 	return items
 end
 
@@ -913,7 +1000,9 @@ end
 --   plate with that menu too), the + tile adds a row; the spells on no row sit in a
 --   row of their own under it (Unplaced: a click puts one on the last row).
 --   Drag: the order (Free and Grid: the grid fills in it, Reset Position lays Free
---   out in it), or onto a row and between rows (Rows).
+--   out in it), or onto a row and between rows (Rows). Rows, 3.0.9: a spell drags
+--   from the Not On A Row row up onto a row, and from a row down to Not On A Row
+--   (off your screen), the same as On Row in its menu.
 -- ---------------------------------------------------------------------------
 local GUTTER = 98   -- the row names' room (Grid and Rows)
 local Menu = ns.IconRow.Menu
@@ -941,7 +1030,7 @@ local function Caption()
 		return "Your grid as it fills: " .. per .. " icons per row, " .. gap .. " px apart. |cff3FA9F5CLICK|r a spell to show or hide it."
 			.. " |cff3FA9F5RIGHT-CLICK|r it for its settings. |cff3FA9F5DRAG|r a spell to change the order. |cff3FA9F5Dark|r spells aren't learned yet."
 	elseif mode == "rows" then
-		return "|cff3FA9F5DRAG|r a spell onto a row, or between rows. |cff3FA9F5CLICK|r a spell to show or hide it."
+		return "|cff3FA9F5DRAG|r a spell onto a row, between rows, or down to Not On A Row to take it off your screen. |cff3FA9F5CLICK|r a spell to show or hide it."
 			.. " |cff3FA9F5RIGHT-CLICK|r a spell for its settings, a row's name for the row's. |cff3FA9F5Dark|r spells aren't learned yet."
 	end
 	return "|cff3FA9F5CLICK|r a spell to show or hide it. |cff3FA9F5RIGHT-CLICK|r it for its settings. |cff3FA9F5DRAG|r a spell to change the order."
@@ -973,6 +1062,8 @@ local function RowMenuItems(i)
 	local r = SP:ReadyRows()[i]
 	if not r then return {} end
 	local t = {}
+	t[#t + 1] = { text = "Rename...", tip = "A box to type its new name in.", onClick = function() NameBox(i); return false end }
+	t[#t + 1] = SEP_ROW
 	t[#t + 1] = Menu.Slider("Spacing", 0, 40, 1, function() return tonumber(r.spacing) or 8 end,
 		function(v) SP:ReadyRowSet(i, "spacing", v); Row:Changed(true) end,
 		function(v) return string.format("%d px", v) end, false,
@@ -984,7 +1075,6 @@ local function RowMenuItems(i)
 	t[#t + 1] = { text = "Move This Row", tip = "Opens Unlock UI with just this row's box. Drag it where you want it, then press Done.",
 		onClick = function() SP:ReadyRowMove(i); return false end }
 	t[#t + 1] = SEP_ROW
-	t[#t + 1] = { text = "Rename...", tip = "A box to type its new name in.", onClick = function() NameBox(i); return false end }
 	t[#t + 1] = { text = "Delete This Row", tip = "Its spells go to Not On A Row (off your screen until you place them again).",
 		onClick = function() SP:ReadyRowDelete(i); Row:Changed(false); return false end }
 	return t
@@ -1068,8 +1158,34 @@ local function ListItems(out)
 	end
 end
 
--- a drop. Free and Grid: the order. Rows: onto the row of the line under the cursor,
--- before the first icon on it whose middle is right of the cursor
+-- Rows: a spell dropped at a spot in the Spells row (cx, cy in its frame) goes onto the row of
+-- the line under the cursor, before the first icon on it whose middle is right of the cursor.
+-- true when it landed on a row (a drop from this row, or from the Not On A Row row)
+local function PlaceAt(e, cx, cy)
+	local sx, sy, list = Row.slotX, Row.slotY, Row.list
+	if not (sx and sy) then return false end
+	local lineY, best
+	for i = 1, #list do
+		local d = math.abs(cy - (sy[i] + PLATE / 2))
+		if not best or d < best then best, lineY = d, sy[i] end
+	end
+	if lineY == nil then return false end
+	local rowIndex, at = nil, 1
+	for i = 1, #list do
+		if sy[i] == lineY then
+			local x = list[i]
+			local m = meta[x.key]
+			local n = m and m.group and m.group:match("^row(%d+)$")
+			if n then rowIndex = rowIndex or tonumber(n) end
+			if x ~= e and not x.empty and cx >= sx[i] + PLATE / 2 then at = at + 1 end
+		end
+	end
+	if not rowIndex then return false end
+	SP:ReadyRowPlace(e.key, rowIndex, at)
+	return true
+end
+
+-- a drop. Free and Grid: the order. Rows: onto the row under the cursor (PlaceAt)
 local function Move(e, to)
 	if e.empty then return end
 	if Mode() ~= "rows" then
@@ -1083,32 +1199,12 @@ local function Move(e, to)
 		SP:ReadyOrderMove(e.key, before)
 		return
 	end
-	local cx, cy = Row:CursorInFrame()
-	local sx, sy, list = Row.slotX, Row.slotY, Row.list
-	if not (sx and sy) then return end
-	local lineY, best
-	for i = 1, #list do
-		local d = math.abs(cy - (sy[i] + PLATE / 2))
-		if not best or d < best then best, lineY = d, sy[i] end
-	end
-	if lineY == nil then return end
-	local rowIndex, at = nil, 1
-	for i = 1, #list do
-		if sy[i] == lineY then
-			local x = list[i]
-			local m = meta[x.key]
-			local n = m and m.group and m.group:match("^row(%d+)$")
-			if n then rowIndex = rowIndex or tonumber(n) end
-			if x ~= e and not x.empty and cx >= sx[i] + PLATE / 2 then at = at + 1 end
-		end
-	end
-	if not rowIndex then return end
-	SP:ReadyRowPlace(e.key, rowIndex, at)
+	PlaceAt(e, Row:CursorInFrame())
 end
 
 Row = ns.IconRow.New({
 	caption = Caption,
-	hint = "Click: show or hide it\nRight-click: its settings\nDrag: its order, or onto a row",
+	hint = "Click: show or hide it\nRight-click: its settings\nDrag: its order, onto a row, or off the rows",
 	list = ListItems,
 	moveAlways = function() return Mode() == "rows" end,   -- (a drop onto an empty row lands where the list order would call "no move")
 	textures = function(e, out) if e.empty then return 0 end return SP:ReadyReminderIconTextures(e.key, out) end,
@@ -1123,6 +1219,10 @@ Row = ns.IconRow.New({
 	menu = function(e) if e.empty then return RowMenuItems(e.row) end return MenuItems(e.key) end,
 	move = Move,
 	movable = function(e) return not e.empty end,
+	crossGroups = true,   -- (a spell drags from one row to another; the line follows the cursor's row)
+	-- Rows: a spell dragged down onto the Not On A Row row comes off its row (off your screen)
+	dropTargets = function() if Mode() == "rows" and Unplaced then return { Unplaced } end end,
+	dropOut = function(e, target) if target == Unplaced and not e.empty then SP:ReadyRowRemove(e.key) end end,
 	gapBefore = GapBefore,
 	group = Group,
 	groupLabel = GroupLabel,
@@ -1160,14 +1260,23 @@ local function FlashMenuItems(key)
 			{ text = "On", selected = on, onClick = function() return FSet(key, "flash", true) end },
 			{ text = "Off", selected = not on, onClick = function() return FSet(key, "flash", false) end },
 		} end }
+	t[#t + 1] = { separator = true }
+	-- how it looks (its own spot has its own size; the shared spot's size is the tab's)
+	if own then
+		t[#t + 1] = SliderRow(key, "Size", "flashSize", 48, 200, 4,
+			SP.ReadyReminderIconOpt and (tonumber(SP:ReadyReminderIconOpt(key, "flashSize")) or 96) or 96, nil, nil, Pic.SIZE)
+		t[#t + 1] = { separator = true }
+	end
+	-- when
 	t[#t + 1] = { text = "Flash Early", tip = "Seconds before this spell is ready, once per cooldown. Off: the tab's Flash Early.",
 		slider = { min = 0, max = 5, step = 0.5,
 			get = function() return tonumber(SP:ReadyReminderOwnOpt(key, "flashEarly")) or 0 end,
 			set = function(v) SP:ReadyReminderSetIconOpt(key, "flashEarly", v > 0 and v or nil); FlashRow:Repaint() end,
 			format = function(v) return Secs(v, "Off") end } }
 	t[#t + 1] = { separator = true }
-	t[#t + 1] = { text = "Spot", pic = Pic.NONE, words = "where this spell's flash plays",
-		value = function() return own and "Its Own" or "Shared", own end,
+	-- where
+	t[#t + 1] = { text = "Position", pic = Pic.NONE, words = "where this spell's flash plays",
+		value = function() return own and "Its Own Spot" or "The Shared Spot", own end,
 		tip = "Where this spell's flash plays: the shared spot, or a spot of its own (Unlock UI opens with its box; drop it where you want it).",
 		sub = function() return {
 			{ text = "The Shared Spot", selected = not own, onClick = function() SP:ReadyFlashUseShared(key); FlashRow:Changed(true); return true end },
@@ -1176,13 +1285,12 @@ local function FlashMenuItems(key)
 	if own then
 		t[#t + 1] = { text = "Move This Flash", tip = "Unlock UI with just this spell's flash box.",
 			onClick = function() if SP.ReadyFlashMoveSpell then SP:ReadyFlashMoveSpell(key) end; return false end }
-		t[#t + 1] = SliderRow(key, "Size", "flashSize", 48, 200, 4,
-			SP.ReadyReminderIconOpt and (tonumber(SP:ReadyReminderIconOpt(key, "flashSize")) or 96) or 96, nil, nil, Pic.SIZE)
 	end
 	t[#t + 1] = { separator = true }
 	t[#t + 1] = { text = "Test This Flash", onClick = function() if SP.ReadyFlashTest then SP:ReadyFlashTest(key) end; return true end }
 	return t
 end
+
 FlashRow = ns.IconRow.New({
 	caption = "|cff3FA9F5CLICK|r a spell to flash it when it is ready. |cff3FA9F5RIGHT-CLICK|r it for its own spot, its size there and Flash Early. |cff3FA9F5Dark|r spells aren't learned yet.",
 	hint = "Click: flash it when ready\nRight-click: its own spot and more",
@@ -1204,8 +1312,8 @@ ns.CustomRows.readyFlashIcons = FlashRow
 -- Rows placement: the spells on no row, off your screen, a row of their own under the Spells row
 local unplacedList = {}
 Unplaced = ns.IconRow.New({
-	caption = "These spells are on no row, so they are off your screen. |cff3FA9F5CLICK|r one to put it on the last row. |cff3FA9F5RIGHT-CLICK|r it for its settings.",
-	hint = "Click: put it on the last row\nRight-click: its settings",
+	caption = "These spells are on no row, so they are off your screen. |cff3FA9F5DRAG|r one onto a row, or |cff3FA9F5CLICK|r it to put it on the last row. |cff3FA9F5RIGHT-CLICK|r it for its settings.",
+	hint = "Click: put it on the last row\nDrag: onto a row\nRight-click: its settings",
 	list = function(out)
 		if Mode() ~= "rows" then return end
 		for _, e in ipairs(Known(unplacedList)) do
@@ -1216,12 +1324,22 @@ Unplaced = ns.IconRow.New({
 	shown = function() return false end,
 	learned = function(e) return SP.ReadyReminderKnown(e) and true or false end,
 	hasOwn = function(e) return SP:ReadyReminderHasOwn(e.key) and true or false end,
-	tooltip = function() return "Off your screen: it is on no row. Click to put it on the last row." end,
+	tooltip = function() return "Off your screen: it is on no row. Click to put it on the last row, or drag it onto one." end,
 	toggle = function(e)
 		SP:ReadyRowPlace(e.key, nil, nil)
 		if not SP.ReadyReminderOn(e) then SP:ReadyReminderSetSpell(e.key, true) end
 	end,
 	menu = function(e) return MenuItems(e.key) end,
+	-- a drag up onto a row of the Spells row puts it there, and on screen, as a click does; the
+	-- order within this row is the page's, so a drag never lands here
+	move = function() end,
+	dragOutOnly = true,
+	dropTargets = function() return { Row } end,
+	dropOut = function(e, target, cx, cy)
+		if target ~= Row then return end
+		if not PlaceAt(e, cx, cy) then SP:ReadyRowPlace(e.key, nil, nil) end
+		if not SP.ReadyReminderOn(e) then SP:ReadyReminderSetSpell(e.key, true) end
+	end,
 	group = function() return "none" end,
 	groupLabel = GroupLabel,
 	groupLabelWidth = GUTTER,

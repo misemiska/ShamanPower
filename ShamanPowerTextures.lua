@@ -967,17 +967,25 @@ local function splitIconShapes(o)
 	if o.iconShape and o.iconShapeCooldown == nil then o.iconShapeCooldown = o.iconShape end
 end
 function SP:IconShapeMaskFile(shape) return MASK_FILE[shape] end
+-- An icon with a shape of its own (3.0.9, Ready Reminders: a circle Earth Shock beside a
+-- square Stormstrike): own = "default" | "flat" | "rounded" | "circle", nil = its bar's shape.
+-- Every reading of a shape here takes it as an optional last argument.
+local function shapeOr(kind, own)
+	if own == nil then return SP:IconShapeOf(kind) end
+	if own == "default" then return nil end
+	return own
+end
 -- the ring a border draws round a shaped icon; nil = the square border
-function SP:BorderRingFile(kind)
+function SP:BorderRingFile(kind, own)
 	if self.opt and self.opt.iconBordersSquare then return nil end
-	return RING_FILE[self:IconShapeOf(kind)]
+	return RING_FILE[shapeOr(kind, own)]
 end
 -- the ring an Element-Colored Border becomes round a Rounded / Circle icon, px
 -- thick on an icon size wide: Ring_<Shape>_1..12 are 1..12 px of 64
 local RING_STEP = { rounded = SHAPES .. "Ring_Rounded_", circle = SHAPES .. "Ring_Circle_" }
-function SP:BorderRingSizedFile(kind, px, size)
+function SP:BorderRingSizedFile(kind, px, size, own)
 	if self.opt and self.opt.iconBordersSquare then return nil end
-	local base = RING_STEP[self:IconShapeOf(kind)]
+	local base = RING_STEP[shapeOr(kind, own)]
 	if not base then return nil end
 	local k = math.floor(64 * (px or 2) / math.max(size or 32, 8) + 0.5)
 	if k < 1 then k = 1 elseif k > 12 then k = 12 end
@@ -989,6 +997,7 @@ local shapedTex = setmetatable({}, { __mode = "k" })   -- [texture] = the region
 local texKind = setmetatable({}, { __mode = "k" })     -- [texture] = "totem" | "cooldown" | "ready"
 local iconKind = setmetatable({}, { __mode = "k" })    -- [icon] = its bar: textures drawn on it follow
 local shapedCd = setmetatable({}, { __mode = "k" })    -- [cooldown] = its bar
+local ownShape = setmetatable({}, { __mode = "k" })    -- [icon region | cooldown] = its own shape key (SetIconShapeOwn)
 -- the icon picture itself: Flat / Rounded / Circle trim its frame where it shows
 -- the whole picture; back on Square the trim comes off again
 local function trimArt(t, on)
@@ -1008,7 +1017,7 @@ local function trimArt(t, on)
 	end
 end
 local function shapeTexture(t, icon)
-	local shape = SP:IconShapeOf(texKind[t] or "totem")
+	local shape = shapeOr(texKind[t] or "totem", ownShape[icon])
 	if t == icon then trimArt(t, shape ~= nil) end
 	local file = MASK_FILE[shape]
 	if t.spShapeMask then t:RemoveMaskTexture(t.spShapeMask); t.spShapeMask = nil end
@@ -1027,7 +1036,7 @@ local function shapeTexture(t, icon)
 	t.spShapeMask = m
 end
 local function shapeCooldown(cd)
-	local k = SP:IconShapeOf(shapedCd[cd] or "totem")
+	local k = shapeOr(shapedCd[cd] or "totem", ownShape[cd])
 	if k and MASK_FILE[k] then
 		cd:SetSwipeTexture(MASK_FILE[k])
 		if cd.SetUseCircularEdge then cd:SetUseCircularEdge(k == "circle") end
@@ -1045,10 +1054,26 @@ function SP:ShapeIconTexture(t, icon, kind)
 	kind = kind or iconKind[icon] or texKind[t] or "totem"
 	texKind[t] = kind
 	if t == icon then iconKind[icon] = kind end
-	if shapedTex[t] == nil and not SP:IconShapeOf(kind) then shapedTex[t] = icon return end   -- Square: nothing to do
+	if shapedTex[t] == nil and not shapeOr(kind, ownShape[icon]) then shapedTex[t] = icon return end   -- Square: nothing to do
 	shapedTex[t] = icon
 	shapeTexture(t, icon)
 end
+-- an icon's own shape (nil: back to its bar's): the textures drawn on that region take it now,
+-- and a cooldown's swipe given here too (Ready Reminders: the icon, its backing and its swipe)
+function SP:SetIconShapeOwn(icon, own, cd)
+	if not icon then return end
+	if own == ownShape[icon] and (cd == nil or own == ownShape[cd]) then return end
+	ownShape[icon] = own
+	if own ~= nil then self._iconShaped = true end   -- (ApplyIconShapes keeps walking from now on)
+	for t, ic in pairs(shapedTex) do
+		if ic == icon then shapeTexture(t, icon) end
+	end
+	if cd then
+		ownShape[cd] = own
+		if shapedCd[cd] then shapeCooldown(cd) end
+	end
+end
+function SP:IconShapeOwn(icon) return ownShape[icon] end
 function SP:ShapeCooldown(cd, kind)
 	if not (cd and cd.SetSwipeTexture) then return end
 	shapedCd[cd] = kind or shapedCd[cd] or "totem"

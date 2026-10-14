@@ -246,7 +246,7 @@ local function items()
 		if kb then add({ text = "Keybind Mode", disabled = combat, fn = function() kb(SP) end }) end
 	else
 		add({ text = "ShamanPower", header = true, element = "air" })
-		add({ text = "Totem Range Overlay", fn = function()
+		add({ text = "Choose Totems to Track...", fn = function()
 			SP:InitSPRange()
 			if not SP.spRangeFrame then SP:CreateSPRangeFrame() end
 			SP:ShowSPRangeConfig()

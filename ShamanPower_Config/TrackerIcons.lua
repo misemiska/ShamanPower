@@ -181,14 +181,35 @@ do
 		local r = {}
 		local key = item.key
 		local own = OwnSize(key)
+		-- the totem itself
+		local watched = Watched(item)
+		r[#r + 1] = { text = watched and "Stop Watching This Totem" or "Watch This Totem",
+			tip = "The same as a click on it.",
+			onClick = function()
+				SetWatched(item, not watched)
+				Changed(Coverage, false)
+			end }
+		r[#r + 1] = SEP
+		-- how it looks
 		if Free() then
-			r[#r + 1] = Slider("Icon Size", 20, 80, 4, function() return OwnSize(key) or ListSize() end,
+			r[#r + 1] = Slider("Size", 20, 80, 4, function() return OwnSize(key) or ListSize() end,
 				function(v) SetOwnSize(key, v); SliderChanged(Coverage) end, nil, false,
 				"This totem's own size in the coverage list while Place Each Totem Freely is on. The other totems keep theirs.",
 				{ kind = "size" })
 			r[#r].words = "its own size in the coverage list"
+		else
+			-- Place Each Totem Freely is off: one size for the list. Shown gray, saying why; a size
+			-- set before stays saved for when it is on again
+			local why = "Every totem uses the list's Icon Size (Appearance) while Place Each Totem Freely is off. Turn it on"
+				.. " (Behavior) to give each totem its own spot and size."
+			if own then why = why .. " This totem's own size (" .. own .. ") stays saved for then." end
+			r[#r + 1] = { text = "Size", disabled = true, tip = why, value = function() return "Same As The List", false end }
+			r[#r + 1] = { text = "Own sizes need Place Each Totem Freely (Behavior)", disabled = true, tip = why }
+		end
+		-- copy and reset
+		if Free() then
 			r[#r + 1] = SEP
-			r[#r + 1] = { text = "Copy Icon Size To...", subMaxHeight = 420,
+			r[#r + 1] = { text = "Copy Size To...", subMaxHeight = 420,
 				words = "this size onto another totem you watch, or all of them", sub = function()
 				local o, list = {}, {}
 				Items(list)
@@ -207,25 +228,7 @@ do
 				end }
 				return o
 			end }
-		else
-			-- Place Each Totem Freely is off: one size for the list. Shown gray, saying why; a size
-			-- set before stays saved for when it is on again
-			local why = "Every totem uses the list's Icon Size (Look) while Place Each Totem Freely is off. Turn it on"
-				.. " (Behavior) to give each totem its own spot and size."
-			if own then why = why .. " This totem's own size (" .. own .. ") stays saved for then." end
-			r[#r + 1] = { text = "Icon Size", disabled = true, tip = why, value = function() return "Same As The List", false end }
-			r[#r + 1] = { text = "Own sizes need Place Each Totem Freely (Behavior)", disabled = true, tip = why }
-		end
-		r[#r + 1] = SEP
-		local watched = Watched(item)
-		r[#r + 1] = { text = watched and "Stop Watching This Totem" or "Watch This Totem",
-			tip = "The same as a click on it.",
-			onClick = function()
-				SetWatched(item, not watched)
-				Changed(Coverage, false)
-			end }
-		if Free() then
-			r[#r + 1] = { text = "Reset Icon Size", disabled = not own, tip = "Back to the list's Icon Size (Look).",
+			r[#r + 1] = { text = "Reset Size", disabled = not own, tip = "Back to the list's Icon Size (Appearance).",
 				onClick = function()
 					SetOwnSize(key, nil)
 					Changed(Coverage, false)
@@ -484,7 +487,7 @@ do
 		end, nil, true, "How see-through this tracker is.", { kind = "opacity" })
 		op.disabled = lock
 		r[#r + 1] = op
-		local hb = Choice("Hide Background", { { true, "On" }, { false, "Off" } }, function()
+		local hb = Choice("Hide Background And Border", { { true, "On" }, { false, "Off" } }, function()
 			local v = Hidden(key)
 			return v, v
 		end, function(v)
@@ -496,6 +499,8 @@ do
 		hb.words = "only the icon, no background or border"
 		hb.disabled = lock
 		r[#r + 1] = hb
+		r[#r + 1] = SEP
+		-- where it sits
 		if IsTotem(key) then
 			local fd = Choice("Flyout Direction", { { "top", "Top" }, { "bottom", "Bottom" }, { "left", "Left" }, { "right", "Right" } },
 				function() return S().flyoutDirection or "bottom", S().flyoutDirection ~= nil end, function(v)
@@ -508,14 +513,16 @@ do
 			fd.disabled = lock
 			r[#r + 1] = fd
 		end
-		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Open Its Settings Panel", disabled = lock,
-			tip = "The small panel its cog (or SHIFT+middle-click) opens on the tracker itself: the same settings.",
+		r[#r + 1] = { text = "Return to Bar", disabled = lock,
+			tip = "Puts it back on its bar, as a middle-click on the tracker does.",
 			onClick = function()
-				local f = Frames()[key]
-				if f and SP.ShowPopOutSettingsPanel then SP:ShowPopOutSettingsPanel(key, f) end
+				if InCombatLockdown() then return end
+				SP:ReturnPopOutToBar(key)
+				Changed(Popouts, false)
+				Relayout(Popouts)
 			end }
 		r[#r + 1] = SEP
+		-- copy and reset
 		r[#r + 1] = { text = "Copy Settings", disabled = lock, onClick = function()
 			Popouts.clip = { from = key, name = item.name, snap = Snapshot(key) }
 			return true
@@ -548,20 +555,19 @@ do
 			end }
 			return o
 		end }
-		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Return It to the Bar", disabled = lock,
-			tip = "Puts it back on its bar, as a middle-click on the tracker does.",
-			onClick = function()
-				if InCombatLockdown() then return end
-				SP:ReturnPopOutToBar(key)
-				Changed(Popouts, false)
-				Relayout(Popouts)
-			end }
 		r[#r + 1] = { text = "Reset This Tracker", disabled = lock or not HasOwn(key),
-			tip = "Its Scale, Opacity, Hide Background and Flyout Direction back to the defaults. Where it sits stays.",
+			tip = "Its Scale, Opacity, Hide Background And Border and Flyout Direction back to the defaults. Where it sits stays.",
 			onClick = function()
 				Apply(RESET, key)
 				Changed(Popouts, false)
+			end }
+		r[#r + 1] = SEP
+		-- its settings panel
+		r[#r + 1] = { text = "Open Tracker Settings", disabled = lock,
+			tip = "The small panel its cog (or SHIFT+middle-click) opens on the tracker itself: the same settings.",
+			onClick = function()
+				local f = Frames()[key]
+				if f and SP.ShowPopOutSettingsPanel then SP:ShowPopOutSettingsPanel(key, f) end
 			end }
 		return r
 	end

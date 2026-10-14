@@ -54,6 +54,16 @@
 --   under    = function(item, out) return n end,      n colors ({ r, g, b }) into out: a 2 px line under the plate in
 --                                                     n equal parts (0: none); the row keeps room for it
 --   movable  = function(item) return can end,         (with move) only these drag, and only among themselves
+--   crossGroups = true,                               (with group and move) a drag may land on another group's
+--                                                     line (Ready Reminders' rows); without it a grouped row's
+--                                                     drag stays in the item's own group (the totems by element)
+--   dropTargets = function() return { row, ... } end, (optional, with move) other icon rows a drag can land on
+--                                                     (3.0.9, Ready Reminders' rows): over one, the lifted copy
+--                                                     follows the cursor there and that row shows the line
+--   dropOut  = function(item, target, cx, cy) end,   (with dropTargets) a drop on one of them: cx, cy in the
+--                                                     target's frame (top left, y down, as its SlotXY)
+--   dragOutOnly = true,                               (with move) this row's own order never changes: no line
+--                                                     in it while dragging, a drag only lands on a dropTarget
 --   menuElement = function(item) return "fire" end,   the item menu's element (ns.ContextMenu spec.element)
 --   (optional, A18; each left out = the behavior above)
 --   (its step between the elements is A15's gapBefore: 14 px before an item whose element differs)
@@ -66,7 +76,7 @@
 --   menu = nil                                        no menu: a right-click does nothing
 -- }
 -- row:Render(body, x, y, width, onChanged) / row:Release()   (ns.CustomRows)
--- row:Changed(keepMenu)  row:Repaint()  row:OpenMenu(key, path)  row:ShowDrag(key, gap)
+-- row:Changed(keepMenu)  row:Repaint()  row:OpenMenu(key, path)  row:ShowDrag(key, gap, lineY)
 --
 -- Menu rows (ns.IconRow.Menu): Choice, OnOff, Slider, Group; each value read by the
 -- page's own get (value, own: own = the item's own value, drawn in accentHi).
@@ -453,9 +463,63 @@ function Proto:PaintLifted(b)
 	b:SetAlpha(LIFTED_ALPHA)
 end
 
--- gap: the place it lands, 1 .. #list + 1 (before that item; #list + 1 = the end).
--- x, y: the lifted copy's top left in the row frame (nil: over the line, as a still picture)
-function Proto:ShowDrag(key, gap, x, y)
+-- where the line for a place sits: at the left of it (after the last plate for the end).
+-- lineY (a laid-out row, from GapAt): the line the cursor is on. A place between two lines is
+-- both the end of the one and the start of the other: lineY says which to draw
+function Proto:LineXY(gap, lineY)
+	local n = #self.list
+	local lx, ly
+	local half = ((self.pitch or PITCH) - PLATE) / 2
+	local startsLine = self.slotX and gap > 1 and gap <= n and self.slotY[gap] ~= self.slotY[gap - 1]
+		and lineY ~= nil and lineY ~= self.slotY[gap - 1]
+	if self.slotX and gap > 1 and not startsLine then
+		-- (a laid-out row: right after the item before it, so a step apart doesn't move the line)
+		lx, ly = self:SlotXY(gap - 1)
+		lx = lx + PLATE + (PITCH - PLATE) / 2 - 1
+	elseif gap <= n then
+		lx, ly = self:SlotXY(gap)
+		lx = lx - half - 1
+	else
+		lx, ly = self:SlotXY(n)
+		lx = lx + PLATE + half - 1
+	end
+	return lx, ly
+end
+
+-- the line where a drag lands: this row's own, or another row's lifted item over this one (dropTargets)
+function Proto:ShowLine(gap, lineY)
+	local f = self.frame
+	if not f then return end
+	gap = max(1, min(#self.list + 1, gap or 1))
+	local lx, ly = self:LineXY(gap, lineY)
+	local ins = self.insert
+	if not ins then
+		ins = f:CreateTexture(nil, "OVERLAY", nil, 7)
+		ins:SetColorTexture(Core:Color("accentHi"))
+		self.insert = ins
+	end
+	ins:ClearAllPoints()
+	ins:SetSize(2, PLATE + 8)
+	ins:SetPoint("TOPLEFT", f, "TOPLEFT", lx, -(ly - 4))
+	ins:Show()
+end
+
+function Proto:HideLine()
+	if self.insert then self.insert:Hide() end
+end
+
+-- the other rows a drag from this one can land on (def.dropTargets), none without it
+local NO_TARGETS = {}
+function Proto:DropTargets()
+	local t = self.def.dropTargets and Call(self.def.dropTargets)
+	return type(t) == "table" and t or NO_TARGETS
+end
+
+-- gap: the place it lands, 1 .. #list + 1 (before that item; #list + 1 = the end); lineY: the
+-- line it is on (GapAt's second answer; nil: by the index alone).
+-- x, y: the lifted copy's top left in the row frame (nil: over the line, as a still picture).
+-- over: the other row the cursor is on (dropTargets): the copy sits above its plates, no line here
+function Proto:ShowDrag(key, gap, lineY, x, y, over)
 	local f = self.frame
 	local from = self.byKey[key]
 	if not (f and from and from.item) then return end
@@ -470,68 +534,53 @@ function Proto:ShowDrag(key, gap, x, y)
 		self.ghost = g
 	end
 	g:SetParent(f)
-	g:SetFrameLevel(f:GetFrameLevel() + 20)
+	local level = f:GetFrameLevel() + 20
+	if over and over.frame then level = max(level, over.frame:GetFrameLevel() + 20) end
+	g:SetFrameLevel(level)
 	g.item = from.item
 	local def = self.def
 	local cnt = Call(def.textures, from.item, self.tex) or 0
 	PaintIcons(g, self.tex, cnt, Call(def.shown, from.item) and true or false, Learned(def, from.item))
 	g.openEdge:Show()
 	g.corner:Hide()
-	-- the line: at the left of the place it lands (after the last plate for the end)
-	local lx, ly
-	local half = ((self.pitch or PITCH) - PLATE) / 2
-	if self.slotX and gap > 1 then
-		-- (a laid-out row: right after the item before it, so a step apart doesn't move the line)
-		lx, ly = self:SlotXY(gap - 1)
-		lx = lx + PLATE + (PITCH - PLATE) / 2 - 1
-	elseif gap <= n then
-		lx, ly = self:SlotXY(gap)
-		lx = lx - half - 1
-	else
-		lx, ly = self:SlotXY(n)
-		lx = lx + PLATE + half - 1
-	end
+	local lx, ly = self:LineXY(gap, lineY)
 	if not x then x, y = lx - PITCH / 2 + 10, ly - DRAG_LIFT end
 	g:ClearAllPoints()
 	g:SetPoint("TOPLEFT", f, "TOPLEFT", x, -y)
 	g:Show()
-	local ins = self.insert
-	if not ins then
-		ins = f:CreateTexture(nil, "OVERLAY", nil, 7)
-		ins:SetColorTexture(Core:Color("accentHi"))
-		self.insert = ins
-	end
-	ins:ClearAllPoints()
-	ins:SetSize(2, PLATE + 8)
-	ins:SetPoint("TOPLEFT", f, "TOPLEFT", lx, -(ly - 4))
-	ins:Show()
+	-- the line: where it lands in this row; none while it is over another row, or when this
+	-- row's own order never changes (dragOutOnly)
+	if over or def.dragOutOnly then self:HideLine() else self:ShowLine(gap, lineY) end
 end
 
 function Proto:EndDrag()
 	local key = self.liftKey
 	self.liftKey, self.dragGap = nil, nil
 	if self.ghost then self.ghost:Hide(); self.ghost.item = nil end
-	if self.insert then self.insert:Hide() end
+	self:HideLine()
+	if self.over then self.over:HideLine() end
+	self.over = nil
 	if self.dragFrame then self.dragFrame:SetScript("OnUpdate", nil) end
 	local b = key and self.byKey[key]
 	if b then self:PaintButton(b) end
 end
 
--- the cursor over the row frame: the place it would land
+-- the cursor over the row frame: the place it would land, and (a laid-out row) the line it is on
 function Proto:GapAt(cx, cy)
 	local n = #self.list
-	local gap
+	local gap, lineY
 	if self.slotX then
 		-- a laid-out row: the line nearest the cursor, then the first plate whose middle is right of it;
-		-- a grouped row (the totems by element): only the lines of the lifted item's own group
+		-- a grouped row (the totems by element): only the lines of the lifted item's own group, unless
+		-- a drag may cross groups (crossGroups: Ready Reminders' rows)
 		local def = self.def
 		local lg
-		if def.group and self.liftKey then
+		if def.group and self.liftKey and not def.crossGroups then
 			for _, item in ipairs(self.list) do
 				if item.key == self.liftKey then lg = Call(def.group, item) break end
 			end
 		end
-		local lineY, best
+		local best
 		for i = 1, n do
 			if lg == nil or Call(def.group, self.list[i]) == lg then
 				local d = math.abs(cy - (self.slotY[i] + PLATE / 2))
@@ -556,15 +605,39 @@ function Proto:GapAt(cx, cy)
 	end
 	local lo, hi = 1, n + 1
 	if self.def.movable then lo, hi = self:MovableSpan() end
-	return max(lo, min(hi, gap))
+	return max(lo, min(hi, gap)), lineY
 end
 
-function Proto:CursorInFrame()
-	local f = self.frame
+-- the cursor in a frame's coordinates (top left, y down), and whether it is inside the frame
+local function CursorIn(f)
 	local scale = f:GetEffectiveScale()
 	local cx, cy = GetCursorPosition()
 	cx, cy = cx / scale, cy / scale
-	return cx - (f:GetLeft() or 0), (f:GetTop() or 0) - cy
+	local l, t = f:GetLeft() or 0, f:GetTop() or 0
+	local x, y = cx - l, t - cy
+	local inside = f:IsShown() and x >= 0 and y >= 0 and x <= (f:GetWidth() or 0) and y <= (f:GetHeight() or 0)
+	return x, y, inside
+end
+
+function Proto:CursorInFrame()
+	local x, y = CursorIn(self.frame)
+	return x, y
+end
+
+-- the other row the cursor is over (def.dropTargets), and the cursor in its frame; nil over this
+-- row or over none of them
+function Proto:DropTargetAt()
+	local targets = self:DropTargets()
+	if #targets == 0 then return nil end
+	local _, _, here = CursorIn(self.frame)
+	if here then return nil end
+	for _, t in ipairs(targets) do
+		if t ~= self and t.frame then
+			local x, y, over = CursorIn(t.frame)
+			if over then return t, x, y end
+		end
+	end
+	return nil
 end
 
 function Proto:StartDrag(b)
@@ -582,15 +655,27 @@ function Proto:StartDrag(b)
 	-- only while the mouse holds an item (nothing runs otherwise)
 	df:SetScript("OnUpdate", function()
 		local cx, cy = row:CursorInFrame()
-		row:ShowDrag(key, row:GapAt(cx, cy), cx - PLATE / 2, cy - PLATE / 2)
+		-- over another row (dropTargets): the copy follows the cursor there, that row shows the line
+		local t, tx, ty = row:DropTargetAt()
+		if row.over and row.over ~= t then row.over:HideLine() end
+		row.over = t
+		if t then
+			row:ShowDrag(key, row.dragGap, nil, cx - PLATE / 2, cy - PLATE / 2, t)
+			t:ShowLine(t:GapAt(tx, ty))
+		else
+			local gap, lineY = row:GapAt(cx, cy)
+			row:ShowDrag(key, gap, lineY, cx - PLATE / 2, cy - PLATE / 2)
+		end
 	end)
 	local cx, cy = self:CursorInFrame()
-	self:ShowDrag(key, self:GapAt(cx, cy), cx - PLATE / 2, cy - PLATE / 2)
+	local gap, lineY = self:GapAt(cx, cy)
+	self:ShowDrag(key, gap, lineY, cx - PLATE / 2, cy - PLATE / 2)
 end
 
 function Proto:StopDrag(b)
 	if not b.dragging then return end
 	local key, gap = self.liftKey, self.dragGap
+	local target, tx, ty = self:DropTargetAt()
 	self:EndDrag()
 	-- (the click that ends a drag is not a click on the item)
 	C_Timer.After(0, function() b.dragging = nil end)
@@ -600,6 +685,18 @@ function Proto:StopDrag(b)
 	local from
 	for i, item in ipairs(self.list) do if item.key == key then from = i break end end
 	if not from then return end
+	-- a drop on another row (dropTargets): the page's dropOut, then both rows drawn again
+	if target then
+		if def.dropOut then
+			Call(def.dropOut, self.list[from], target, tx, ty)
+			self:Changed(false)
+			target:Changed(false)
+			local cfg = _G.ShamanPowerConfig
+			if cfg and cfg.RefreshCurrent then cfg:RefreshCurrent() end
+		end
+		return
+	end
+	if def.dragOutOnly then return end
 	local to = gap
 	if to > from then to = to - 1 end
 	-- the same place in the list is no move, unless the def decides by where the cursor is
@@ -621,7 +718,7 @@ end
 local function ButtonClick(b, button)
 	local row, item = b.row, b.item
 	if not (row and item) or b.dragging then return end
-	-- 3.0.9: Click an Icon Opens Its Screen (General > Main): the item's own screen (IconScreen.lua)
+	-- the icon screens (IconScreen.lua, held for 3.1.0 and not loaded until then): the item's own screen
 	if button == "LeftButton" and ns.IconScreen and ns.IconScreen:Wants(row) then
 		ns.IconScreen:Open(row, item.key)
 		return

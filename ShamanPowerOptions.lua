@@ -1500,6 +1500,55 @@ ShamanPower.options = {
 								ShamanPower:UpdateTotemBarVisibility(true)
 							end
 						},
+						-- 3.0.9: the cooldown bar's Hide Out of Combat, beside the totem bar's (ShamanPowerCdBarVisibility.lua)
+						cdbarHideOutOfCombat = {
+							type = "toggle", width = 1.0, name = "Hide Out of Combat",
+							desc = "Hide the cooldown bar when not in combat. The game brings it back the moment a fight starts and hides it"
+							.. " again when the fight ends. Switched in a fight, it takes effect when the fight ends.",
+							get = function() return ShamanPower.opt.cdbarHideOutOfCombat == true end,
+							set = function(_, v)
+								if v then ShamanPower.opt.cdbarHideOutOfCombat = true else ShamanPower.opt.cdbarHideOutOfCombat = nil end
+								if InCombatLockdown() then print("|cff0070ddShamanPower:|r Hide Out of Combat for the cooldown bar changes when the fight ends.") end
+								ShamanPower:RefreshCooldownBarVisibility()
+							end,
+						},
+						cdbarFadeInsteadOfHide = {
+							type = "toggle", width = 1.0, name = "Fade Instead of Hide",
+							desc = "When Hide Out of Combat applies, fade the cooldown bar to the opacity below instead of hiding it, so you can still see and click it.",
+							disabled = function() return ShamanPower.opt.cdbarHideOutOfCombat ~= true end,
+							get = function() return ShamanPower.opt.cdbarFadeInsteadOfHide == true end,
+							set = function(_, v)
+								if v then ShamanPower.opt.cdbarFadeInsteadOfHide = true else ShamanPower.opt.cdbarFadeInsteadOfHide = nil end
+								ShamanPower:RefreshCooldownBarVisibility()
+							end,
+						},
+						cdbarFadeOpacity = {
+							type = "range", width = 1.0, name = "Faded Opacity",
+							desc = "How visible the cooldown bar stays while faded.",
+							min = 0, max = 0.9, step = 0.01, isPercent = true,
+							disabled = function() return ShamanPower.opt.cdbarHideOutOfCombat ~= true or ShamanPower.opt.cdbarFadeInsteadOfHide ~= true end,
+							get = function() return ShamanPower.opt.cdbarFadeOpacity or 0.25 end,
+							set = function(_, v) ShamanPower.opt.cdbarFadeOpacity = v; ShamanPower:RefreshCooldownBarVisibility() end,
+						},
+						cdbarFadeSmooth = {
+							type = "toggle", width = 1.0, name = "Smooth Fade",
+							desc = "Glide between faded and full over a fifth of a second instead of switching at once. Out of combat only:"
+							.. " the bar is always at full the moment a fight starts.",
+							disabled = function() return ShamanPower.opt.cdbarHideOutOfCombat ~= true or ShamanPower.opt.cdbarFadeInsteadOfHide ~= true end,
+							get = function() return ShamanPower.opt.cdbarFadeSmooth ~= false end,
+							set = function(_, v) if v then ShamanPower.opt.cdbarFadeSmooth = nil else ShamanPower.opt.cdbarFadeSmooth = false end end,
+						},
+						cdbarShowWithTarget = {
+							type = "toggle", width = "full", name = "Show When I Have a Target",
+							desc = "Out of combat, bring the cooldown bar back while you target something you can attack, even with Hide Out of Combat on.",
+							disabled = function() return ShamanPower.opt.cdbarHideOutOfCombat ~= true end,
+							get = function() return ShamanPower.opt.cdbarShowWithTarget == true end,
+							set = function(_, v)
+								if v then ShamanPower.opt.cdbarShowWithTarget = true else ShamanPower.opt.cdbarShowWithTarget = nil end
+								if InCombatLockdown() then print("|cff0070ddShamanPower:|r Show When I Have a Target for the cooldown bar changes when the fight ends.") end
+								ShamanPower:RefreshCooldownBarVisibility()
+							end,
+						},
 					}
 				},
 				-- A27: Out Of The Way (ShamanPowerTown.lua): one switch, Where, Hide or Fade, one line per module
@@ -1527,7 +1576,7 @@ ShamanPower.options = {
 						},
 						townHow = {
 							order = 2, type = "select", name = "Hide Or Fade", width = 1.5,
-							desc = "Hide: gone. Fade: dimmed to the Faded Opacity above, still there.",
+							desc = "Hide: gone. Fade: dimmed to the Totem Bar Auto-Hide Faded Opacity above, still there.",
 							values = { hide = "Hide", fade = "Fade To Faded Opacity" }, sorting = { "hide", "fade" },
 							disabled = function() return ShamanPower.opt.hideInTown ~= true end,
 							get = function() return ShamanPower.opt.townHow or "hide" end,
@@ -10241,8 +10290,8 @@ do
 			.. " a cooldown bar item, Earth Shield, Drop All). Click a tracker for its settings. Popped-Out Tracker,"
 			.. " Selected Tracker Scale, Selected Tracker Opacity, Hide Background, Selected Tracker Flyout Direction,"
 			.. " Return Selected Tracker to Bar, Open Pop-Out Settings. Scale, Opacity, Hide Background, Flyout Direction"
-			.. " (Top, Bottom, Left, Right), Open Its Settings Panel, Copy Settings, Paste Settings, Copy Settings To,"
-			.. " All Trackers, Return It to the Bar, Reset This Tracker.",
+			.. " (Top, Bottom, Left, Right), Return to Bar, Copy Settings, Paste Settings, Copy Settings To,"
+			.. " All Trackers, Reset This Tracker, Open Tracker Settings.",
 	}
 	SP.OptionCustomRow[popout.popoutIcons] = "popoutIcons"
 
@@ -10615,7 +10664,9 @@ do
 			order = 0.5, type = "toggle", name = "Show Every Totem in Rows", width = "full",
 			desc = "On: every element's totems also sit in a row of their own, which you can put anywhere"
 				.. " with Unlock UI, next to the totem bar style you picked above. Left-click a totem in a row"
-				.. " to drop it, right-click to make it your assigned one. Change out of combat.",
+				.. " to drop it, right-click to make it your assigned one, as in the flyouts. With Show Main Totem"
+				.. " Bar off, right-click does what the bar's right-click does (Totemic Call, or Pull That Totem"
+				.. " Back, from the Clicks tab) and Shift+right-click makes it your assigned one. Change out of combat.",
 			disabled = Locked,
 			get = function() return SP.opt.totemRows == true end,
 			set = function(_, value)
@@ -10645,7 +10696,9 @@ do
 			hidden = function() return Off() or (SP.opt.useBlizzardTotemBar and true or false) end,
 			desc = "On: your main totem bar shows as well as the rows. Off: only the rows show, and the bar's"
 				.. " pulse, duration bar, time left, party dots and effects show on the rows instead (on the totem"
-				.. " that is down). Your keybinds still drop your assigned totems. Change out of combat.",
+				.. " that is down), and right-click on a row does what the bar's right-click does: Totemic Call, or"
+				.. " Pull That Totem Back from the Clicks tab, with Shift+right-click to set your assigned totem."
+				.. " Your keybinds still drop your assigned totems. Change out of combat.",
 			disabled = Locked,
 			get = function() return SP.opt.rowsShowBar ~= false end,
 			set = function(_, value)
@@ -10768,17 +10821,9 @@ do
 			if SP.db and SP.db.global then SP.db.global.oldLookSeen = true end
 		end,
 	}
-	-- 3.0.9 (sheet A30): a click on an icon opens that item's own screen, every choice a
-	-- picture of what you get (ShamanPower_Config/IconScreen.lua). Off to start; right-click
-	-- keeps the menu either way.
-	main.iconScreens = {
-		order = 1.53, type = "toggle", name = "Click an Icon Opens Its Screen", width = "full",
-		desc = "On the icon pages, a click on an icon opens a screen of everything about it, with a picture of what each choice does: click the picture you want. Right-click still opens the menu. Off: a click turns the icon on or off, as before.",
-		get = function() return SP.opt.iconScreens == true end,
-		set = function(_, value)
-			SP.opt.iconScreens = value and true or nil
-		end,
-	}
+	-- The icon screens (sheet A30: a click on an icon opens that item's own screen, every choice a
+	-- picture) are held for 3.1.0: ShamanPower_Config/IconScreen.lua stays but is out of the Config
+	-- TOCs, and its switch (main.iconScreens, "Click an Icon Opens Its Screen", order 1.53) is out of here.
 	SP.OptionRowLit = {
 		[main.oldSettingsLook] = function()
 			local g = SP.db and SP.db.global
@@ -12058,6 +12103,16 @@ do
 			"flyout_close_on_cast", "flyout_route_bar_keys",
 		} },
 		{ header = "assign_window_header", name = "Assignment Window", keys = { "assign_right_click" } },
+	})
+	-- Appearance > Visibility: the two bars' auto-hide rules, one band each (both named: a header
+	-- stands in for the section's own label when it comes first)
+	SP.OrderSettingsBands(settings.settings_visibility, {
+		{ header = "totem_bar_header", name = "Totem Bar Auto-Hide", keys = {
+			"hideOutOfCombat", "hideWhenNoTotems", "fadeInsteadOfHide", "fadeOpacity", "fadeSmooth", "showWithTarget",
+		} },
+		{ header = "cdbar_header", name = "Cooldown Bar Auto-Hide", keys = {
+			"cdbarHideOutOfCombat", "cdbarFadeInsteadOfHide", "cdbarFadeOpacity", "cdbarFadeSmooth", "cdbarShowWithTarget",
+		} },
 	})
 	SP.OrderSettingsBands(settings.settings_totemTwisting, {
 		{ keys = { "enableTwisting", "twistTotemSelect" } },

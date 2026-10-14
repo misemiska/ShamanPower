@@ -297,6 +297,7 @@ SP.SHARE_FEATURES = {
 		for _, v in pairs(picked) do if v == true then n = n + 1 end end
 		return n > 1
 	end },
+	{ key = "cdbarHideOutOfCombat", label = "Hide cooldown bar out of combat",    get = function() return on(O().cdbarHideOutOfCombat) end },
 }
 
 -- ---------------------------------------------------------------------------
