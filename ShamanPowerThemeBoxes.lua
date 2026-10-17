@@ -1034,6 +1034,12 @@ local function Coverage()
 		local s = btn.icon and SkinSpot(btn.icon, "mod.coverage-boxes", element)
 		if s then s.noSweeps = true; AddText(s, rawget(btn, "statusText"), true) end
 	end
+	-- Raid Coverage's own panel (ShamanPower_RaidCoverage.lua): its cells wear the same boxes
+	local rf = _G.ShamanPowerRaidCoverage
+	for _, btn in pairs(rf and rf.cells or EMPTY) do
+		local s = btn.icon and SkinSpot(btn.icon, "mod.coverage-boxes", btn.element)
+		if s then s.noSweeps = true end
+	end
 end
 
 -- the Party Strip's totem icons: one per totem line (whichever strip shows it: Break Up

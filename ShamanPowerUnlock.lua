@@ -142,6 +142,15 @@ local MODULES = {
 			end
 			return { f }
 		end },
+	-- Raid Coverage (ShamanPower_RaidCoverage.lua, WoW: Forever): its own panel
+	{ key = "raidcoverage", label = "Raid Coverage", reset = "ResetRaidCoveragePositions", resetOne = "ResetRaidCoverageCellPosition",
+		enabled = function() return SP.RaidCoverageOn and SP:RaidCoverageOn() or false end,
+		frames = function()
+			local f = SP.CreateRaidCoverageFrame and SP:CreateRaidCoverageFrame()
+			if not f then return {} end
+			if SP.RaidCoverageFreeCells and SP:RaidCoverageFreeCells() then return SP:RaidCoverageFreeCellList() end   -- one box per cell turned on
+			return { f }
+		end },
 	{ key = "loadoutbar", label = "Loadout Bar",
 		enabled = function() return SP.opt.showLoadoutBar and true or false end,
 		frames = function() return SP.loadoutAnchor and { SP.loadoutAnchor } or {} end,
@@ -745,6 +754,7 @@ local FX = {
 	tremor         = { page = { "fluffy", "tremorreminder_section" }, size = { node = "tremor_icon_size" },    opacity = { node = "tremor_opacity" } },
 	partyrange     = { page = { "fluffy", "partybuff_section" },      size = { node = "partybuff_scale" },     opacity = { node = "partybuff_opacity" } },
 	coverage       = { page = { "fluffy", "coverage_section" },       size = { node = "coverage_icon_size" },  opacity = { node = "coverage_opacity" } },
+	raidcoverage   = { page = { "fluffy", "raidcoverage_section" },   size = { node = "raidcov_icon_size" },   opacity = { node = "raidcov_opacity" } },
 	-- the Party Strip: Ctrl + wheel is its Background Opacity (its markers always stay fully visible);
 	-- with Break Up Totem List the wheel is that strip's own Size (SP:PartyStripBoxAccess)
 	partystrip     = { page = { "fluffy", "partystrip_section" },     opacity = { node = "partystrip_opacity" },
@@ -2633,7 +2643,7 @@ do
 		main.args.master_unlock = {
 			order = 0.2,
 			type = "execute",
-			name = "Unlock UI (move everything)",
+			name = "Unlock UI",
 			desc = "Shows every ShamanPower element at once - both bars and each enabled module, with sample content - under a blue box you can drag. Most boxes have their own Reset, and the bar at the top has Reset All Positions and Done. Out of combat only; a fight locks everything again. Each module's own lock setting is left as it is. Also: /spunlock",
 			func = function() ShamanPower:SetMasterUnlock(true) end,
 		}

@@ -165,7 +165,7 @@ SP.TotemBuffRanks = {
 	[8182]  = { 8182, 10476, 10477 },                       -- Frost Resistance
 	[5677]  = { 5677, 10491, 10493, 10494 },                -- Mana Spring
 	[5672]  = { 5672, 6371, 6372, 10460, 10461 },           -- Healing Stream
-	[16191] = { 16191, 17355, 17360 },                      -- Mana Tide
+	[16191] = { 16191, 17355, 17360, 1325257 },             -- Mana Tide (1325257: rank 4, WoW: Forever)
 	[8185]  = { 8185, 10534, 10535 },                       -- Fire Resistance
 	[8836]  = { 8836, 10626, 25360 },                       -- Grace of Air
 	[2895]  = { 2895 },                                     -- Wrath of Air
@@ -561,6 +561,8 @@ local function NewPartyAuraSlot(parent, unit, key, ids, init, levelUp)
 	pcall(container.UpdateAllAuras, container)
 	return container
 end
+
+SP.NewPartyAuraSlot = NewPartyAuraSlot   -- (ShamanPower_RaidCoverage.lua draws its in-fight names the same way)
 
 -- The dot look inside a slot's button (from its initializeFrame): no mouse, an
 -- optional dark rim and the dot in its color. tex nil = the Dot Shape, with Gem Dot

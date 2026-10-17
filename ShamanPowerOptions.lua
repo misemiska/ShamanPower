@@ -453,13 +453,26 @@ local function RefreshLoadoutArgs()
 		end,
 		hidden = function() return not HasLoadoutSetControls() end,
 	}
+	loadoutArgs.remember_order = {
+		order = 0.7, type = "toggle", width = "full",
+		name = "Loadouts Remember the Totem Bar Order",
+		desc = "On: a loadout you save or update from now on also keeps the order of the four element buttons on the totem bar"
+			.. " (Totem Bar Order: the 1st to 4th Position dropdowns), and switching to it puts that order on the bar."
+			.. " A loadout saved before you turned this on carries no order until you update it. Off: loadouts are your four"
+			.. " totems and the Drop All excludes, and the bar's order never changes with a switch.",
+		get = function() return ShamanPower.opt.loadoutsRememberOrder == true end,
+		set = function(info, val)
+			if val then ShamanPower.opt.loadoutsRememberOrder = true else ShamanPower.opt.loadoutsRememberOrder = nil end
+			ShamanPower:UpdateLoadoutBar()   -- (the tooltips say the order again, or stop saying it)
+		end,
+	}
 	loadoutArgs.loadoutIcons = iconsNode or { type = "description", width = "full", name = " ", desc = LOADOUTS_SEARCH }
 	ShamanPower.OptionCustomRow = ShamanPower.OptionCustomRow or {}
 	ShamanPower.OptionCustomRow[loadoutArgs.loadoutIcons] = "loadoutIcons"
 	loadoutArgs.show_bar = {
 		order = 1,
 		type = "toggle",
-		name = "Show Loadout Bar",
+		name = "Enable Loadout Bar",
 		desc = "Show the loadout bar to switch totem loadouts quickly.",
 		width = "full",
 		get = function(info)
@@ -487,8 +500,9 @@ local function RefreshLoadoutArgs()
 	}
 	if PlaceLoadoutBarOptions then PlaceLoadoutBarOptions() end
 	ShamanPower.OrderSettingsBands({ args = loadoutArgs }, {
-		{ keys = { "loadouts_desc", "loadouts_sets_note" } },
+		-- the pictures first, the words and switches under them (the owner, 2026-10-17: every icon page)
 		{ header = "loadouts_header", name = "Saved Loadouts", keys = { "loadoutIcons" } },
+		{ keys = { "loadouts_desc", "loadouts_sets_note", "remember_order" } },
 	})
 end
 
@@ -1037,7 +1051,7 @@ ShamanPower.options = {
 								compactReset = {
 									order = 99,
 									type = "execute",
-									name = "Reset Compact Style to Defaults",
+									name = "Reset Compact Style",
 									desc = "Puts every setting in this section back to its default. Asks first. Positions are not changed.",
 									func = function() ShamanPower:ConfirmResetSection("compact") end,
 								},
@@ -1440,16 +1454,17 @@ ShamanPower.options = {
 						-- nothing here is ever blocked in combat).
 						fadeInsteadOfHide = {
 							order = 3,
-							name = "Fade Instead of Hide",
-							desc = "When one of the hide options above applies, fade the totem bar to the opacity below instead of hiding it, so you can still see and click it.",
-							type = "toggle",
+							name = "Hide or Fade",
+							desc = "When one of the hide rules above applies: Hide takes the totem bar away, Fade dims it to the Faded Opacity so you can still see and click it.",
+							type = "select",
+							values = { hide = "Hide", fade = "Fade" }, sorting = { "hide", "fade" },
 							width = 1.0,
 							disabled = function(info)
 								return not (ShamanPower.opt.hideOutOfCombat or ShamanPower.opt.hideWhenNoTotems)
 							end,
-							get = function(info) return ShamanPower.opt.fadeInsteadOfHide == true end,
+							get = function(info) return ShamanPower.opt.fadeInsteadOfHide == true and "fade" or "hide" end,
 							set = function(info, val)
-								ShamanPower.opt.fadeInsteadOfHide = val or nil
+								ShamanPower.opt.fadeInsteadOfHide = (val == "fade") or nil
 								ShamanPower:UpdateTotemBarVisibility(true)
 							end
 						},
@@ -1513,12 +1528,13 @@ ShamanPower.options = {
 							end,
 						},
 						cdbarFadeInsteadOfHide = {
-							type = "toggle", width = 1.0, name = "Fade Instead of Hide",
-							desc = "When Hide Out of Combat applies, fade the cooldown bar to the opacity below instead of hiding it, so you can still see and click it.",
+							type = "select",
+							values = { hide = "Hide", fade = "Fade" }, sorting = { "hide", "fade" }, width = 1.0, name = "Hide or Fade",
+							desc = "When Hide Out of Combat applies: Hide takes the cooldown bar away, Fade dims it to the Faded Opacity so you can still see and click it.",
 							disabled = function() return ShamanPower.opt.cdbarHideOutOfCombat ~= true end,
-							get = function() return ShamanPower.opt.cdbarFadeInsteadOfHide == true end,
+							get = function() return ShamanPower.opt.cdbarFadeInsteadOfHide == true and "fade" or "hide" end,
 							set = function(_, v)
-								if v then ShamanPower.opt.cdbarFadeInsteadOfHide = true else ShamanPower.opt.cdbarFadeInsteadOfHide = nil end
+								if v == "fade" then ShamanPower.opt.cdbarFadeInsteadOfHide = true else ShamanPower.opt.cdbarFadeInsteadOfHide = nil end
 								ShamanPower:RefreshCooldownBarVisibility()
 							end,
 						},
@@ -1575,7 +1591,7 @@ ShamanPower.options = {
 							set = function(_, v) ShamanPower.opt.townWhere = v; ShamanPower:TownRefresh(true) end,
 						},
 						townHow = {
-							order = 2, type = "select", name = "Hide Or Fade", width = 1.5,
+							order = 2, type = "select", name = "Hide or Fade", width = 1.5,
 							desc = "Hide: gone. Fade: dimmed to the Totem Bar Auto-Hide Faded Opacity above, still there.",
 							values = { hide = "Hide", fade = "Fade" }, sorting = { "hide", "fade" },
 							disabled = function() return ShamanPower.opt.hideInTown ~= true end,
@@ -1710,7 +1726,7 @@ ShamanPower.options = {
 						},
 						lockPopOuts = {
 							order = 1.5,
-							name = "Lock All Pop-Out Trackers",
+							name = "Prevent Dragging During Play",
 							desc = "Pop-out trackers can no longer be dragged, including ALT-drag on the icon. Turn this off to rearrange them.",
 							type = "toggle",
 							width = "full",
@@ -1788,16 +1804,11 @@ ShamanPower.options = {
 					args = {
 						unlock_totem_bar = {
 							order = 0.5,
-							name = "Unlock Bar (move)",
-							desc = "Show a box you can drag to move the Totem Bar. Turn this off when done.",
-							type = "toggle",
+							name = "Move the Totem Bar",
+							desc = "Unlocks only the Totem Bar: drag its box where you want it, then press Done. It can't be done in a fight.",
+							type = "execute",
 							width = "full",
-							get = function(info)
-								return ShamanPower.opt.display and ShamanPower.opt.display.moverUnlocked or false
-							end,
-							set = function(info, val)
-								ShamanPower:SetTotemBarUnlocked(val)
-							end
+							func = function() ShamanPower:UnlockModuleFrames("totembar") end,
 						},
 						auto_desc = {
 							order = 0,
@@ -2360,7 +2371,7 @@ ShamanPower.options = {
 						macros_desc = {
 							order = 0,
 							type = "description",
-							name = "Create macros for your assigned totems. Drag them to your action bar - they auto-update when you change assignments."
+							name = "Create macros for your assigned totems. After creating them, open Esc > Macros and drag them to your action bar - they auto-update when you change assignments."
 						},
 						create_macros = {
 							order = 1,
@@ -2907,7 +2918,7 @@ ShamanPower.options = {
 						flyout_reset = {
 							order = 6.9,
 							type = "execute",
-							name = "Reset Flyout Settings to Defaults",
+							name = "Reset Flyout Look and Behavior",
 							desc = "Puts every setting in this section back to its default. Asks first. Positions are not changed.",
 							hidden = function(info)
 								return not (ShamanPower:FlyoutBoxMode())
@@ -3187,6 +3198,31 @@ ShamanPower.options = {
 							end,
 							set = function(info, val)
 								ShamanPower.opt.totemBarFullOpacityWhenActive = val
+								ShamanPower:UpdateTotemBarOpacity()
+							end
+						},
+						-- Fade Elements With No Totem Down (a reviewer's ask, 3.0.9.1): one switch for the
+						-- whole bar, never per totem. Gray stays for out of range.
+						totemBarFadeNoTotem = {
+							order = 1.6, type = "toggle", width = "full",
+							name = "Fade Elements With No Totem Down",
+							desc = "A button whose totem is not down fades to the opacity below. The elements you have down stay as they are.",
+							disabled = function(info) return not isShaman end,
+							get = function(info) return ShamanPower.opt.totemBarFadeNoTotem == true end,
+							set = function(info, val)
+								ShamanPower.opt.totemBarFadeNoTotem = val
+								ShamanPower:UpdateTotemBarOpacity()
+							end
+						},
+						totemBarFadeNoTotemOpacity = {
+							order = 1.7, type = "range", width = 1.5,
+							name = "Faded Opacity",
+							desc = "How faint an element with no totem down is.",
+							isPercent = true, min = 0.05, max = 0.9, step = 0.01,
+							hidden = function(info) return not ShamanPower.opt.totemBarFadeNoTotem end,
+							get = function(info) return ShamanPower.opt.totemBarFadeNoTotemOpacity or 0.4 end,
+							set = function(info, val)
+								ShamanPower.opt.totemBarFadeNoTotemOpacity = val
 								ShamanPower:UpdateTotemBarOpacity()
 							end
 						},
@@ -3525,7 +3561,7 @@ ShamanPower.options = {
 							order = 1,
 							type = "toggle",
 							name = "Show Progress Bars",
-							desc = "Show colored progress bars on the edges of cooldown buttons",
+							desc = "Progress bars on every item at once. Off: no item shows one, whatever its own Progress Bar setting says (those stay saved for when this is on again).",
 							width = "full",
 							get = function(info)
 								return ShamanPower.opt.cdbarShowProgressBars ~= false
@@ -3769,6 +3805,33 @@ ShamanPower.options = {
 								if ShamanPower.RebuildShieldChargeContainer then ShamanPower:RebuildShieldChargeContainer() end   -- the engine-drawn shield display reads these once, when built
 							end
 						},
+						cdbar_timer_colors = {
+							order = 3.04,
+							type = "toggle",
+							name = "Color the Shield and Imbue Timers",
+							desc = "The shield's and the imbue's time left on the bar change color as they run out: the Buff Timers colors on"
+								.. " Appearance > Colors & Borders (the same switch as there). While this is on, Time Turns Red While Running Out steps aside.",
+							width = 1.0,
+							get = function() return ShamanPower.opt.cdbarBuffTimerColors == true end,
+							set = function(_, v)
+								if v then ShamanPower.opt.cdbarBuffTimerColors = true else ShamanPower.opt.cdbarBuffTimerColors = nil end
+								ShamanPower:CountdownChanged()
+							end
+						},
+						cdbar_countdown_colors = {
+							order = 3.03,
+							type = "toggle",
+							name = "Color the Cooldown Numbers",
+							desc = "A cooldown's number on the bar changes color as it runs: the Cooldown Numbers colors on Appearance > Colors & Borders"
+								.. " (the same switch as there). Only a number ShamanPower draws: with Time Text Position at None and Show Cooldown Text off"
+								.. " there is nothing to color.",
+							width = 1.0,
+							get = function() return ShamanPower.opt.cdbarCountdownColors == true end,
+							set = function(_, v)
+								if v then ShamanPower.opt.cdbarCountdownColors = true else ShamanPower.opt.cdbarCountdownColors = nil end
+								ShamanPower:CountdownChanged()
+							end
+						},
 						cdbar_duration_text = {
 							order = 3.01,   -- with Show Cooldown Text: the two decide where the time shows
 							type = "select",
@@ -3914,7 +3977,7 @@ ShamanPower.options = {
 							type = "description",
 							name = function()
 								local what = (SPCompat and SPCompat.RaidCooldownNames) and SPCompat.RaidCooldownNames("Bloodlust/Heroism") or "Bloodlust/Heroism, Mana Tide and Drums of Battle"
-								return "Choose who calls for " .. what .. " in your raid.\n\nTurn on |cff00ff00ShamanPower [Raid Cooldowns]|r in the AddOns list to use this feature.\n"
+								return "Choose who calls for " .. what .. " in your raid.\nTwo jobs: the caller presses a button to ask for it, and the player assigned to cast it gets the alert and casts it.\n\nTurn on |cff00ff00ShamanPower [Raid Cooldowns]|r in the AddOns list to use this feature.\n"
 							end,
 						},
 						raidCDButtonScale = {
@@ -4215,16 +4278,17 @@ ShamanPower.options = {
 						},
 						sprange_vertical = {
 							order = 3,
-							name = "Vertical Layout",
-							desc = "Stack totem icons vertically instead of horizontally",
-							type = "toggle",
+							name = "Layout",
+							desc = "Horizontal: in a row. Vertical: in a column.",
+							type = "select",
+							values = { horizontal = "Horizontal", vertical = "Vertical" }, sorting = { "horizontal", "vertical" },
 							width = 1.0,
 							get = function(info)
-								return ShamanPower.opt.rangeTracker and ShamanPower.opt.rangeTracker.vertical or false
+								return (ShamanPower.opt.rangeTracker and ShamanPower.opt.rangeTracker.vertical) and "vertical" or "horizontal"
 							end,
 							set = function(info, val)
 								ShamanPower:EnsureProfileTable("rangeTracker")
-								ShamanPower.opt.rangeTracker.vertical = val
+								ShamanPower.opt.rangeTracker.vertical = (val == "vertical")
 								ShamanPower:UpdateSPRangeFrame()
 								ShamanPower:UpdateSPRangeBorder()
 							end
@@ -4694,7 +4758,7 @@ ShamanPower.options = {
 						coverage_enabled = {
 							order = 11.52,
 							type = "toggle",
-							name = "Show the Coverage List",
+							name = "Enable Coverage",
 							width = 1.0,
 							hidden = function() return not (ShamanPower.CoverageAvailable and ShamanPower:CoverageAvailable()) end,
 							get = function() return ShamanPower.opt.coverage and ShamanPower.opt.coverage.enabled or false end,
@@ -5325,16 +5389,17 @@ ShamanPower.options = {
 						},
 						coverage_vertical = {
 							order = 11.541,
-							type = "toggle",
-							name = "Vertical Layout",
-							desc = "Stack the totem icons vertically when they are not placed freely.",
+							type = "select",
+							values = { horizontal = "Horizontal", vertical = "Vertical" }, sorting = { "horizontal", "vertical" },
+							name = "Layout",
+							desc = "Horizontal: in a row. Vertical: in a column.",
 							width = 1.0,
 							hidden = function() return not (ShamanPower.CoverageAvailable and ShamanPower:CoverageAvailable()) end,
 							disabled = function() return not (ShamanPower.opt.coverage and ShamanPower.opt.coverage.enabled) or (ShamanPower.opt.coverage and ShamanPower.opt.coverage.freeCells) end,
-							get = function() return ShamanPower.opt.coverage and ShamanPower.opt.coverage.vertical or false end,
+							get = function() return (ShamanPower.opt.coverage and ShamanPower.opt.coverage.vertical) and "vertical" or "horizontal" end,
 							set = function(_, val)
 								ShamanPower.opt.coverage = ShamanPower.opt.coverage or {}
-								ShamanPower.opt.coverage.vertical = val
+								ShamanPower.opt.coverage.vertical = (val == "vertical")
 								if ShamanPower.UpdateCoverageLayout then ShamanPower:UpdateCoverageLayout() end
 							end,
 						},
@@ -5831,16 +5896,17 @@ ShamanPower.options = {
 						estrack_vertical = {
 							disabled = function(info) return (not (ShamanPower.opt.esTracker and ShamanPower.opt.esTracker.enabled)) and true or false end,
 							order = 5,
-							name = "Vertical Layout",
-							desc = "Stack Earth Shield icons vertically instead of horizontally",
-							type = "toggle",
+							name = "Layout",
+							desc = "Horizontal: in a row. Vertical: in a column.",
+							type = "select",
+							values = { horizontal = "Horizontal", vertical = "Vertical" }, sorting = { "horizontal", "vertical" },
 							width = "full",
 							get = function(info)
-								return ShamanPower.opt.esTracker and ShamanPower.opt.esTracker.vertical or false
+								return (ShamanPower.opt.esTracker and ShamanPower.opt.esTracker.vertical) and "vertical" or "horizontal"
 							end,
 							set = function(info, val)
 								ShamanPower:EnsureProfileTable("esTracker")
-								ShamanPower.opt.esTracker.vertical = val
+								ShamanPower.opt.esTracker.vertical = (val == "vertical")
 								ShamanPower:UpdateESTrackerFrame()
 								ShamanPower:UpdateESTrackerBorder()
 							end
@@ -6846,7 +6912,7 @@ ShamanPower.options = {
 						reactive_test = {
 							order = 16,
 							type = "execute",
-							name = "Test All Alerts",
+							name = "Test Reactive Totems",
 							desc = "Show all Reactive Totems alerts with a glow for 3 seconds.",
 							func = function()
 								if ShamanPower.TestReactiveTotems then
@@ -6858,18 +6924,14 @@ ShamanPower.options = {
 							order = 17,
 							type = "execute",
 							name = "Show All (Position)",
-							desc = WithNotes("Show every alert so you can place it. ALT+drag to move them.",
-								function() return ShamanPower_ReactiveTotems and ShamanPower_ReactiveTotems.locked end,
-								"\"Lock Position\" is on, so the alerts cannot be dragged. Turn it off, then ALT+drag."),
+							desc = "Unlocks only the Reactive Totems alerts: drag each box where you want it, then press Done. It can't be done in a fight.",
 							func = function()
-								if ShamanPower.ShowAllReactiveFrames then
-									ShamanPower:RunWithSettingsHidden(nil,
-										ShamanPower.ShowAllReactiveFrames, ShamanPower.HideAllReactiveFrames)
-								end
+								if ShamanPower.UnlockModuleFrames then ShamanPower:UnlockModuleFrames("reactive") end
 							end
 						},
 						reactive_hide = {
 							order = 18,
+							hidden = function() return ShamanPower.UnlockModuleFrames ~= nil end,   -- (Done ends the move now)
 							type = "execute",
 							name = "Hide Placement Examples",
 							desc = "Hide the example alerts again when you are done placing them.",
@@ -7105,7 +7167,7 @@ ShamanPower.options = {
 						},
 						alerts_grow_up = {
 							order = 9.3,
-							name = "Grow Upward",
+							name = "New Alerts Above Older Alerts",
 							desc = "When more than one alert shows at once, the second and third stack above the first instead of below it.",
 							type = "toggle",
 							width = 1.0,
@@ -7649,7 +7711,7 @@ ShamanPower.options = {
 						alerts_test = {
 							order = 41,
 							type = "execute",
-							name = "Test Alerts",
+							name = "Test Expiring Alerts",
 							desc = "Show test alerts for each type",
 							func = function()
 								if ShamanPower.ExpiringAlertsTest then
@@ -7672,16 +7734,14 @@ ShamanPower.options = {
 							order = 42,
 							type = "execute",
 							name = "Show Position Frame",
-							desc = "Show a box you can drag to move the alerts.",
+							desc = "Unlocks only the Expiring Alerts: drag their box where you want it, then press Done. It can't be done in a fight.",
 							func = function()
-								if ShamanPower.ExpiringAlertsShow then
-									ShamanPower:RunWithSettingsHidden(nil,
-										ShamanPower.ExpiringAlertsShow, ShamanPower.ExpiringAlertsHide)
-								end
+								if ShamanPower.UnlockModuleFrames then ShamanPower:UnlockModuleFrames("expiring") end
 							end
 						},
 						alerts_hide_pos = {
 							order = 43,
+							hidden = function() return ShamanPower.UnlockModuleFrames ~= nil end,   -- (Done ends the move now)
 							type = "execute",
 							name = "Hide Position Frame",
 							desc = "Hide the box used to move alerts.",
@@ -7727,6 +7787,7 @@ ShamanPower.options = {
 							type = "description",
 							name = function()
 								local text = "Remind you to drop Tremor Totem when targeting mobs that cast fear, before anyone gets feared. A boss fight with fear, charm or sleep brings it up at the pull too, even if you haven't targeted the boss."
+								text = text .. "\n\nThis is the heads-up before a fear lands. Reactive Totems is the other way around: it reacts after someone is already feared, poisoned or diseased."
 								if SPCompat.FOREVER then
 									text = text .. "\n\nInside dungeons and raids, WoW: Forever hides mob names, so there only boss fights bring it up."
 								end
@@ -8087,7 +8148,7 @@ ShamanPower.options = {
 						tremor_test = {
 							order = 42,
 							type = "execute",
-							name = "Test Alert",
+							name = "Test Tremor Reminder",
 							desc = "Show a test alert",
 							func = function()
 								if ShamanPower.TremorReminderTest then
@@ -8099,7 +8160,7 @@ ShamanPower.options = {
 						tremor_hide_test = {
 							order = 42.5,
 							type = "execute",
-							name = "Hide Alert",
+							name = "Stop Test",
 							desc = "Hide the test alert",
 							func = function()
 								if ShamanPower.TremorReminderHide then
@@ -8112,12 +8173,9 @@ ShamanPower.options = {
 							order = 43,
 							type = "execute",
 							name = "Show Position Frame",
-							desc = "Show the reminder so you can move it.",
+							desc = "Unlocks only the Tremor Reminder: drag its box where you want it, then press Done. It can't be done in a fight.",
 							func = function()
-								if ShamanPower.TremorReminderShow then
-									ShamanPower:RunWithSettingsHidden(nil,
-										ShamanPower.TremorReminderShow, ShamanPower.TremorReminderHide)
-								end
+								if ShamanPower.UnlockModuleFrames then ShamanPower:UnlockModuleFrames("tremor") end
 							end
 						},
 						tremor_reset_pos = {
@@ -9183,7 +9241,7 @@ ShamanPower.options = {
 						popout_hide_all_frames = {
 							order = 2,
 							type = "toggle",
-							name = "Hide All Backgrounds",
+							name = "Hide Backgrounds on Current Trackers",
 							desc = WithNotes("Hide the background and border of all Pop-Out Trackers, leaving only icons. ALT+drag still moves them.",
 								true, "Applies to your current Pop-Out Trackers. Trackers added later keep their backgrounds until you use this again."),
 							width = 1.2,
@@ -9696,6 +9754,70 @@ ShamanPower.options = {
 								ShamanPower.opt.totemPlates.showFriendly = val
 							end
 						},
+						-- 3.0.9.1 (A54): the Totems row (ShamanPower_Config TrackerIcons.lua draws it), Look and Where
+						totemplates_totems_header = { order = 3.4, type = "header", name = "Totems" },
+						totemplates_totems_desc = { order = 3.41, type = "description", width = "full",
+							name = "Every totem that can have a plate. Click one to show or hide its plate. Right-click it to mark it Important: its plate glows so it stands out in a fight." },
+						plateIcons = { order = 3.42, type = "description", width = "full", name = " ",
+							desc = "Totems: click a totem to show or hide its plate; right-click it for Mark as Important, Glow Style (Use Glow Shape, Square, Round, Proc Glow),"
+								.. " Glow Color, Size, Copy Important To, All Totems, Reset This Totem." },
+						totemplates_look_header = { order = 3.5, type = "header", name = "Look" },
+						totemplates_icon_position = { order = 3.51, type = "select", name = "Icon Position", width = 1.0,
+							desc = "Where the icon sits on the totem's nameplate: above the totem (as before), or to its left or right.",
+							values = { above = "Above the Totem", left = "Left of It", right = "Right of It" }, sorting = { "above", "left", "right" },
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() return ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.iconPosition or "above" end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v == "above" then ShamanPower.opt.totemPlates.iconPosition = nil else ShamanPower.opt.totemPlates.iconPosition = v end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
+						totemplates_border_size = { order = 3.52, type = "range", name = "Border Size", min = 0, max = 6, step = 1, width = 1.0,
+							desc = "How thick the icon's border is. 0 is no border. Its color follows the theme's enemy and friendly colors.",
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() local v = ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.borderSize; if v == nil then return 2 end return v end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v == 2 then ShamanPower.opt.totemPlates.borderSize = nil else ShamanPower.opt.totemPlates.borderSize = v end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
+						totemplates_offset_x = { order = 3.53, type = "range", name = "Horizontal Offset", min = -60, max = 60, step = 1, width = 1.0,
+							desc = "Nudge the icon left or right from where Icon Position puts it.",
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() return ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.offsetX or 0 end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v == 0 then ShamanPower.opt.totemPlates.offsetX = nil else ShamanPower.opt.totemPlates.offsetX = v end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
+						totemplates_offset_y = { order = 3.54, type = "range", name = "Vertical Offset", min = -60, max = 60, step = 1, width = 1.0,
+							desc = "Nudge the icon up or down from where Icon Position puts it.",
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() return ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.offsetY or 0 end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v == 0 then ShamanPower.opt.totemPlates.offsetY = nil else ShamanPower.opt.totemPlates.offsetY = v end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
+						totemplates_where_header = { order = 3.6, type = "header", name = "Where" },
+						totemplates_only_pvp = { order = 3.61, type = "toggle", name = "Only in Arenas and Battlegrounds", width = 1.0,
+							desc = "Totem Plates only where enemy totems matter most: arenas and battlegrounds. Off: everywhere.",
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() return ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.onlyPvP == true end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v then ShamanPower.opt.totemPlates.onlyPvP = true else ShamanPower.opt.totemPlates.onlyPvP = nil end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
+						totemplates_hide_raid = { order = 3.62, type = "toggle", name = "Hide in Raids", width = 1.0,
+							desc = "No totem plates while you are in a raid group: forty friendly totems are noise there.",
+							disabled = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.enabled) end,
+							get = function() return not (ShamanPower.opt.totemPlates and ShamanPower.opt.totemPlates.hideInRaid == false) end,
+							set = function(_, v)
+								ShamanPower:EnsureProfileTable("totemPlates")
+								if v then ShamanPower.opt.totemPlates.hideInRaid = nil else ShamanPower.opt.totemPlates.hideInRaid = false end
+								if ShamanPower.RefreshTotemPlatesLook then ShamanPower:RefreshTotemPlatesLook() end
+							end },
 						totemplates_size = {
 							order = 4,
 							name = "Icon Size",
@@ -10045,7 +10167,7 @@ do
 	local range = pages.sprange_section.args
 	range.open_window = OpenButton("Totem Range Picker", "ShowSPRangeConfig", "SPRangeLoaded")
 	range.show_overlay = {
-		order = 0.6, type = "toggle", name = "Show Tracker", width = "full",
+		order = 0.6, type = "toggle", name = "Enable Totem Range Tracker", width = "full",
 		disabled = function() return not SP.SPRangeLoaded end,
 		-- on also while it waits for a group (Show the Overlay)
 		get = function() return SP.SPRangeOverlayOn ~= nil and SP:SPRangeOverlayOn() end,
@@ -10291,7 +10413,7 @@ do
 			.. " Selected Tracker Scale, Selected Tracker Opacity, Hide Background, Selected Tracker Flyout Direction,"
 			.. " Return Selected Tracker to Bar, Open Pop-Out Settings. Scale, Opacity, Hide Background, Flyout Direction"
 			.. " (Top, Bottom, Left, Right), Return to Bar, Copy Settings, Paste Settings, Copy Settings To,"
-			.. " All Trackers, Reset This Tracker, Open Tracker Settings.",
+			.. " All Trackers, Reset Tracker Appearance, Open Tracker Settings.",
 	}
 	SP.OptionCustomRow[popout.popoutIcons] = "popoutIcons"
 
@@ -10327,6 +10449,24 @@ do
 	local bar = root.buttons.args.auto_button.args
 	local mode = root.settings.args.settings_totemMode.args   -- Mode & Twisting: where the display modes live
 	local duration = pages.totembar_duration_section.args
+	-- Countdown Colors (3.0.9.1, A49): this bar's switch; the colors on Appearance > Colors & Borders
+	duration.totem_timer_colors = { order = 2.95, type = "toggle", width = "full", name = "Color the Time Left",
+		desc = "A totem's time left on its button changes color as it runs out: the Buff Timers colors on Appearance > Colors & Borders"
+			.. " (the same switch as there).",
+		get = function() return SP.opt.totemBarBuffTimerColors == true end,
+		set = function(_, v)
+			if v then SP.opt.totemBarBuffTimerColors = true else SP.opt.totemBarBuffTimerColors = nil end
+			SP:CountdownChanged()
+		end }
+	duration.totem_countdown_colors = { order = 3.81, type = "toggle", width = "full", name = "Color the Cooldown Numbers",
+		desc = "A totem's cooldown number on its button changes color as the cooldown runs: the Cooldown Numbers colors on Appearance"
+			.. " > Colors & Borders (the same switch as there; One Color the Whole Time keeps your Cooldown Text Color).",
+		disabled = function() return SP.opt.showTotemCooldowns == false or SP.opt.totemCooldownText == false end,
+		get = function() return SP.opt.totemBarCountdownColors == true end,
+		set = function(_, v)
+			if v then SP.opt.totemBarCountdownColors = true else SP.opt.totemBarCountdownColors = nil end
+			SP:CountdownChanged()
+		end }
 	local function NotifyNative()
 		if SP.RefreshConfig then SP:RefreshConfig() end
 		local registry = LibStub("AceConfigRegistry-3.0", true)
@@ -10411,7 +10551,7 @@ do
 		end,
 	}
 	mode.blizzard_totem_bar_scale_reset = {
-		order = 4.89, type = "execute", name = "Restore Blizzard Bar Scale", width = 1.5,
+		order = 4.89, type = "execute", name = "Reset Blizzard Bar Size", width = 1.5,
 		desc = "Restore Blizzard's original bar size. Out of combat only.",
 		hidden = function() return not NativeTotemBarSelected() end,
 		disabled = function() return NativeLocked() or SP.opt.blizzardTotemBarScale == nil end,
@@ -10446,7 +10586,7 @@ do
 	HideFields(pages.layout_section.args, { "layout", "totem_flyout_direction", "totem_flyout_button_size",
 		"swap_flyout_clicks", "flyout_show_empty" })
 	HideFields(pages.scale_section.args, { "buffscale" })
-	HideFields(pages.opacity_section.args, { "totemBarOpacity", "totemBarFullOpacityWhenActive", "totemFlyoutOpacity" })
+	HideFields(pages.opacity_section.args, { "totemBarOpacity", "totemBarFullOpacityWhenActive", "totemBarFadeNoTotem", "totemBarFadeNoTotemOpacity", "totemFlyoutOpacity" })
 	HideFields(pages.padding_section.args, { "totemBarPadding" })
 	HideFields(pages.visibility_section.args, { "hide_totem_bar_frame" })
 	HideFields(duration, { "compact_override_note" })
@@ -10611,6 +10751,13 @@ do
 	local elementNames = { "Earth", "Fire", "Water", "Air" }
 	for element, name in ipairs(elementNames) do
 		local index = element
+		mode["gridMove" .. element] = {
+			order = 4.79 + element * 0.001, type = "execute", name = "Move the " .. name .. " Grid Row", width = 1.5,
+			desc = "Unlocks only this row: drag its box where you want it, then press Done. It can't be done in a fight.",
+			hidden = function() return not (SP.opt.gridStyle and SP.opt.gridSplit) end,
+			disabled = GridLocked,
+			func = function() SP:UnlockModuleFrames("grid_" .. name:lower()) end,
+		}
 		mode["gridOrientation" .. element] = {
 			order = 4.78 + element * 0.001, type = "select", name = name .. " Row Direction", width = 1.5,
 			values = { horizontal = "Horizontal", vertical = "Vertical" },
@@ -10737,7 +10884,7 @@ do
 			end,
 		},
 		rowsMove = {
-			order = 9, type = "execute", name = "Move the Rows", width = "full", hidden = Off,
+			order = 9, type = "execute", name = "Move the Totem Rows", width = "full", hidden = Off,
 			desc = "Unlocks only the rows: drag each row's box where you want it, then press Done. Right-click a row's box to come back here. It can't be done in a fight.",
 			disabled = Locked,
 			func = function() if SP.UnlockModuleFrames then SP:UnlockModuleFrames("rows") end end,
@@ -11139,11 +11286,90 @@ do
 	table.sort(watches, byOrder)
 	table.sort(sizes, byOrder)
 	pages.coverage_section = {
-		order = 14.1, type = "group", name = "Coverage", args = {},
+		order = 14.1, type = "group", name = "Party Coverage", args = {},
 		hidden = party.args.coverage_header.hidden,
 	}
+	-- Raid Coverage (WoW: Forever, 3.0.9.1): its own tab, its own settings (ShamanPower_RaidCoverage.lua);
+	-- the section exists only on Forever, so the tab is absent on Anniversary
+	if SPCompat and SPCompat.FOREVER then
+		local function RO() return SP.RaidCoverageOpts and SP:RaidCoverageOpts() or {} end
+		local function rcOff() return not (SP.RaidCoverageEnabled and SP:RaidCoverageEnabled()) end
+		local function rcChanged() if SP.RaidCoverageChanged then SP:RaidCoverageChanged() end end
+		local rc = {}
+		rc.raidcov_desc = { order = 0, type = "description", width = "full",
+			name = "A panel of its own for the totems that reach the whole raid, apart from Party Coverage. In a raid, each raid-wide totem"
+				.. " you have down and turned on gets a cell: who it watches, how many of them have the buff, and the names of the ones who do not." }
+		rc.raidcov_enabled = { order = 1, type = "toggle", width = "full", name = "Enable Raid Coverage",
+			desc = "Show the Raid Coverage panel in a raid, for the totems whose cells you turn on below.",
+			get = function() return not rcOff() end,
+			set = function(_, v) RO().enabled = v and true or nil; rcChanged() end }
+		rc.raidCoverageIcons = { order = 2, type = "description", width = "full", name = " ",
+			desc = "Raid Coverage: Strength of Earth, Grace of Air, Windfury Totem, Flametongue Totem, Fire Resistance, Frost Resistance,"
+				.. " Nature Resistance. Click a totem to turn its cell on or off; right-click it for who its cell watches: Watch, Melee, Ranged,"
+				.. " Tanks, Healers, Everyone, Custom, Roles, Classes, Specs, People, Add a Name, Copy Who It Watches To, All Raid-Wide Totems, Reset This Totem." }
+		SP.OptionCustomRow[rc.raidCoverageIcons] = "raidCoverageIcons"
+		rc.raidcov_missing_only = { order = 3, type = "toggle", width = 1.0, name = "Only Show Who Is Missing", disabled = rcOff,
+			desc = "Under a cell, list only the people who do not have the buff. Off: everyone it watches, in class color when they have it.",
+			get = function() return RO().missingOnly ~= false end,
+			set = function(_, v) if v then RO().missingOnly = nil else RO().missingOnly = false end; rcChanged() end }
+		rc.raidcov_show_count = { order = 4, type = "toggle", width = 1.0, name = "Show How Many Have It", disabled = rcOff,
+			desc = "Adds the count to the line under a cell: Melee 7/9 means 7 of the 9 people it watches have the buff. Off: the line says"
+				.. " only who it watches. In a fight inside an instance the game keeps buffs from addons, so the count stays off there and the"
+				.. " names answer instead.",
+			get = function() return RO().showCount ~= false end,
+			set = function(_, v) if v then RO().showCount = nil else RO().showCount = false end; rcChanged() end }
+		rc.raidcov_no_names = { order = 5, type = "toggle", width = 1.0, name = "Don't Show Names", disabled = rcOff,
+			desc = "Nothing under a cell but its line: the icon and, say, Ranged 1/1. No names, in or out of a fight.",
+			get = function() return RO().noNames == true end,
+			set = function(_, v) RO().noNames = v and true or nil; rcChanged() end }
+		rc.raidcov_icon_size = { order = 10, type = "range", width = 1.0, name = "Icon Size", min = 20, max = 64, step = 1, disabled = rcOff,
+			get = function() return RO().iconSize or 36 end, set = function(_, v) RO().iconSize = v; rcChanged() end }
+		rc.raidcov_opacity = { order = 11, type = "range", width = 1.0, name = "Opacity", min = 0.1, max = 1, step = 0.01, isPercent = true, disabled = rcOff,
+			get = function() return RO().opacity or 1 end, set = function(_, v) RO().opacity = v; rcChanged() end }
+		rc.raidcov_font = { order = 12, type = "range", width = 1.0, name = "Text Size", min = 7, max = 14, step = 1, disabled = rcOff,
+			desc = "The names under a cell.",
+			get = function() return RO().fontSize or 9 end, set = function(_, v) RO().fontSize = v; rcChanged() end }
+		rc.raidcov_caption_color = { order = 12.5, type = "color", width = 1.0, name = "Text Color", disabled = rcOff,
+			desc = "The line under a cell: who it watches and the count, like Ranged 1/1. Soft gray to start.",
+			get = function() return SP:RaidCoverageCaptionRGB() end,
+			set = function(_, r, g, b) RO().captionColor = { r = r, g = g, b = b }; rcChanged() end }
+		rc.raidcov_vertical = { order = 13, type = "select", width = 1.0, name = "Layout", disabled = rcOff,
+			values = { horizontal = "Horizontal", vertical = "Vertical" }, sorting = { "horizontal", "vertical" },
+			get = function() return RO().vertical and "vertical" or "horizontal" end,
+			set = function(_, v) RO().vertical = (v == "vertical") or nil; rcChanged() end }
+		rc.raidcov_free = { order = 15, type = "toggle", width = "full", name = "Place Each Totem Freely", disabled = rcOff,
+			desc = "No panel: each totem's cell stands on its own where you put it. ALT+drag a cell to move it, or use Unlock UI, where each"
+				.. " cell has a box of its own. Off: the cells sit together in the Raid Coverage panel.",
+			get = function() return RO().freeCells == true end,
+			set = function(_, v) RO().freeCells = v and true or nil; rcChanged() end }
+		rc.raidcov_hide_border = { order = 14, type = "toggle", width = 1.0, name = "Hide Background", disabled = rcOff,
+			desc = "No panel behind the cells. ALT+drag moves it then, and a right-click opens these settings.",
+			get = function() return RO().hideBorder == true end,
+			set = function(_, v) RO().hideBorder = v and true or nil; rcChanged() end }
+		rc.raidcov_move = { order = 20, type = "execute", width = "full", name = "Move the Raid Coverage",
+			desc = "Hides this window and draws a box around the Raid Coverage panel on your screen. Drag it where you want it, then press Done to come back here.",
+			disabled = function() return rcOff() or not SP.UnlockModuleFrames or InCombatLockdown() end,
+			func = function() SP:UnlockModuleFrames("raidcoverage") end }
+		pages.raidcoverage_section = { order = 14.15, type = "group", name = "Raid Coverage", args = rc }
+		SP.OrderSettingsBands(pages.raidcoverage_section, {
+			{ header = "raidcov_totems_header", name = "Totems", keys = { "raidCoverageIcons", "raidcov_missing_only", "raidcov_show_count", "raidcov_no_names" } },
+			{ keys = { "raidcov_desc", "raidcov_enabled" } },   -- under the pictures (every icon page, 2026-10-17)
+			{ header = "raidcov_look_header", name = "Look", keys = { "raidcov_icon_size", "raidcov_opacity", "raidcov_font", "raidcov_caption_color", "raidcov_vertical", "raidcov_hide_border", "raidcov_free" } },
+			{ header = "raidcov_position_header", name = "Position", keys = { "raidcov_move" } },
+		})
+	end
 	SP.MoveSettingsOptions({ "fluffy", "partybuff_section" }, { "fluffy", "coverage_section" }, coverageKeys)
+	SP.options.args.fluffy.args.partybuff_section.args.partybuff_enabled = { order = 0.05, type = "toggle", width = "full",
+		name = "Enable Party Buff Tracker", desc = "Turn the Party Buff Tracker on or off: its dots and counters, Coverage and the Party Strip.",
+		get = function() return SP.opt.partyBuffOff ~= true end,
+		set = function(_, v)
+			if v then SP.opt.partyBuffOff = nil else SP.opt.partyBuffOff = true end
+			SP:UpdatePartyRangeDots(); SP:UpdateRangeCounters()
+			if SP.RebuildCoverage then SP:RebuildCoverage() end
+			if SP.RebuildPartyStrip then SP:RebuildPartyStrip() end
+		end }
 	SP.OrderSettingsBands(party, {
+		{ keys = { "partybuff_enabled" } },
 		{ keys = { "partybuff_desc", "module_missing_note", "partybuff_engine_note" } },
 		{ keys = { "partybuff_display_mode" } },
 		{ header = "look_header", name = "Look", keys = {
@@ -11154,8 +11380,8 @@ do
 		{ header = "position_header", name = "Position", keys = {
 			"partybuff_location", "partybuff_move_counters_note",
 			"partybuff_move_counters", "partybuff_locked", "partybuff_reset",
-		}, names = { partybuff_move_counters = "Move", partybuff_locked = "Lock Position",
-			partybuff_reset = "Reset Position" } },
+		}, names = { partybuff_move_counters = "Move the Counters", partybuff_locked = "Prevent Dragging and Let Clicks Through",
+			partybuff_reset = "Reset Counter Positions" } },
 	})
 	-- Totems to Watch and Per-Totem Icon Size (A18, 3.0.8): one row of totems (ShamanPower_Config
 	-- TrackerIcons.lua draws it): a click watches a totem or stops watching it (opt.coverage.tracked),
@@ -11175,17 +11401,20 @@ do
 	}
 	SP.OptionCustomRow = SP.OptionCustomRow or {}
 	SP.OptionCustomRow[cov.coverageIcons] = "coverageIcons"
+	-- Totem Plates > Totems (A54): the icon row TrackerIcons.lua draws
+	local plates = SP.options.args.fluffy.args.totemplates_section and SP.options.args.fluffy.args.totemplates_section.args
+	if plates and plates.plateIcons then SP.OptionCustomRow[plates.plateIcons] = "plateIcons" end
 	SP.OrderSettingsBands(pages.coverage_section, {
-		{ keys = { "coverage_desc" } },
-		{ keys = { "coverage_enabled", "open_coverage" } },
 		{ header = "coverage_watch_header", name = "Totems to Watch", keys = { "coverageIcons" } },
+		{ keys = { "coverage_desc" } },   -- under the pictures (every icon page, 2026-10-17)
+		{ keys = { "coverage_enabled", "open_coverage" } },
 		{ header = "look_header", name = "Look", keys = {
 			"coverage_icon_size", "coverage_opacity", "coverage_show_timer", "coverage_plain_icon", "coverage_dots", "coverage_dot_size", "coverage_dot_outline", "coverage_dot_shape", "coverage_dot_position", "coverage_dots_missing_only", "coverage_font", "coverage_hide_border",
 		}, names = { coverage_font = "Text Size", coverage_hide_border = "Hide Background" } },
 		{ header = "behaviour_header", name = "Behavior", keys = {
 			"coverage_hide_covered", "coverage_free", "coverage_vertical",
 		} },
-		{ header = "position_header", name = "Position", keys = { "coverage_move" }, names = { coverage_move = "Move" } },
+		{ header = "position_header", name = "Position", keys = { "coverage_move" }, names = { coverage_move = "Move the Coverage List" } },
 	})
 	cov.coverage_free.desc = "Every watched totem gets its own spot and size (right-click a totem in Totems to Watch for its size)."
 		.. " Use Move below or ALT+drag to move the icons. Turn this off to group them in a row or column, with one icon for each element."
@@ -11232,7 +11461,7 @@ do
 			},
 			partystrip_enabled = {
 				order = 3, type = "toggle", width = "full",
-				name = "Show Party Strip",
+				name = "Enable Party Strip",
 				desc = "Show the Party Strip while you are in a group. In a raid it shows your own party.",
 				get = function() return On() end,
 				set = function(_, val)
@@ -11480,7 +11709,7 @@ do
 			"show_totem_flyouts", "tb_flyouts_note", "tb_totems",
 		} },
 		{ header = "position_header", name = "Position", keys = { "unlock_totem_bar" },
-			names = { unlock_totem_bar = "Move Totem Bar" } },
+			names = { unlock_totem_bar = "Move the Totem Bar" } },
 	})
 	SP.OrderSettingsBands(buttons.dropall_section, {
 		{ keys = { "show_dropall" } },
@@ -11528,7 +11757,7 @@ do
 		} },
 		{ header = "behaviour_header", name = "Behavior", keys = { "loadoutbar_clickcycle", "loadoutbar_noflyout" } },
 		{ header = "position_header", name = "Position", keys = { "move_bar", "loadoutbar_locked", "move_hint" },
-			names = { move_bar = "Move", loadoutbar_locked = "Lock Position" } },
+			names = { move_bar = "Move the Loadout Bar", loadoutbar_locked = "Prevent Alt-Drag" } },
 	})
 end
 
@@ -11565,6 +11794,30 @@ do
 	local args = settings.settings_keybinds.args
 	if args.show_button_keybinds then args.show_button_keybinds.order = 1 end
 	if args.keybind_source then args.keybind_source.order = 2 end
+	-- the owner's ask (3.0.9.1), in his words: a key keeps casting with its icon turned off (SP:KeyOnlyButton)
+	args.keybinds_work_when_off = { order = 3, type = "toggle", width = "full",
+		name = "Keybinds Still Work Even If Icon Is Turned Off",
+		desc = "A key you bound keeps casting after you turn its icon off: turn the shield off on the Cooldown Bar and its"
+			.. " key still casts your shield. Pick the places below. Off: a key does nothing while its icon is off.",
+		get = function() return SP.opt.keybindsWorkWhenOff == true end,
+		set = function(_, v)
+			if v then SP.opt.keybindsWorkWhenOff = true else SP.opt.keybindsWorkWhenOff = nil end
+			SP:SetupKeybindings()   -- (out of combat; in a fight it runs as the fight ends)
+		end }
+	-- one switch per place, shown with the main switch on (on unless turned off: SP:KeysWhenOff)
+	local function place(order, key, name, desc)
+		args["keys_when_off_" .. key] = { order = order, type = "toggle", width = "full", name = name, desc = desc,
+			hidden = function() return SP.opt.keybindsWorkWhenOff ~= true end,
+			get = function() return SP.opt["keysOff" .. key] ~= false end,
+			set = function(_, v)
+				if v then SP.opt["keysOff" .. key] = nil else SP.opt["keysOff" .. key] = false end
+				SP:SetupKeybindings()
+			end }
+	end
+	place(3.1, "TotemBar", "Totem Bar", "Its four totem buttons, Drop All and Earth Shield.")
+	place(3.2, "Flyouts", "Totem Flyouts", "A totem you took out of its flyout (Totem Bar > Bar > Totems in the Flyouts) that has a key from Keybind Mode.")
+	place(3.3, "Cdbar", "Cooldown Bar", "Its items (your shield, Totemic Call, Nature's Swiftness, Mana Tide, Bloodlust or Heroism, the weapon imbue),"
+		.. " and the shields and imbues in their flyouts.")
 end
 
 -- Appearance is grouped by the thing being styled, not by slider type.
@@ -11583,7 +11836,7 @@ do
 	group("appearance_resets", "Shared Resets", 1.4)
 	move("layout_section", "totembar_appearance", { "layout", "activeOverlayDirection" })
 	move("scale_section", "totembar_appearance", { "buffscale" })
-	move("opacity_section", "totembar_appearance", { "totemBarOpacity", "totemBarFullOpacityWhenActive" })
+	move("opacity_section", "totembar_appearance", { "totemBarOpacity", "totemBarFullOpacityWhenActive", "totemBarFadeNoTotem", "totemBarFadeNoTotemOpacity" })
 	move("padding_section", "totembar_appearance", { "totemBarPadding" })
 	move("visibility_section", "totembar_appearance", { "hide_totem_bar_frame" })
 	move("layout_section", "cooldownbar_appearance", { "cdbarLayout" })
@@ -11751,7 +12004,7 @@ do
 		}, names = { buffscale = "Scale", totemBarOpacity = "Opacity", totemBarPadding = "Button Spacing",
 			hide_totem_bar_frame = "Hide Background" } },
 		{ header = "behaviour_header", name = "Behavior", keys = {
-			"totemBarFullOpacityWhenActive", "activeOverlayDirection",
+			"totemBarFullOpacityWhenActive", "totemBarFadeNoTotem", "totemBarFadeNoTotemOpacity", "activeOverlayDirection",
 		} },
 	})
 	SP.OrderSettingsBands(pages.cooldownbar_appearance, {
@@ -11778,7 +12031,7 @@ do
 	resets.scale_desc.name = "These resets affect more than this tab. Positions are not changed."
 	resets.opacity_desc.name = "Opacity includes both bars, their flyouts and the settings that make active buttons fully visible."
 	resets.padding_desc.name = "Button spacing includes both bars. Each reset asks first."
-	resets.scale_reset.name = "Reset Shared Scales"
+	resets.scale_reset.name = "Reset Shared Sizes"
 	resets.scale_reset.desc = "Reset totem bar scale, cooldown bar scale, assignments scale and cooldown flyout icon size."
 	resets.opacity_reset.name = "Reset Shared Opacity"
 	resets.opacity_reset.desc = resets.opacity_desc.name
@@ -11888,10 +12141,15 @@ do
 		totemCueDestroyedStyle = style(1.2, "totemCueDestroyedStyle", "totemCueDestroyed", "shake", "Destroyed Style",
 			plus(STYLES, STYLE_ORDER, "crumble", "Crumble", "frameblink", "Blinking Border")),
 		totemCueDestroyedMark = { order = 1.3, type = "toggle", width = "full", name = "Red X Until Recast",
-			desc = "Also put a red X on the button until you drop that element again (5 seconds at most).",
-			disabled = function() return not SP.opt.totemCueDestroyed end,
-			get = function() return SP.opt.totemCueDestroyedMark ~= false end,
-			set = function(_, v) SP.opt.totemCueDestroyedMark = v end },
+			desc = "A red X on the button when a totem is destroyed, until you drop that element again (5 seconds at most). Its own switch:"
+				.. " with Totem Destroyed off, the X alone. Off: an X on a button now goes.",
+			get = function() return SP.opt.totemCueDestroyedMark == true end,
+			set = function(_, v) SP.opt.totemCueDestroyedMark = v and true or false; if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
+		totemCueDestroyedMarkStays = { order = 1.35, type = "toggle", width = "full", name = "Keep the Red X Until Recast",
+			desc = "The X stays on the button until you drop that element again, instead of fading after 5 seconds. Off: an X held now fades.",
+			disabled = function() return SP.opt.totemCueDestroyedMark ~= true end,
+			get = function() return SP.opt.totemCueDestroyedMarkStays and true or false end,
+			set = function(_, v) SP.opt.totemCueDestroyedMarkStays = v and true or false; if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
 		totemCueExpired = toggle(1.4, "totemCueExpired", "Totem Expired",
 			"When a totem runs out, its button plays the style below in white."),
 		totemCueExpiredStyle = style(1.5, "totemCueExpiredStyle", "totemCueExpired", "pop", "Expired Style",
@@ -11926,10 +12184,15 @@ do
 		cdbarCueImbueStyle = style(2.4, "cdbarCueImbueStyle", "cdbarCueImbue", "shake", "Imbue Style",
 			plus(STYLES, STYLE_ORDER, "flare", "Element flare", "flag", "Corner flag")),
 		cdbarCueImbueMark = { order = 2.45, type = "toggle", width = "full", name = "Red X Until You Imbue Again",
-			desc = "Also put a red X on the imbue button until you put an imbue on again (5 seconds at most).",
-			disabled = function() return not SP.opt.cdbarCueImbue end,
+			desc = "A red X on the imbue button when the imbue drops off, until you put one on again (5 seconds at most). Its own switch:"
+				.. " with Weapon Imbue Gone off, the X alone. Off: an X on the button now goes.",
 			get = function() return SP.opt.cdbarCueImbueMark and true or false end,
-			set = function(_, v) SP.opt.cdbarCueImbueMark = v and true or false; apply() end },
+			set = function(_, v) SP.opt.cdbarCueImbueMark = v and true or false; apply(); if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
+		cdbarCueMarkStays = { order = 2.46, type = "toggle", width = "full", name = "Keep the Red X Until You Recast",
+			desc = "The X stays on the button until you cast again, instead of fading after 5 seconds. Off: an X held now fades.",
+			hidden = true,   -- (the items' menus carry it; this is their shared default)
+			get = function() return SP.opt.cdbarCueMarkStays and true or false end,
+			set = function(_, v) SP.opt.cdbarCueMarkStays = v and true or false; apply(); if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
 		cdbarCueShield = toggle(2.5, "cdbarCueShield", "Shield Gone",
 			mainline and ("When your Lightning or Water Shield is gone, the shield button plays the style below in blue."
 				.. " In combat, the button pulses red while no shield is up instead."
@@ -11940,9 +12203,8 @@ do
 		cdbarCueShieldMark = { order = 2.65, type = "toggle", width = "full", name = "Red X Until You Cast a Shield Again",
 			desc = "Also put a red X on the shield button until you cast a shield again (5 seconds at most)."
 				.. (mainline and " In a fight it shows while no shield is up instead, like Shield Gone's red pulse (at 100% Cooldown Bar opacity)." or ""),
-			disabled = function() return not SP.opt.cdbarCueShield end,
 			get = function() return SP.opt.cdbarCueShieldMark and true or false end,
-			set = function(_, v) SP.opt.cdbarCueShieldMark = v and true or false; apply() end },
+			set = function(_, v) SP.opt.cdbarCueShieldMark = v and true or false; apply(); if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
 		-- Turns Red While Missing: a shield or imbue that is gone, red until you cast it again
 		cdbarCueMissing = toggle(2.67, "cdbarCueMissing", "Turns Red While Missing",
 			"While your shield or a weapon imbue is gone, its button turns red until you cast it again (with two weapons: either hand)."
@@ -11975,7 +12237,7 @@ do
 			function() return not (SP.opt.cdbarCueAlmost or SP.opt.cdbarCueTimeColor) end),
 		-- why it isn't showing: at 0 seconds there are no last seconds
 		cdbar_almost_zero = { order = 2.775, type = "description", width = "full",
-			name = "|cffffa040At 0 seconds a cooldown has no last seconds, so Cooldown Almost Ready never plays. Raise Seconds Before a Cooldown Is Ready to see it.|r",
+			name = "|cffffa040At 0 seconds the Cooldown Almost Ready effect never plays. Raise Seconds Before a Cooldown Is Ready to see it.|r",
 			hidden = function() return not (SP.opt.cdbarCueAlmost and SP.opt.cdbarAlmostSecs == 0) end },
 		cdbarCueTimeColor = toggle(2.8, "cdbarCueTimeColor", "Time Turns Red While Running Out",
 			"The time on a button that is running out turns red (gold on a cooldown that is almost ready). On a button"
@@ -12050,6 +12312,13 @@ do
 		order = 2.1, type = "group", name = "Clicks", args = {}, disabled = SP.options.args.fluffy.disabled,
 	}
 	settings.settings_totemTwisting = { order = 2.2, type = "group", name = "Twisting", args = {} }
+	-- what twisting is, in one line above Enable (G's settings review, 3.0.9.1)
+	settings.settings_totemTwisting.args.twist_desc = {
+		type = "description", width = "full",
+		-- WoW: Forever cannot twist: without this gate the line alone would bring the Twisting tab back there
+		hidden = function() return SP.NoTotemTwisting end,
+		name = "Twisting drops Windfury Totem, then another Air totem, then Windfury again before its buff runs out, so your group has both. The timer and sound below tell you when to go back to Windfury.",
+	}
 	SP.MoveSettingsOptions({ "settings", "settings_totemMode" }, { "settings", "settings_totemClicks" }, {
 		"rightClickCastsAssigned", "rightClickDestroysTotem",
 	})
@@ -12115,7 +12384,7 @@ do
 		} },
 	})
 	SP.OrderSettingsBands(settings.settings_totemTwisting, {
-		{ keys = { "enableTwisting", "twistTotemSelect" } },
+		{ keys = { "twist_desc", "enableTwisting", "twistTotemSelect" } },
 		{ header = "look_header", name = "Look", keys = { "twistTimerNoDecimals" } },
 		{ header = "sound_header", name = "Sound", keys = {
 			"twistSoundEnabled", "twistSoundPicker", "twistSoundPicker_testsound", "twistSoundVolume", "twistSoundThreshold",
@@ -12209,19 +12478,27 @@ end
 do
 	local SP = ShamanPower
 	-- Show the Overlay sits under Show Overlay, its switch (A18 Q12: it was left out of this order)
+	SP.options.args.fluffy.args.sprange_section.args.sprange_move = { type = "execute", width = "full", name = "Move the Totem Range Tracker",
+		desc = "Unlocks only the Totem Range Tracker: drag its box where you want it, then press Done. It can't be done in a fight.",
+		hidden = function() return not SP.UnlockModuleFrames end, func = function() SP:UnlockModuleFrames("sprange") end }
 	SP.OrderSettingsBands(SP.options.args.fluffy.args.sprange_section, {
-		{ keys = { "sprange_desc", "module_missing_note", "not_shown_note" } },
-		{ keys = { "show_overlay", "show_when", "open_window" } },
+		{ keys = { "module_missing_note", "not_shown_note" } },   -- a warning stays on top; the rest goes under the pictures (2026-10-17)
 		{ header = "tracked_header", name = "Totems to Track", keys = { "rangeIcons" } },
+		{ keys = { "sprange_desc" } },
+		{ keys = { "show_overlay", "show_when", "open_window" } },
 		{ header = "look_header", name = "Look", keys = {
 			"sprange_icon_size", "sprange_opacity", "sprange_vertical", "sprange_hide_names", "sprange_hide_border",
 			"sprange_show_mode",
 		} },
+		{ header = "position_header", name = "Position", keys = { "sprange_move" } },
 		{ header = "minimap_header", name = "Minimap Markers", keys = {
 			"minimapTotemMarkers", "minimapTotemRings", "minimapTotemPinSize",
 			"minimapRingColorMode", "minimapRingColor1", "minimapRingColor2", "minimapRingColor3", "minimapRingColor4",
 		} },
 	})
+	SP.options.args.fluffy.args.estrack_section.args.estrack_move = { type = "execute", width = "full", name = "Move the Earth Shield Tracker",
+		desc = "Unlocks only the Earth Shield Tracker: drag its box where you want it, then press Done. It can't be done in a fight.",
+		hidden = function() return not SP.UnlockModuleFrames end, func = function() SP:UnlockModuleFrames("estracker") end }
 	SP.OrderSettingsBands(SP.options.args.fluffy.args.estrack_section, {
 		{ keys = { "estrack_desc", "module_missing_note" } },
 		{ keys = { "estrack_enabled", "open_window" } },
@@ -12229,15 +12506,20 @@ do
 			"estrack_icon_size", "estrack_opacity", "estrack_vertical", "estrack_hide_names",
 			"estrack_hide_border", "estrack_hide_charges",
 		} },
+		{ header = "position_header", name = "Position", keys = { "estrack_move" } },
 	})
+	SP.options.args.fluffy.args.raid_cd_section.args.raidcd_move = { type = "execute", width = "full", name = "Move the Raid Cooldown Callers",
+		desc = "Unlocks only the Raid Cooldowns callers: drag its box where you want it, then press Done. It can't be done in a fight.",
+		hidden = function() return not SP.UnlockModuleFrames end, func = function() SP:UnlockModuleFrames("raidcd") end }
 	SP.OrderSettingsBands(SP.options.args.fluffy.args.raid_cd_section, {
-		{ keys = { "raid_cd_desc", "module_missing_note", "no_group_note" } },
-		-- Enable Raid Cooldowns at the top, over what it switches (A18 Q12: it sat last, under Sound)
-		{ keys = { "raidCDEnabled", "open_window" } },
+		{ keys = { "module_missing_note", "no_group_note" } },   -- a warning stays on top
 		-- TBC Anniversary: the row of icons; WoW: Forever: Mana Tide's two rows, as they were
 		{ header = "assignment_header", name = "Cooldown Assignments", keys = {
 			"raidIcons", "manatide_shaman", "manatide_caller",
 		} },
+		-- the words and Enable Raid Cooldowns under the pictures (every icon page, 2026-10-17; A18 Q12 had it on top)
+		{ keys = { "raid_cd_desc" } },
+		{ keys = { "raidCDEnabled", "open_window" } },
 		{ header = "warnings_header", name = "Warnings", keys = {
 			"raidCDShowWarningIcon", "raidCDShowWarningText",
 		} },
@@ -12247,6 +12529,7 @@ do
 		{ header = "sound_header", name = "Sound", keys = {
 			"raidCDPlaySound", "raidCDSoundVolume_testsound", "raidCDSoundVolume", "raidCDSoundVolumeNote",
 		}, names = { raidCDSoundVolume = "Volume" } },
+		{ header = "position_header", name = "Position", keys = { "raidcd_move" } },
 	})
 	-- Shield Charges' own colors and gradient: nothing from Bar Texture or Bar Gradient
 	do
@@ -12293,7 +12576,8 @@ do
 		{ header = "sound_header", name = "Sound", keys = {
 			"shieldcharges_drop_sound", "shieldcharges_drop_sound_picker", "shieldcharges_drop_sound_testsound",
 		}, names = { shieldcharges_drop_sound_picker = "Sound" } },
-		{ header = "position_header", name = "Position", keys = { "shieldcharges_locked" } },
+		{ header = "position_header", name = "Position", keys = { "shieldcharges_locked" },
+			names = { shieldcharges_locked = "Prevent Dragging and Let Clicks Through" } },
 	})
 	-- Reactive Totems and Expiring Alerts: their icon pages (A16) are banded at the end of this file
 	SP.OrderSettingsBands(SP.options.args.fluffy.args.tremorreminder_section, {
@@ -12315,8 +12599,8 @@ do
 		}, names = { tremor_sound_picker = "Sound", tremor_sound_volume = "Volume" } },
 		{ header = "position_header", name = "Position", keys = {
 			"tremor_show_pos", "tremor_lock_pos", "tremor_reset_pos",
-		}, names = { tremor_show_pos = "Move" } },
-		{ header = "tremor_header_commands", name = "Test / Reset", keys = {
+		}, names = { tremor_show_pos = "Move the Tremor Reminder", tremor_lock_pos = "Prevent Alt-Drag", tremor_reset_pos = "Reset Tremor Reminder Position" } },
+		{ header = "tremor_header_commands", name = "Test", keys = {
 			"tremor_test", "tremor_hide_test", "tremor_commands_desc",
 		} },
 	})
@@ -12415,7 +12699,7 @@ do
 				.. " on your screen (Move Your Debuffs), on your target's nameplate, or under the target frame. Purge"
 				.. " has its own Position in its right-click menu. While your debuffs show on nameplates (this choice,"
 				.. " or a spell's Show On Every Enemy's Nameplate), a Nameplates section below has Spot On The"
-				.. " Nameplate, Move Up / Down, Move Left / Right and Hide WoW's Own Icons.",
+				.. " Nameplate, Up / Down, Left / Right and Hide WoW's Own Icons.",
 			values = { spot = "Anywhere on Screen", plate = "On your target's nameplate", frame = "Under the target frame" },
 			sorting = { "spot", "plate", "frame" },
 			get = function() return Page("showOn", "spot") end,
@@ -12438,11 +12722,11 @@ do
 			sorting = { "above", "below", "left", "right" },
 			get = function() return Page("plateSpot", "above") end,
 			set = function(_, v) Call("TT_SetPage", "plateSpot", v) end },
-		plateY = { type = "range", name = "Move Up / Down", min = -60, max = 120, step = 1, width = 1.0, hidden = NoPlates,
+		plateY = { type = "range", name = "Up / Down", min = -60, max = 120, step = 1, width = 1.0, hidden = NoPlates,
 			desc = "Moves your debuffs on nameplates up (higher numbers) or down (lower numbers) from the Spot On The Nameplate.",
 			get = function() return Page("plateY", 0) end,
 			set = function(_, v) Call("TT_SetPage", "plateY", v) end },
-		plateX = { type = "range", name = "Move Left / Right", min = -80, max = 80, step = 1, width = 1.0, hidden = NoPlates,
+		plateX = { type = "range", name = "Left / Right", min = -80, max = 80, step = 1, width = 1.0, hidden = NoPlates,
 			desc = "Moves your debuffs on nameplates right (higher numbers) or left (lower numbers) from the Spot On The Nameplate.",
 			get = function() return Page("plateX", 0) end,
 			set = function(_, v) Call("TT_SetPage", "plateX", v) end },
@@ -12482,7 +12766,7 @@ do
 			set = function(_, v) Call("TT_SetPage", "spacing", v) end },
 		-- the two spots, and the nameplate nudges (Up / Down, Left / Right) back to 0
 		reset = { type = "execute", name = "Reset Position", width = 1.0,
-			desc = "Puts your debuffs and Purge back at their default positions, and Move Up / Down and Move Left /"
+			desc = "Puts your debuffs and Purge back at their default positions, and Up / Down and Left /"
 				.. " Right on nameplates back to 0.",
 			hidden = function() return NotLoaded() or not (DebuffsInSpot() or PurgeOnScreen() or PlatesUsed()) end,
 			func = function()
@@ -12492,11 +12776,17 @@ do
 			end },
 	}
 	-- Position as D45 drew it; the Nameplates section under it (its heading hides with its rows)
+	args.enabled = { type = "toggle", width = "full", name = "Enable Target Tracker", hidden = NotLoaded,
+		desc = "Turn Target Tracker on or off. Every spell's settings stay as they are.",
+		get = function() return ShamanPower.TT_Enabled and ShamanPower:TT_Enabled() or false end,
+		set = function(_, v) if ShamanPower.TT_SetEnabled then ShamanPower:TT_SetEnabled(v) end end }
 	SP.OrderSettingsBands({ args = args }, {
-		{ keys = { "module_missing_note" } },
+		{ keys = { "module_missing_note" } },   -- a warning stays on top
 		{ header = "iconsHeader", name = "Spells", keys = { "ttIcons" } },
 		{ header = "rulesHeader", name = "Rules", keys = { "ttRules" } },
-		{ header = "positionHeader", name = "Position", keys = { "showOn", "arrange", "move", "movePurge", "spacing", "reset" } },
+		{ keys = { "enabled" } },   -- under the pictures (every icon page, 2026-10-17)
+		{ header = "positionHeader", name = "Position", keys = { "move", "movePurge", "showOn", "arrange", "spacing", "reset" },
+			names = { move = "Move the Debuffs", movePurge = "Move the Purge Reminder", arrange = "Layout", reset = "Reset Target Tracker Positions" } },
 		{ header = "platesHeader", name = "Nameplates", keys = { "plateSpot", "hideGame", "plateY", "plateX" } },
 	})
 	SP.OptionCustomRow = SP.OptionCustomRow or {}
@@ -12592,14 +12882,15 @@ do
 	local function take(src, keys) for _, k in ipairs(keys) do if src[k] then args[k] = src[k] end end end
 	take(app, { "cdbarLayout", "icon_shape", "cooldownBarScale", "cooldownBarOpacity", "cooldownBarPadding",
 		"hide_cooldown_bar_frame", "cooldownBarFullOpacityWhenActive", "frame_edge", "icon_borders_square" })
-	take(disp, { "cdbar_progress_position", "cdbar_progress_height", "cdbar_gradient_direction", "cdbar_duration_text",
-		"cdbar_duration_text_size", "cdbar_numbers_note", "cdbar_numbers_button" })
+	take(disp, { "cdbar_show_progress_bars", "cdbar_progress_position", "cdbar_progress_height", "cdbar_gradient_direction", "cdbar_duration_text",
+		"cdbar_duration_text_size", "cdbar_countdown_colors", "cdbar_timer_colors", "cdbar_numbers_note", "cdbar_numbers_button" })
 	take(fx, { "cdbarCueLook", "cdbarCueSignature", "cdbar_test" })
+	take(SP.options.args.fluffy.args.cdbar_items_section.args, { "show_cooldown_bar" })
 	-- two to a line where they pair up
 	for _, k in ipairs({ "cdbarLayout", "icon_shape", "cooldownBarScale", "cooldownBarOpacity", "cooldownBarPadding",
 		"hide_cooldown_bar_frame", "cooldownBarFullOpacityWhenActive", "frame_edge", "icon_borders_square",
 		"cdbar_progress_position", "cdbar_progress_height", "cdbar_gradient_direction", "cdbar_duration_text",
-		"cdbar_duration_text_size", "cdbarCueLook", "cdbarCueSignature" }) do
+		"cdbar_duration_text_size", "cdbar_countdown_colors", "cdbar_timer_colors", "cdbarCueLook", "cdbarCueSignature" }) do
 		if args[k] then args[k].width = 1.0 end
 	end
 	if args.cdbarCueSignature then
@@ -12636,15 +12927,17 @@ do
 	SP.OptionCustomRow = SP.OptionCustomRow or {}
 	SP.OptionCustomRow[args.cdbarIcons] = "cdbarIcons"
 	SP.OrderSettingsBands(F.cdbar_page, {
-		{ keys = { "cdbar_move" } },
 		{ header = "items_header", name = "Items", keys = { "cdbarIcons" } },
+		{ keys = { "show_cooldown_bar" } },   -- under the pictures (every icon page, 2026-10-17)
 		{ header = "bar_header", name = "Bar", keys = { "cdbarLayout", "icon_shape", "cooldownBarScale", "cooldownBarOpacity",
 			"cooldownBarPadding", "hide_cooldown_bar_frame", "cooldownBarFullOpacityWhenActive", "frame_edge", "icon_borders_square" } },
 		{ header = "clicks_header", name = "Clicks", keys = { "cdbar_click_through" } },
-		{ header = "progress_header", name = "Progress Bars and Time", keys = { "cdbar_progress_position", "cdbar_progress_height",
-			"cdbar_gradient_direction", "cdbar_duration_text", "cdbar_duration_text_size", "cdbar_numbers_note", "cdbar_numbers_button" },
+		{ header = "progress_header", name = "Progress Bars and Time", keys = { "cdbar_show_progress_bars", "cdbar_progress_position", "cdbar_progress_height",
+			"cdbar_gradient_direction", "cdbar_duration_text", "cdbar_duration_text_size", "cdbar_countdown_colors", "cdbar_timer_colors", "cdbar_numbers_note", "cdbar_numbers_button" },
 			names = { cdbar_duration_text = "Time Text Position", cdbar_duration_text_size = "Time Text Size" } },
-		{ header = "effects_header", name = "Effects", keys = { "cdbar_fx_note", "cdbarCueLook", "cdbarCueSignature", "cdbar_test" } },
+		{ header = "position_header", name = "Position", keys = { "cdbar_move" } },
+		{ header = "effects_header", name = "Effects", keys = { "cdbar_fx_note", "cdbarCueLook", "cdbarCueSignature" } },
+		{ header = "test_header", name = "Test", keys = { "cdbar_test" } },
 	})
 	-- the old tabs' addresses (settings links, patch notes, search paths kept in old notes) open this page
 	for _, old in ipairs({ "cdbar_items_section", "cdbar_order_section", "cooldown_display_section", "cdbar_effects_section",
@@ -12753,12 +13046,30 @@ do
 	SP.OptionCustomRow = SP.OptionCustomRow or {}
 	SP.OptionCustomRow[args.shieldIcons] = "shieldIcons"
 	SP.OptionCustomRow[args.shieldPreview] = "shieldPreview"
+	F.shieldcharges_page.args.shieldcharges_enabled = { order = 0.05, type = "toggle", width = "full", name = "Enable Shield Charges",
+		desc = "Turn the on-screen shield charges on or off. Off remembers which shields were on; On brings those back.",
+		hidden = function() return not (SP.ShieldChargesLoaded and SP.ShieldOpt and SP.SetShieldOpt) end,
+		get = function() return (SP:ShieldOpt("LS", "enabled") or SP:ShieldOpt("WS", "enabled") or SP:ShieldOpt("ES", "enabled")) and true or false end,
+		set = function(_, v)
+			SP:EnsureProfileTable("shieldChargeDisplay")
+			local d = SP.opt.shieldChargeDisplay
+			if v then
+				local last = type(d.lastOn) == "table" and d.lastOn or { LS = true, WS = true, ES = true }
+				for _, w in ipairs({ "LS", "WS", "ES" }) do if last[w] then SP:SetShieldOpt(w, "enabled", true) end end
+			else
+				d.lastOn = { LS = SP:ShieldOpt("LS", "enabled") and true or false, WS = SP:ShieldOpt("WS", "enabled") and true or false,
+					ES = SP:ShieldOpt("ES", "enabled") and true or false }
+				for _, w in ipairs({ "LS", "WS", "ES" }) do SP:SetShieldOpt(w, "enabled", false) end
+			end
+		end }
 	SP.OrderSettingsBands(F.shieldcharges_page, {
-		{ keys = { "module_missing_note", "shieldcharges_fights_note" } },
+		{ keys = { "module_missing_note", "shieldcharges_fights_note" } },   -- a warning stays on top
 		{ header = "shields_header", name = "Shields", keys = { "shieldIcons" } },
+		{ keys = { "shieldcharges_enabled" } },   -- under the pictures (every icon page, 2026-10-17)
 		{ header = "cdm_header", name = "In Fights (WoW: Forever)", keys = { "shieldcharges_cdm", "shieldcharges_cdm_desc" } },
 		{ header = "preview_header", name = "Preview", keys = { "shieldPreview" } },
-		{ header = "position_header", name = "Position", keys = { "shieldcharges_locked", "shieldcharges_move" } },
+		{ header = "position_header", name = "Position", keys = { "shieldcharges_move", "shieldcharges_locked" },
+			names = { shieldcharges_move = "Move the Shield Charges", shieldcharges_locked = "Prevent Dragging and Let Clicks Through" } },
 	})
 	-- the old page's rows wrote the shared keys every shield read before the split: gone (each shield's
 	-- menu has its own now). The old group keeps only what this page shares with it.
@@ -12934,8 +13245,8 @@ do
 		{ header = "sound_header", name = "Sound", keys = { "alerts_sound_volume" },
 			names = { alerts_sound_volume = "Alert Volume" } },
 		{ header = "position_header", name = "Position", keys = { "alerts_show_pos", "alerts_hide_pos", "alerts_reset_pos" },
-			names = { alerts_show_pos = "Move" } },
-		{ header = "test_header", name = "Test / Reset", keys = { "alerts_test" } },
+			names = { alerts_show_pos = "Move the Expiring Alerts", alerts_hide_pos = "Finish Moving", alerts_reset_pos = "Reset Expiring Alert Position" } },
+		{ header = "test_header", name = "Test", keys = { "alerts_test" } },
 	})
 
 	-- ---- Reactive Totems ------------------------------------------------------------------
@@ -12967,8 +13278,9 @@ do
 		{ keys = { "module_missing_note", "engine_note", "instance_only_note", "master_off_note" } },
 		{ header = "alerts_header", name = "Alerts", keys = { "rtIcons" } },
 		{ header = "behaviour_header", name = "Behavior", keys = { "reactive_only_instance" } },
-		{ header = "position_header", name = "Position", keys = { "reactive_show", "reactive_locked", "reactive_reset", "reactive_hide" },
-			names = { reactive_show = "Move", reactive_locked = "Lock Position", reactive_reset = "Reset Positions" } },
-		{ header = "test_header", name = "Test / Reset", keys = { "reactive_test" } },
+		{ header = "position_header", name = "Position", keys = { "reactive_show", "reactive_locked", "reactive_hide", "reactive_reset" },
+			names = { reactive_show = "Move the Reactive Totems", reactive_locked = "Prevent Alt-Drag", reactive_hide = "Finish Moving",
+				reactive_reset = "Reset Reactive Totem Positions" } },
+		{ header = "test_header", name = "Test", keys = { "reactive_test" } },
 	})
 end

@@ -1442,8 +1442,8 @@ local function paintDisplay(frame, kind, settings, s, charges, present, restrict
 	goneEffect(frame, iconWhich or 1, s, (icon and own and gone) and true or false)
 	-- with the icon off, the charge bar shown plays it (3.0.9); a display's other bars rest
 	if bars then
-		for _, b in pairs(bars) do
-			barGoneEffect(b, b.spWhich or iconWhich or 1, s, (b == cb and not icon and bar and own and gone) and true or false)
+		for _, other in pairs(bars) do
+			barGoneEffect(other, other.spWhich or iconWhich or 1, s, (other == cb and not icon and bar and own and gone) and true or false)
 		end
 	end
 end

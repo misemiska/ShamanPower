@@ -546,7 +546,7 @@ do
 					get = get("replyThrottle"), set = set("replyThrottle"),
 				},
 				preview = {
-					order = 3, type = "execute", width = "full", name = "Preview My Messages",
+					order = 3, type = "execute", width = "full", name = "Test Messages (Only You See Them)",
 					desc = "Show example messages in your chat window. Nothing is sent to other players.",
 					func = function() SP:PreviewAnnounceMessages() end,
 				},

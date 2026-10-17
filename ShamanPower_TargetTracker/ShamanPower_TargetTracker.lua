@@ -755,6 +755,17 @@ local OnPlate = { want = {}, warnWant = {}, lay = {}, entryOf = {}, waiting = {}
 -- rank and every Flame Shock aura ID, on WoW: Forever 1.60.1 and TBC Anniversary 2.5.6: read 2026-10-04).
 local NS = { recs = {}, learned = {}, last = { id = nil, t = 0 }, BASE = 12, plain = { border = "thin", size = 36 },
 	lk = { border = "thin" }, EARTH = "Interface\\Icons\\Spell_Nature_EarthShock" }
+-- The fallback before an aura has been read: the base 12 s, and on WoW: Forever Call of Flame's
+-- 3/6/9 s on top (the 10-15 patch), by the talent's rank in your tree. The aura's own duration,
+-- once seen, still wins (NS.learned).
+function NS.Base()
+	local d = NS.BASE
+	if SPCompat.FOREVER and SPCompat.TalentRankBySpellID then
+		local rank = SPCompat.TalentRankBySpellID(16038)   -- Call of Flame
+		if type(rank) == "number" and rank > 0 then d = d + 3 * math.min(rank, 3) end
+	end
+	return d
+end
 
 local function ModuleOn()
 	return built and SV().enabled == true and not SP:IsOff()
@@ -4057,7 +4068,7 @@ function NS.Cast(id)
 	local now = GetTime()
 	NS.last.id, NS.last.t = id, now
 	if not TargetAttackable() then return end   -- (it went to another unit: a mouseover or focus macro)
-	local rec = { start = now, duration = NS.learned[id] or NS.BASE }
+	local rec = { start = now, duration = NS.learned[id] or NS.Base() }
 	local g = NS.Guid()
 	if g then
 		for k, r in pairs(NS.recs) do
@@ -4694,6 +4705,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 	elseif event == "SPELLS_CHANGED" then
 		for _, s in ipairs(SPELLS) do wasKnown[s.key] = knownCache[s.key] end
 		wipe(knownCache)
+		wipe(NS.learned)   -- (a talent change can change Flame Shock's length: learn it again)
 		local changed = false
 		for _, s in ipairs(SPELLS) do
 			if wasKnown[s.key] ~= nil and wasKnown[s.key] ~= Known(s.key) then changed = true end
@@ -5793,7 +5805,7 @@ do
 					set = function(v) SP:TT_Set(key, "border", v) end }
 			end
 			-- Next Shock's Look When It's Time to Cast (its Size is not a look: as each spell's Icon Size)
-			entries[#entries + 1] = { key = "castLook.ns", label = "Next Shock Look When It's Time to Cast",
+			entries[#entries + 1] = { key = "castLook.ns", label = "Next Shock Recast Warning Style",
 				get = function() return Get("ns", "castLook") end,
 				set = function(v) SP:TT_Set("ns", "castLook", v) end }
 			SP:ThemeSpotSettings("mod.targettracker", entries)

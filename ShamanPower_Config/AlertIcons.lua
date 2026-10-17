@@ -389,6 +389,7 @@ local function EAMenu(item)
 	local it = item
 	local r = {}
 	-- the alert itself
+	r[#r + 1] = { text = "Show", label = true }
 	r[#r + 1] = TurnLine(it, AlertOn(it))
 	if it.kind == "shield" then
 		local shows, tip = ShieldShows(it)
@@ -401,6 +402,7 @@ local function EAMenu(item)
 		local shows, tip = TotemShows(it)
 		r[#r + 1] = InfoLine("Alert Text", function() return shows end, tip)
 		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Behavior", label = true }
 		r[#r + 1] = Group("When a Totem Is Destroyed", function() return DestroyedRows(it) end, nil, nil,
 			"on your screen, in your chat, in big text, to your group")
 		r[#r + 1] = OnOffName(it, "When a Totem Expires", "expired",
@@ -424,6 +426,7 @@ local function EAMenu(item)
 	end
 	-- Copy / Paste / Copy To, on / off, Reset
 	r[#r + 1] = SEP
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	r[#r + 1] = { text = "Copy Settings",
 		tip = "Remembers every setting of this alert as it is now, for Paste Settings on another alert.",
 		onClick = function()
@@ -828,6 +831,7 @@ local function RTMenu(it)
 	local id = it.key
 	local r = {}
 	-- the alert itself
+	r[#r + 1] = { text = "Show", label = true }
 	local on = SP:ReactiveAlertOn(id)
 	r[#r + 1] = { text = on and "Turn This Alert Off" or "Turn This Alert On",
 		tip = "The same as a click on its icon. Its settings stay as they are.",
@@ -838,7 +842,6 @@ local function RTMenu(it)
 		end }
 	local shows, tip = RTShows(id)
 	r[#r + 1] = InfoLine("Warn About", function() return shows end, tip)
-	r[#r + 1] = SEP
 	-- when it shows
 	r[#r + 1] = ROnOff(id, "Hide While " .. it.totem .. " Is Down", "hideWhenTotemActive",
 		"No alert while your " .. it.totem .. " is already down."
@@ -848,11 +851,9 @@ local function RTMenu(it)
 	-- how it looks
 	r[#r + 1] = Group("Appearance", function() return LookRows(id) end, nil, nil,
 		"size, opacity, text, background, border, what it says")
-	r[#r + 1] = Group("Key Label", function() return KeyRows(it) end, nil,
-		function() return GroupValue(id, "showSpellKeybind", "noKeyText") end,
-		"the key that casts its totem, under the totem's name")
 	r[#r + 1] = SEP
 	-- what it does when it shows
+	r[#r + 1] = { text = "Effects & Sound", label = true }
 	r[#r + 1] = Group("Glow", function() return GlowRows(id) end, nil,
 		function() return GroupValue(id, "showGlow", "glowIntensity") end,
 		"a pulsing glow round the alert, in its color")
@@ -860,7 +861,12 @@ local function RTMenu(it)
 		function() return GroupValue(id, "playSound", "soundName", "soundVolume") end,
 		"a sound when the alert shows")
 	r[#r + 1] = SEP
+	r[#r + 1] = Group("Key Label", function() return KeyRows(it) end, nil,
+		function() return GroupValue(id, "showSpellKeybind", "noKeyText") end,
+		"the key that casts its totem, under the totem's name")
+	r[#r + 1] = SEP
 	-- copy and reset
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	r[#r + 1] = { text = "Copy Settings",
 		tip = "Remembers every setting of this alert as it is now, for Paste Settings on another alert.",
 		onClick = function()

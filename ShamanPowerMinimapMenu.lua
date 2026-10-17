@@ -154,6 +154,7 @@ local function fill(items)
 			key = it.element or "spirit"
 			er, eg, eb = elementRGB(key)
 		end
+		if it.gap then y = y + it.gap end   -- extra breathing room before this row (Open Settings stands alone above the first section)
 		r:ClearAllPoints()
 		r:SetPoint("TOPLEFT", menu, "TOPLEFT", EDGE, -y)
 		r:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -EDGE, -y)
@@ -219,10 +220,16 @@ local function items()
 		add({ text = "Turn On Other Features", fn = function() SP:SetWindfuryOnly(false) end })
 		return list
 	end
+	-- Open Settings first: the row a new player is looking for (G's settings review, 3.0.9.1).
+	-- OpenConfigWindow() with no page toggles: an open window would close
+	add({ text = "Open Settings", action = true, fn = function()
+		local win = _G["ShamanPowerConfigUIFrame"]
+		if win and win:IsShown() then win:Raise() else SP:OpenConfigWindow() end
+	end })
 	-- the elements (D33): both totem bar sections Earth, ShamanPower Air (General's)
 	if isShaman() then
 		if SP.TotemBarStyleList and SP.GetTotemBarStyle then
-			add({ text = "Totem Bar Style", header = true, element = "earth" })
+			add({ text = "Totem Bar Style", header = true, element = "earth", gap = 10 })   -- (room under Open Settings: the eye finds it)
 			local cur = SP:GetTotemBarStyle()
 			for _, st in ipairs(SP:TotemBarStyleList()) do
 				local key = st.key
@@ -241,7 +248,7 @@ local function items()
 		end
 		add({ text = "ShamanPower", header = true, element = "air" })
 		add({ text = "Totem Assignments", fn = function() SP:ToggleAssignmentWindow() end })
-		if SP.ToggleMasterUnlock then add({ text = "Unlock UI (move everything)", disabled = combat, fn = function() SP:ToggleMasterUnlock() end }) end
+		if SP.ToggleMasterUnlock then add({ text = "Unlock UI", disabled = combat, fn = function() SP:ToggleMasterUnlock() end }) end
 		local kb = SP.ToggleKeybindMode or SP.StartKeybindMode
 		if kb then add({ text = "Keybind Mode", disabled = combat, fn = function() kb(SP) end }) end
 	else
@@ -256,11 +263,6 @@ local function items()
 		end
 	end
 	if SP.ShowWhatsNew then add({ text = "What's New", fn = function() SP:ShowWhatsNew(true) end }) end
-	-- OpenConfigWindow() with no page toggles: an open window would close
-	add({ text = "Open Settings", action = true, fn = function()
-		local win = _G["ShamanPowerConfigUIFrame"]
-		if win and win:IsShown() then win:Raise() else SP:OpenConfigWindow() end
-	end })
 	return list
 end
 

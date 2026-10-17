@@ -189,6 +189,7 @@ local SHARED = {
 	cueAlmostStyle  = { E, "cdbarCueAlmostStyle" },
 	cueMissing      = { E, "cdbarCueMissing" },
 	cueMissingGlow  = { E, "cdbarCueMissingGlow" },
+	cueMarkStays    = { E, "cdbarCueMarkStays" },
 	cueRunning      = { E, "cdbarCueRunning" },
 	cueRunningStyle = { E, "cdbarCueRunningStyle" },
 	cueTimeColor    = { E, "cdbarCueTimeColor" },
@@ -454,6 +455,9 @@ local function AppearanceRows(t)
 				if Get(t, "progressColor") then c = SpellColor(t) end
 				return c[1], c[2], c[3]
 			end })
+	if SP.opt and SP.opt.cdbarShowProgressBars == false then
+		r[#r + 1] = { text = "Show Progress Bars is off on the Cooldown Bar page: no item shows one.", disabled = true }
+	end
 	if Get(t, "progressBar") ~= false then
 		r[#r + 1] = Choice("Progress Bar Color", WithPics(BARCOLOR_CHOICES, { [false] = { kind = "bar", color = PIC.GREEN },
 			[true] = { kind = "bar", color = SpellColor(t) } }), function()
@@ -511,11 +515,15 @@ local function EffectRows(t)
 			shield and ("When your shield is gone, the button plays this in blue."
 				.. (FOREVER and " In a fight it pulses red while no shield is up (at 100% Cooldown Bar opacity)." or ""))
 			or "When the imbue drops off (it ran out, or you swapped weapons), the button plays this in blue.", PIC.gone)
-		if Get(t, "cueGone") then
-			r[#r + 1] = OnOffName(t, "Red X When It's Gone", "cueMark",
-				shield and ("Also a red X on the button until you cast a shield again (5 seconds at most)."
-					.. (FOREVER and " In a fight it shows while no shield is up instead (at 100% Cooldown Bar opacity)." or ""))
-				or "Also a red X on the button until you put an imbue on again (5 seconds at most).", PIC.redx)
+		-- its own switch (3.0.9.1): works with the Gone animation off too; off clears an X on the button
+		r[#r + 1] = OnOffName(t, "Red X When It's Gone", "cueMark",
+			shield and ("A red X on the button until you cast a shield again (5 seconds at most). Its own switch: with Shield Gone off,"
+				.. " the X alone." .. (FOREVER and " In a fight it shows while no shield is up instead (at 100% Cooldown Bar opacity)." or ""))
+			or "A red X on the button until you put an imbue on again (5 seconds at most). Its own switch: with Weapon Imbue Gone off,"
+				.. " the X alone.", PIC.redx)
+		if Get(t, "cueMark") then
+			r[#r + 1] = OnOffName(t, "Keep the Red X Until You Recast", "cueMarkStays",
+				"The X stays on the button until you cast again, instead of fading after 5 seconds. Off: an X held now fades.", PIC.redx)
 		end
 		r[#r + 1] = OnOffName(t, "Turns Red While Missing", "cueMissing",
 			shield and "While your shield is gone, the button turns red until you cast it again."
@@ -618,11 +626,11 @@ local function MenuItems(item)
 	local r = {}
 	-- the icon itself
 	local on = ShownOnBar(t)
+	r[#r + 1] = { text = "Show", label = true }
 	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon", onClick = function()
 		OptSet(I, SHOW_OPTION[t], not on)
 		Row:Changed(false)
 	end }
-	r[#r + 1] = SEP
 	-- when it shows
 	if IsShieldOrImbue(t) then
 		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
@@ -670,6 +678,7 @@ local function MenuItems(item)
 	end
 	r[#r + 1] = SEP
 	-- how it looks
+	r[#r + 1] = { text = "Appearance", label = true }
 	r[#r + 1] = Group("Appearance", function() return AppearanceRows(t) end, nil, nil,
 		IsShieldOrImbue(t) and "button style, sweep and progress bar" or "sweep and progress bar")
 	if t == SHIELD then
@@ -685,17 +694,30 @@ local function MenuItems(item)
 		IsShieldOrImbue(t) and "what the button plays when it is gone or running out"
 		or "what the button plays when it is ready or almost ready")
 	r[#r + 1] = SEP
-	-- where it sits (Totemic Recall: which bar; the rest sit on the cooldown bar)
+	-- where it sits (Totemic Recall: which bar; the rest sit on the cooldown bar), its clicks and keys
+	local pk = {}
 	if t == RECALL then
-		r[#r + 1] = Choice("Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
+		pk[#pk + 1] = Choice("Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
 			local v, own = Get(t, "onTotemBar")
 			return v and true or false, own
 		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
 			PIC.none)
-		r[#r].words = "which bar the button sits on"
+		pk[#pk].words = "which bar the button sits on"
+	end
+	if t == SHIELD then
+		pk[#pk + 1] = Group("Clicks", function() return ClickRows(t) end, nil, nil, "what a click on the button casts")
+	end
+	if BINDINGS[t] then
+		pk[#pk + 1] = Group("Keys", function() return KeybindRows(t) end, nil, nil,
+			BINDINGS[t][2] and "the keys for the button and its flyout" or "the key for the button")
+	end
+	if #pk > 0 then
+		if #pk > 1 then r[#r + 1] = { text = "Position & Keys", label = true } end
+		for _, x in ipairs(pk) do r[#r + 1] = x end
 		r[#r + 1] = SEP
 	end
 	-- copy and reset
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	r[#r + 1] = { text = "Copy Settings", disabled = not HasAPI("CdItemSnapshot"), onClick = function()
 		Row.clip = { from = t, name = NAMES[t] or ("Item " .. t), snap = SP:CdItemSnapshot(t) }
 		return true
@@ -724,22 +746,15 @@ local function MenuItems(item)
 		o[#o + 1] = { text = "All Items", onClick = function() Copy(t, "all"); Row:Changed(false) end }
 		return o
 	end }
-	r[#r + 1] = { text = "Reset This Icon", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
+	r[#r + 1] = { text = "Reset This Button", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
 		tip = "Clear this icon's changes and use the bar's settings again.",
 		onClick = function()
 			if SP.ResetCdItem then SP:ResetCdItem(t) end
 			Row:Changed(false)
 		end }
 	r[#r + 1] = SEP
-	-- its clicks, keys and test
-	if t == SHIELD then
-		r[#r + 1] = Group("Clicks", function() return ClickRows(t) end, nil, nil, "what a click on the button casts")
-	end
-	if BINDINGS[t] then
-		r[#r + 1] = Group("Keys", function() return KeybindRows(t) end, nil, nil,
-			BINDINGS[t][2] and "the keys for the button and its flyout" or "the key for the button")
-	end
-	r[#r + 1] = { text = "Test This Icon's Effects", onClick = function() return TestItem(t) end }
+	-- its test
+	r[#r + 1] = { text = "Test This Button's Effects", onClick = function() return TestItem(t) end }
 	return r
 end
 
@@ -824,7 +839,7 @@ local RESET_SHARED = { "cdbarRunOutOnly", "cdbarRunOutReady", "cdbarRunOutSecs",
 	"cdbarStyle", "cdbarShowColorSweep", "cdbarSweepStyle", "cdbarShowProgressBars", "cdbarShowCDText", "showAnkhCount",
 	"cdbarShowShieldCount", "cdbarShieldChargeBar", "cdbarCueReady", "cdbarCueReadyStyle", "cdbarCueAlmost",
 	"cdbarCueAlmostStyle", "cdbarCueShield", "cdbarCueShieldStyle", "cdbarCueShieldMark", "cdbarCueImbue",
-	"cdbarCueImbueStyle", "cdbarCueImbueMark", "cdbarCueMissing", "cdbarCueMissingGlow", "cdbarCueRunning", "cdbarCueRunningStyle",
+	"cdbarCueImbueStyle", "cdbarCueImbueMark", "cdbarCueMarkStays", "cdbarCueMissing", "cdbarCueMissingGlow", "cdbarCueRunning", "cdbarCueRunningStyle",
 	"cdbarCueTimeColor", "cdbarCueTimeOnly", "cdbarFlyoutDirection", "cooldownFlyoutButtonSize", "cooldownFlyoutOpacity",
 	"cdbarShieldRightClickOther", "totemicCallOnTotemBar", "cooldownBarOrder" }
 local RESET_SHOWN = { "cdbarShowShields", "cdbarShowRecall", "cdbarShowReincarnation", "cdbarShowNS", "cdbarShowManaTide",

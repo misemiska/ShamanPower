@@ -28,7 +28,8 @@
     "compact",
     "grid",
     "blizzard",
-    "single"
+    "single",
+    "dropped"
   ],
   "layout": "bytes: version, client, isShaman, spec, levelBucket(level/10), setupPath, style, featureCount N, then ceil(N/8) bytes of feature bits (feature i = bit (i-1)%8 of byte 9+floor((i-1)/8), least significant first); base64url A-Z a-z 0-9 - _, no padding",
   "features": [
@@ -531,6 +532,10 @@
     {
       "key": "partyStripBreakUp",
       "label": "Party strip: broken up per totem"
+    },
+    {
+      "key": "cdbarHideOutOfCombat",
+      "label": "Hide cooldown bar out of combat"
     }
   ]
 }

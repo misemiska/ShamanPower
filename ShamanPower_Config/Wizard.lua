@@ -254,16 +254,15 @@ function SP.Wizard.ApplySpecPicks(role)
 	SP.opt.cdbarShowRageOfTheFarseer = enh   -- WoW: Forever Enhancement capstone
 	SP.opt.cdbarShowElementalMastery = ele
 	-- WoW: Forever: Ready Reminders follow the spec's talents (read from the client's
-	-- trait tree). Elemental Mastery is not in Forever's tree, so Elemental's cooldowns
-	-- are Lava Burst and the shocks. Fire Nova and Earthbind stay opt-in (AoE / PvP).
+	-- trait tree). Elemental Mastery is Elemental's 31-point talent again since the 10-15
+	-- patch (build 70425). Fire Nova and Earthbind stay opt-in (AoE / PvP).
 	if SPCompat.FOREVER then
-		SP.opt.cdbarShowElementalMastery = false
 		ShamanPower_ReadyReminders = ShamanPower_ReadyReminders or {}
 		ShamanPower_ReadyReminders.spells = ShamanPower_ReadyReminders.spells or {}
 		local rr = ShamanPower_ReadyReminders.spells
-		rr.riptide, rr.manatide, rr.ns, rr.watershield = resto, resto, resto, resto
+		rr.riptide, rr.manatide, rr.ns = resto, resto, resto
 		rr.stormstrike, rr.farseer = enh, enh
-		rr.lavaburst = ele
+		rr.lavaburst, rr.elemastery = ele, ele
 		rr.earthshock = true                             -- the interrupt, for every spec
 		rr.flameshock, rr.frostshock = not resto, not resto
 		safecall("UpdateReadyReminders")
@@ -4627,7 +4626,7 @@ function SP.Wizard:RenderRole()
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" },
 			(not (SPCompat and SPCompat.FOREVER)) and { 8512, "Totem twisting" } or nil } },
 		{ key = "elemental",   name = "Elemental",   role = "Caster", items = {
-			{ 408490, "Lava Burst" },
+			{ 408490, "Lava Burst" }, { 16166, "Elemental Mastery" },
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" } } },
 	} or {
 		{ key = "restoration", name = "Restoration", role = "Healer", items = {
@@ -4806,9 +4805,12 @@ function SP.Wizard:RenderFinish()
 		below = share
 	end
 
-	-- the release highlights, for anyone curious (never shown automatically after the tour)
+	-- the release highlights, for anyone curious (never shown automatically after the tour);
+	-- named after the installed version so the button never goes stale
 	if SP.ShowWhatsNew then
-		local wn = track(Core:MakeButton(c, "What's new in ShamanPower 3.0", 240, false))
+		local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+		local ver = getMeta and getMeta("ShamanPower", "Version")
+		local wn = track(Core:MakeButton(c, ver and ("What's New in ShamanPower " .. ver) or "What's New in ShamanPower", 240, false))
 		wn:SetPoint("TOP", below, "BOTTOM", 0, -18)
 		wn:SetScript("OnClick", function() SP:ShowWhatsNew(true) end)
 	end

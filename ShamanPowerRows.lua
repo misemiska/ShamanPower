@@ -81,6 +81,18 @@ function SP:RowsHideBar()
 		and not (self.KeybindModeActive and self:KeybindModeActive()) or false
 end
 
+-- The row the Hide When No Totems helper may show or hide in a fight (UpdateTotemBarBridge): the
+-- rows up and this element's row in use by its own rules. The bar's hide rules are left out on
+-- purpose: the helper is what carries them out mid-fight.
+function SP:RowBridgeHost(element)
+	local r = applied and rows[element]
+	if not (r and r.host) then return nil end
+	local off = self.opt and self.opt.rowsOff
+	if type(off) == "table" and off[element] then return nil end
+	if not self:IsElementShown(element) then return nil end
+	return r.host
+end
+
 -- a row's totems: the flyouts' size (Totem Bar > Flyouts), whatever the bar's style (Compact's own
 -- smaller flyouts are for its lines)
 local function rowButtonSize()

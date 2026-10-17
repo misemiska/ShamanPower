@@ -356,7 +356,7 @@ local function SetInFlyout(item, v)
 	local o = O()
 	if type(o.flyoutTotems) ~= "table" then o.flyoutTotems = {} end
 	o.flyoutTotems[FlyKey(item.e, item.idx)] = v and true or false
-	if not InCombatLockdown() then Run("RecreateTotemFlyouts") end
+	if not InCombatLockdown() then Run("RecreateTotemFlyouts"); Run("SetupKeybindings") end   -- its key follows
 end
 
 local function TotemOwn(item)
@@ -521,8 +521,11 @@ local function ElementMenu(e)
 	place.words = "its place in Drop All, or left out of it"
 	r[#r + 1] = place
 	r[#r + 1] = SEP
+	-- its keys
+	r[#r + 1] = Keybind(function() return KeyRows(BIND_BUTTON[e], BIND_FLYOUT[e]) end, "its button key and its flyout key")
+	r[#r + 1] = SEP
 	-- reset
-	r[#r + 1] = { text = "Reset This Icon", disabled = not (ElementOwn(e) or not on),
+	r[#r + 1] = { text = "Reset This Button", disabled = not (ElementOwn(e) or not on),
 		tip = "Shows this button again and puts it back in its own place in Drop All (" .. ORD[e] .. " of the four).",
 		onClick = function()
 			O()[SHOW_KEY[e]] = true
@@ -534,9 +537,6 @@ local function ElementMenu(e)
 			Run("UpdateMiniTotemBar")
 			BtnRow:Changed(false)
 		end }
-	r[#r + 1] = SEP
-	-- its keys
-	r[#r + 1] = Keybind(function() return KeyRows(BIND_BUTTON[e], BIND_FLYOUT[e]) end, "its button key and its flyout key")
 	return r
 end
 
@@ -567,6 +567,7 @@ local function DropAllMenu()
 		r[#r + 1] = SEP
 	end
 	-- what it does
+	if SetsBar() then r[#r + 1] = { text = "Behavior", label = true } end
 	r[#r + 1] = { text = "Drop Order", value = function()
 			local n = DroppedCount()
 			return (n == 4) and "All Four" or (n .. " Of 4"), DropAllOwn()
@@ -647,15 +648,29 @@ local function DropAllMenu()
 					pic = pickPic, onClick = pick },
 			}
 		end }
+	-- Start Over After (a Discord ask, 3.0.9.1): the sequence's reset time, the button's and SP_DropAll's alike
+	r[#r + 1] = Slider("Start Over After", 0, 60, 1, function() return O().dropAllResetSeconds or 15 end,
+		function(v)
+			O().dropAllResetSeconds = v
+			Run("UpdateDropAllButton")
+			if not InCombatLockdown() then Run("UpdateSPMacros") end
+		end,
+		function(v) if (v or 0) <= 0 then return "Never" end return v .. " s" end, false,
+		"How long after a press the button (and the SP_DropAll macro) waits before the sequence starts over at its"
+		.. " first totem. Never: it only moves on when you cast. Leaving a fight starts it over either way.")
+	r[#r + 1] = SEP
+	-- its key
+	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_DROPALL") end, "the key that presses it")
 	r[#r + 1] = SEP
 	-- reset
-	r[#r + 1] = { text = "Reset This Icon", disabled = not (DropAllOwn() or O().showDropAllButton == false),
+	r[#r + 1] = { text = "Reset This Button", disabled = not (DropAllOwn() or O().showDropAllButton == false or O().dropAllResetSeconds ~= nil),
 		tip = "Back to how it came: on the bar with its usual icon, dropping Earth, Fire, Water, Air in that order"
 			.. (SetsBar() and ", the Blizzard Totem Sets switches on." or "."),
 		onClick = function()
 			local o = O()
 			o.showDropAllButton = true
 			o.dropAllIcon = nil
+			o.dropAllResetSeconds = nil
 			o.dropOrder = { 1, 2, 3, 4 }
 			if SetsBar() then o.dropAllUsesTotemSets, o.totemSetsSyncAssignments, o.totemSetsAdoptFromBar = nil, nil, nil end
 			for e = 1, 4 do if Excluded(e) then SP:SetDropAllExclude(e, false) end end
@@ -663,9 +678,6 @@ local function DropAllMenu()
 			Run("UpdateMiniTotemBar")
 			BtnRow:Changed(false)
 		end }
-	r[#r + 1] = SEP
-	-- its key
-	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_DROPALL") end, "the key that presses it")
 	return r
 end
 
@@ -740,6 +752,7 @@ local function EarthShieldMenu()
 	end }
 	r[#r + 1] = SEP
 	-- what it does
+	r[#r + 1] = { text = "Behavior", label = true }
 	-- (no picture says a flyout: its card is the switch alone)
 	local fly = Choice("Flyout", { { true, "On" }, { false, "Off" } }, function()
 		return O().enableESFlyout ~= false, false
@@ -785,22 +798,23 @@ local function EarthShieldMenu()
 		end }
 	r[#r + 1] = SEP
 	-- what it plays over its last seconds
+	r[#r + 1] = { text = "Effects & Sound", label = true }
 	r[#r + 1] = ESRunningRow()
 	r[#r + 1] = Slider("Running Out (Seconds Left)", 10, 300, 5, function() return (ESGet("runOutSecs")) or 60 end,
 		function(v) ESSet("runOutSecs", v); BtnRow:Repaint() end,
 		function(v) return string.format("%d sec", tonumber(v) or 0) end, false,
 		"When Earth Shield counts as running out, for Running Out. It also counts on its last 2 charges.")
 	r[#r + 1] = SEP
+	-- its key
+	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_EARTH_SHIELD") end, "the key that presses it")
+	r[#r + 1] = SEP
 	-- reset
-	r[#r + 1] = { text = "Reset This Icon", disabled = not (ESOwn() or flyOn or not on),
+	r[#r + 1] = { text = "Reset This Button", disabled = not (ESOwn() or flyOn or not on),
 		tip = "Back to how it came: on the bar, no flyout, everyone in the flyout, Running Out off.",
 		onClick = function()
 			ResetES()
 			BtnRow:Changed(false)
 		end }
-	r[#r + 1] = SEP
-	-- its key
-	r[#r + 1] = Keybind(function() return KeyRows("SHAMANPOWER_EARTH_SHIELD") end, "the key that presses it")
 	return r
 end
 
@@ -883,6 +897,7 @@ local function TotemMenu(item)
 	if TempApplies(id) then r[#r + 1] = SEP end
 	-- its pulse: the bar and the flash
 	if pk then
+		r[#r + 1] = { text = "Effects & Sound", label = true }
 		local why = PulseOffWhy(false)
 		-- the pictures: the bar in Pulse Bar Color (the theme's, else white); the flash in Pulse Flash Color
 		local bar = Choice("Pulse Bar", { { true, "On" }, { false, "Off" } }, function()
@@ -915,22 +930,25 @@ local function TotemMenu(item)
 		r[#r + 1] = flash
 	end
 	if pk then r[#r + 1] = SEP end
-	-- where it sits in its flyout
+	-- where it sits in its flyout, and its key (one group: Position & Keys)
+	local pk2 = {}
 	if not Native() then
 		-- (3.0.9) its place in the flyout, for whoever would rather click than drag it on the row
 		local pos, n = TotemPlace(item)
-		r[#r + 1] = { text = "Move Earlier in Flyout", disabled = (pos <= 1) or nil,
+		pk2[#pk2 + 1] = { text = "Earlier in Flyout", disabled = (pos <= 1) or nil,
 			tip = "One place earlier in its flyout. Drag it along its line on the row for any place.",
 			onClick = function() SetTotemPlace(item, pos - 1) return OrderChanged() end }
-		r[#r + 1] = { text = "Move Later in Flyout", disabled = (pos >= n) or nil,
+		pk2[#pk2 + 1] = { text = "Later in Flyout", disabled = (pos >= n) or nil,
 			tip = "One place later in its flyout. Drag it along its line on the row for any place.",
 			onClick = function() SetTotemPlace(item, pos + 1) return OrderChanged() end }
-		r[#r + 1] = { text = "Reset Flyout Order", disabled = (not SP.FlyoutOrderIsUsual or SP:FlyoutOrderIsUsual(item.e)) or nil,
-			tip = "The " .. ELEM[item.e] .. " flyout back in the game's order.",
-			onClick = function() SP:SetFlyoutOrder(item.e, nil) return OrderChanged() end }
-		r[#r + 1] = SEP
 	end
+	pk2[#pk2 + 1] = Keybind(function() return KeyRows(nil, FlyoutBinding(item)) end,
+		"the key that casts it from its flyout")
+	if #pk2 > 1 then r[#r + 1] = { text = "Position & Keys", label = true } end
+	for _, x in ipairs(pk2) do r[#r + 1] = x end
+	r[#r + 1] = SEP
 	-- copy and reset
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	if pk or TempApplies(id) then
 		r[#r + 1] = { text = "Copy Settings", onClick = function()
 			TotRow.clip = TotemSnapshot(item)
@@ -961,6 +979,11 @@ local function TotemMenu(item)
 			return o
 		end }
 	end
+	if not Native() then
+		r[#r + 1] = { text = "Reset Flyout Order", disabled = (not SP.FlyoutOrderIsUsual or SP:FlyoutOrderIsUsual(item.e)) or nil,
+			tip = "The " .. ELEM[item.e] .. " flyout back in the game's order.",
+			onClick = function() SP:SetFlyoutOrder(item.e, nil) return OrderChanged() end }
+	end
 	r[#r + 1] = { text = "Reset This Totem", disabled = not (TotemOwn(item) or not InFlyout(item)),
 		tip = "Back to how it came: in its flyout" .. (pk and ", Pulse Bar and Pulse Flash on" or "")
 			.. (TempApplies(id) and (", Counts As Temporary " .. (TempDefault(id) and "on" or "off")) or "") .. ".",
@@ -970,10 +993,6 @@ local function TotemMenu(item)
 			if TempApplies(id) then SetTemp(id, TempDefault(id)) end
 			TotRow:Changed(false)
 		end }
-	r[#r + 1] = SEP
-	-- its key
-	r[#r + 1] = Keybind(function() return KeyRows(nil, FlyoutBinding(item)) end,
-		"the key that casts it from its flyout")
 	return r
 end
 
@@ -1065,6 +1084,7 @@ BtnRow = ns.IconRow.New({
 			O()[SHOW_KEY[k]] = not ElementShown(k)
 			Run("UpdateMiniTotemBar")
 		end
+		Run("SetupKeybindings")   -- its key follows (Keybinds Still Work Even If Icon Is Turned Off)
 	end,
 	menu = function(item)
 		local k = item.key

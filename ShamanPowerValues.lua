@@ -974,6 +974,7 @@ ShamanPower.TotemBaseDurations = {
     [16190] = 13,           -- Mana Tide Totem
     [17354] = 13,           -- Mana Tide Totem
     [17359] = 13,           -- Mana Tide Totem
+    [1325256] = 13,         -- Mana Tide Totem (rank 4, WoW: Forever)
     [10595] = 300,          -- Nature Resistance Totem
     [10600] = 300,          -- Nature Resistance Totem
     [10601] = 300,          -- Nature Resistance Totem

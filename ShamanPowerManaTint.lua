@@ -18,7 +18,7 @@ SP.MANA_TINT_DEFAULT = { r = 0.45, g = 0.45, b = 1.0 }   -- Blizzard's "not enou
 -- The buttons cast by name, which is the highest rank known, while the spell
 -- IDs they carry are rank 1: ask about the name, or a button you cannot afford
 -- at your rank stays untinted while rank 1 is still affordable. A spell whose
--- name the client cannot read (Tranquil Air Totem on Forever) is asked about
+-- name the client cannot read (an encrypted row on Forever) is asked about
 -- by its ID, as before. (GetSpellInfo by ID is cached per ID on Forever, so
 -- this makes no garbage.)
 local function castName(spellID)

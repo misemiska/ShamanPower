@@ -627,18 +627,19 @@ local function MenuItems(item)
 	local r = {}
 	-- the shield itself
 	local on = Shown(s)
+	r[#r + 1] = { text = "Show", label = true }
 	r[#r + 1] = { text = on and "Hide This Shield's Charges" or "Show This Shield's Charges",
 		tip = "The same as a click on its icon. Its settings stay as they are.",
 		onClick = function()
 			if HasAPI() then SP:SetShieldOpt(s, "enabled", not on) end
 			Row:Changed(false)
 		end }
-	r[#r + 1] = SEP
 	-- when it shows
 	r[#r + 1] = ChoiceName(s, "Show", "show", SHOW_CHOICES, ShowTip(s), "up")
 	r[#r].words = "when this shield's charges are on screen"
 	r[#r + 1] = SEP
-	-- how it looks
+	-- how it looks: flat, under a heading (the menus never nest deeper: a label row names the group)
+	r[#r + 1] = { text = "Appearance", label = true }
 	r[#r + 1] = Slider("Scale", 0.5, 3, 0.05, function() return Val(s, "scale") or 1 end,
 		function(v) SliderSet(s, "scale", v) end, Pct, true,
 		"The size of this shield's charges: number, icon and charge bar. In Unlock UI, the mouse wheel over its box does the same.",
@@ -653,6 +654,7 @@ local function MenuItems(item)
 	r[#r + 1] = Group("Color", function() return ColorRows(s) end, nil, nil, "the charge color, and a gradient on the bar")
 	r[#r + 1] = SEP
 	-- what it does at its moments
+	r[#r + 1] = { text = "Effects & Sound", label = true }
 	r[#r + 1] = Group("While Shield Is Missing", function() return GoneRows(s) end,
 		"What this shield's icon, or its charge bar, does at 0 charges, or with no shield up: a glow, a pulse, both, or nothing.", nil,
 		"the icon, or the charge bar, at 0 charges, or with no shield up")
@@ -661,6 +663,7 @@ local function MenuItems(item)
 		"a sound the moment the shield drops")
 	r[#r + 1] = SEP
 	-- copy and reset
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	r[#r + 1] = { text = "Copy Settings", disabled = (not HasAPI()) or nil,
 		tip = "Remembers every setting of this shield as it is now, for Paste Settings on another shield.",
 		onClick = function()
@@ -689,7 +692,7 @@ local function MenuItems(item)
 		return o
 	end }
 	local hasOwn = SP.ShieldOwnChanged and SP:ShieldOwnChanged(s)
-	r[#r + 1] = { text = "Reset This Icon", disabled = (not hasOwn) or nil,
+	r[#r + 1] = { text = "Reset This Shield Display", disabled = (not hasOwn) or nil,
 		tip = hasOwn and "Every setting of this shield back to its default. The other shields stay as they are."
 			or "Nothing to reset: this shield is at its defaults.",
 		onClick = function()
@@ -737,7 +740,7 @@ Row = ns.IconRow.New({
 		end
 		lines[#lines + 1] = Shown(s) and "Its charges show on your screen." or "Hidden: a click brings it back, with all its settings."
 		if SP.ShieldOwnChanged and SP:ShieldOwnChanged(s) then
-			lines[#lines + 1] = "It has settings changed from its starting values (Reset This Icon in its menu clears them)."
+			lines[#lines + 1] = "It has settings changed from its starting values (Reset This Shield Display in its menu clears them)."
 		end
 		return table.concat(lines, "\n\n")
 	end,

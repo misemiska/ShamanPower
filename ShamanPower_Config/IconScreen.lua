@@ -1042,13 +1042,13 @@ RenderEntries = function(ctx, card, x, y, w, list, path, forced, skipChoices, ro
 	local m = M()
 	local def, item, body = ctx.def, ctx.item, card:GetParent()
 	local pendingOn = {}   -- on / off rows drawn as part of a run
-	local several = 0
+	local count = 0
 	for _, e in ipairs(list) do
-		if type(e) == "table" and not e.separator and not (skipChoices and e.selected ~= nil) then several = several + 1 end
+		if type(e) == "table" and not e.separator and not e.label and not (skipChoices and e.selected ~= nil) then count = count + 1 end
 	end
-	several = several > 1
+	local several = count > 1
 	for index, entry in ipairs(list) do
-		if type(entry) == "table" and not (skipChoices and entry.selected ~= nil) then
+		if type(entry) == "table" and not entry.label and not (skipChoices and entry.selected ~= nil) then
 			local sub = entry.sub and m.Sub(entry) or nil
 			local kind = m.Kind(entry, sub)
 			local p = PathTo(path, entry, rootIndex or index)
@@ -1172,9 +1172,7 @@ RenderEntries = function(ctx, card, x, y, w, list, path, forced, skipChoices, ro
 				if mixed or kind == "multi" then y = RenderEntries(ctx, card, x, y, w, sub, p, forced, true) end
 
 			elseif kind == "onoff" then
-				if pendingOn[entry] then
-					-- (drawn already, with the on / off row before it)
-				else
+				if not pendingOn[entry] then   -- (else: drawn already, with the on / off row before it)
 					-- this on / off row and the plain on / off rows right after it: one line of tiles
 					wipe(specs)
 					local run = {}
@@ -1451,7 +1449,7 @@ function IconScreen:Render(body, fullW, element, onChanged)
 	local footer = {}
 	local footerSeen = false
 	for index, entry in ipairs(list) do
-		if type(entry) == "table" and not entry.separator then
+		if type(entry) == "table" and not entry.separator and not entry.label then
 			local sub = entry.sub and m.Sub(entry) or nil
 			local kind = m.Kind(entry, sub)
 			if kind == "button" then

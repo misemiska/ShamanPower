@@ -74,7 +74,7 @@ local BAR_CHOICES = { { "none", "None" }, { "below", "Below The Icon" }, { "abov
 local TEXTPOS_CHOICES = { { "center", "Center" }, { "top", "Top" }, { "bottom", "Bottom" }, { "below", "Below The Icon" }, { "above", "Above The Icon" } }
 local RANGE_CHOICES = { { "red", "Red Tint" }, { "gray", "Gray" }, { "dim", "Dim" } }
 local ANIM_CHOICES = { { "grow", "Grow and Fade" }, { "pop", "Pop" }, { "fade", "Fade Only" } }
-local SHOCK_CHOICES = { { "cycle", "Cycle" }, { "split", "Split" }, { "one", "One Shock" } }
+local SHOCK_CHOICES = { { "cycle", "Switch Between Shocks" }, { "split", "All Three in One Icon" }, { "one", "One Shock" } }
 local PICK_CHOICES = {
 	{ "earthshock", SPCompat.SpellLabel(8042, "Earth Shock") },
 	{ "flameshock", SPCompat.SpellLabel(8050, "Flame Shock") },
@@ -842,9 +842,9 @@ local function MenuItems(key)
 	local items = {}
 	-- the icon itself
 	local on = SP.ReadyReminderOn(entry) and true or false
+	items[#items + 1] = { text = "Show", label = true }
 	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
 		onClick = function() SP:ReadyReminderSetSpell(key, not on); Row:Changed(false) end }
-	items[#items + 1] = { separator = true }
 	-- when it shows
 	items[#items + 1] = entry.weaponSet and { text = "Show", words = "always on screen: it shows what you hold",
 		  value = function() return "Always", false end,
@@ -877,10 +877,12 @@ local function MenuItems(key)
 	-- right under Only In Combat: only does something while it is on, and the icon is ever on screen
 	if Opt(key, "onlyInCombat") and show ~= "flash" then items[#items + 1] = FadeRow(key) end
 	if entry.combo then
+		items[#items + 1] = { separator = true }
 		items[#items + 1] = Group("Shocks", function() return ShockRows() end, "how its one icon shows the three shocks")
 	end
 	items[#items + 1] = { separator = true }
 	-- how it looks
+	items[#items + 1] = { text = "Appearance", label = true }
 	items[#items + 1] = Group("Appearance", function() return AppearanceRows(key, entry) end,
 		"size, opacity, shape, background, border, name, the glow's look")
 	-- the cooling settings only do something while it shows on cooldown
@@ -893,6 +895,7 @@ local function MenuItems(key)
 	if buffInfo then items[#items + 1] = BuffGroup(key, entry, buffInfo) end
 	items[#items + 1] = { separator = true }
 	-- what it does at its moments
+	items[#items + 1] = { text = "Effects & Sound", label = true }
 	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "While Imbue Is Missing" or "When Ready"
 	items[#items + 1] = Group(readyName, function() return ReadyRows(key, entry, readyName) end,
 		entry.weaponSet and "the effect while you hold a set" or entry.imbue and "the effect while an imbue is missing" or "the effect the moment it's ready")
@@ -937,6 +940,7 @@ local function MenuItems(key)
 		items[#items + 1] = { separator = true }
 	end
 	-- copy and reset
+	items[#items + 1] = { text = "Copy & Reset", label = true }
 	items[#items + 1] = { text = "Copy Settings", onClick = function()
 		Row.clip = { from = key, name = entry.name, snap = SP:ReadyReminderOwnSnapshot(key) }
 		return true
@@ -988,6 +992,7 @@ local function MenuItems(key)
 	end
 	if #tests > 0 then
 		items[#items + 1] = { separator = true }
+		if #tests > 1 then items[#items + 1] = { text = "Test", label = true } end
 		for _, t in ipairs(tests) do items[#items + 1] = t end
 	end
 	return items
@@ -1066,6 +1071,7 @@ local function RowMenuItems(i)
 	local t = {}
 	t[#t + 1] = { text = "Rename...", tip = "Rename this row.", onClick = function() NameBox(i); return false end }
 	t[#t + 1] = SEP_ROW
+	t[#t + 1] = { text = "Position & Keys", label = true }
 	t[#t + 1] = Menu.Slider("Spacing", 0, 40, 1, function() return tonumber(r.spacing) or 8 end,
 		function(v) SP:ReadyRowSet(i, "spacing", v); Row:Changed(true) end,
 		function(v) return string.format("%d px", v) end, false,
@@ -1074,10 +1080,10 @@ local function RowMenuItems(i)
 		function() return r.direction or "row", false end,
 		function(v) SP:ReadyRowSet(i, "direction", v); Row:Changed(true); return true end,
 		"A row runs right; a column runs down.", Pic.NONE)
-	t[#t + 1] = { text = "Move This Row", tip = "Opens Unlock UI with just this row's box. Drag it where you want it, then press Done.",
+	t[#t + 1] = { text = "Move " .. (r.name or ("Row " .. i)), tip = "Unlocks only this row's box: drag it where you want it, then press Done.",
 		onClick = function() SP:ReadyRowMove(i); return false end }
 	t[#t + 1] = SEP_ROW
-	t[#t + 1] = { text = "Delete This Row", tip = "Its spells go to Not On A Row (off your screen until you place them again).",
+	t[#t + 1] = { text = "Delete Row and Hide Its Icons", tip = "Its spells go to Not On A Row (off your screen until you place them again).",
 		onClick = function() SP:ReadyRowDelete(i); Row:Changed(false); return false end }
 	return t
 end
@@ -1256,19 +1262,13 @@ local function FlashMenuItems(key)
 	local on = Opt(key, "flash") == true
 	local own = SP:ReadyFlashHasOwnSpot(key)
 	local t = {}
+	t[#t + 1] = { text = "Show", label = true }
 	t[#t + 1] = { text = "Ready Flash", pic = Pic.FLASH, words = "a big flash of the icon the moment it's ready",
 		value = function() return OnOff(on), on end,
 		sub = function() return {
 			{ text = "On", selected = on, onClick = function() return FSet(key, "flash", true) end },
 			{ text = "Off", selected = not on, onClick = function() return FSet(key, "flash", false) end },
 		} end }
-	t[#t + 1] = { separator = true }
-	-- how it looks (its own spot has its own size; the shared spot's size is the tab's)
-	if own then
-		t[#t + 1] = SliderRow(key, "Size", "flashSize", 48, 200, 4,
-			SP.ReadyReminderIconOpt and (tonumber(SP:ReadyReminderIconOpt(key, "flashSize")) or 96) or 96, nil, nil, Pic.SIZE)
-		t[#t + 1] = { separator = true }
-	end
 	-- when
 	t[#t + 1] = { text = "Flash Early", tip = "Flash this many seconds before the spell is ready. Use Page Setting follows Flash Early on this tab.",
 		slider = { min = 0, max = 5, step = 0.5,
@@ -1276,7 +1276,14 @@ local function FlashMenuItems(key)
 			set = function(v) SP:ReadyReminderSetIconOpt(key, "flashEarly", v > 0 and v or nil); FlashRow:Repaint() end,
 			format = function(v) return Secs(v, "Use Page Setting") end } }
 	t[#t + 1] = { separator = true }
+	-- how it looks (its own spot has its own size; the shared spot's size is the tab's)
+	if own then
+		t[#t + 1] = SliderRow(key, "Size", "flashSize", 48, 200, 4,
+			SP.ReadyReminderIconOpt and (tonumber(SP:ReadyReminderIconOpt(key, "flashSize")) or 96) or 96, nil, nil, Pic.SIZE)
+		t[#t + 1] = { separator = true }
+	end
 	-- where
+	if own then t[#t + 1] = { text = "Position & Keys", label = true } end
 	t[#t + 1] = { text = "Position", pic = Pic.NONE, words = "where this spell's flash plays",
 		value = function() return own and "Separate Position" or "Shared Position", own end,
 		tip = "Where this spell's flash plays: the shared spot, or a spot of its own (Unlock UI opens with its box; drop it where you want it).",

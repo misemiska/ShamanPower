@@ -847,6 +847,10 @@ do
 		local args = {
 			controller_intro = { type = "description", width = "full",
 				name = "Your four totems shaped like your controller, with Drop All in the middle. Clicking a slot presses the same button on your totem bar." },
+			controller_enabled = { type = "toggle", width = "full", name = "Enable Controller",
+				desc = "Turn the controller bar on or off.",
+				get = function() local c = SP.opt and SP.opt.controller return c and c.enabled and true or false end,
+				set = function(_, v) if SP.Controller then SP.Controller:SetEnabled(v) end end },
 			controller_look = { type = "select", width = 1.0, name = "Show Controller Bar",
 				desc = "Automatic: shows while Blizzard's controller mode (Gamepad UI) is on. Always: shows whenever the Controller switch is on. It shows, hides, moves and changes size out of a fight only.",
 				values = { auto = "Automatic", always = "Always" }, sorting = { "auto", "always" },
@@ -913,11 +917,14 @@ do
 		SP.OptionCustomRow = SP.OptionCustomRow or {}
 		SP.OptionCustomRow[args.controller_buttons] = "controller_buttons"
 		SP.OrderSettingsBands(F.controller_page, {
-			{ keys = { "controller_intro", "controller_move" } },
+			-- the pictures first, the words and switches under them (the owner, 2026-10-17: every icon page)
+			{ header = "controller_buttons_header", name = "Controller Buttons", keys = { "controller_buttons" } },
+			{ keys = { "controller_enabled", "controller_intro" } },
 			{ header = "controller_look_header", name = "Look", keys = { "controller_look", "controller_layout",
 				"controller_scale", "controller_glyphs", "controller_hide_bar", "controller_rumble",
-				"controller_cooldowns", "controller_cd_layout", "controller_cd_scale", "controller_cd_hide_bar", "controller_cd_move" } },
-			{ header = "controller_buttons_header", name = "Controller Buttons", keys = { "controller_buttons" } },
+				"controller_cooldowns", "controller_cd_layout", "controller_cd_scale", "controller_cd_hide_bar" },
+				names = { controller_scale = "Scale", controller_cd_scale = "Scale" } },
+			{ header = "controller_position_header", name = "Position", keys = { "controller_move", "controller_cd_move" } },
 		})
 		C.pageArgs = args
 	end

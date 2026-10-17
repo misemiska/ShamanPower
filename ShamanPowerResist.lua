@@ -2,8 +2,9 @@
 -- Raid resistance requests (WoW: Forever only).
 --
 -- On Forever the Fire, Frost and Nature Resistance totems reach the whole raid
--- within 30 yards (every other totem is party-only), so one shaman per
--- resistance is enough. Any shaman running ShamanPower, or the raid leader or
+-- within 30 yards, so one shaman per resistance is enough. (Since the 10-15
+-- patch Strength of Earth, Grace of Air, Windfury and Flametongue reach the
+-- raid too; the rest stay party-wide.) Any shaman running ShamanPower, or the raid leader or
 -- an assistant, can say "we need Fire Resistance". That is a REQUEST: every
 -- client works out the same proposal (the shaman whose party loses least), and
 -- only the chosen shaman's own client changes their totems - directly with
@@ -183,19 +184,42 @@ local function ScanRoster()
 	end
 end
 
--- What the shaman's party gives up when that element's totem becomes the
--- resistance. An empty slot costs nothing.
+-- The raid-wide totems (the 10-15 patch): Windfury and Grace of Air in Air, Flametongue
+-- in Fire. Taking one away from its only provider costs the whole raid; with another
+-- shaman assigned the same totem the raid keeps it, so it costs about one.
+local RAID_WIDE = { [4] = { [1] = "melee", [2] = "melee" }, [2] = { [5] = "melee" } }   -- [element][index] = what it buffs
+
+local Candidates   -- (the shamans in the group; defined below)
+local function OtherProvider(name, element, index)
+	for _, other in ipairs(Candidates()) do
+		if other ~= name and AssignedIndex(other, element) == index then return true end
+	end
+	return false
+end
+
+local function RaidTotal(what)
+	local n = 0
+	for _, g in pairs(groups) do n = n + (g[what] or 0) end
+	return n
+end
+
+-- What is given up when that element's totem becomes the resistance: the raid's
+-- loss for a raid-wide totem nobody else provides, the shaman's party's loss for
+-- a party-wide one. An empty slot costs nothing.
 local function Loss(name, r)
 	local current = AssignedIndex(name, r.element)
 	if current == 0 then return 0 end
+	local what = RAID_WIDE[r.element] and RAID_WIDE[r.element][current]
+	if what then
+		if OtherProvider(name, r.element, current) then return 1 end
+		return math.max(RaidTotal(what), 1)
+	end
 	local g
 	if FAKE[name] then g = groups[name] else g = roster[name] and groups[roster[name]] end
 	if not g then return 5 end
-	-- the party-wide totem each slot usually holds costs the party; anything
-	-- else there (Searing, Healing Stream, Grounding...) costs about one
-	if r.key == "nature" and current == 1 then return g.melee end   -- Windfury
+	-- the party-wide totem a slot usually holds costs the party; anything else
+	-- there (Searing, Healing Stream, Grounding...) costs about one
 	if r.key == "fire" and current == 1 then return g.mana end      -- Mana Spring
-	if r.key == "frost" and current == 5 then return g.melee end    -- Flametongue
 	return 1
 end
 
@@ -217,7 +241,7 @@ end
 
 -- Real shamans running ShamanPower who are in the group, plus the pretend ones.
 local candidates = {}
-local function Candidates()
+function Candidates()
 	wipe(candidates)
 	for _, name in ipairs(SP.SyncList or {}) do
 		if roster[name] or name == Player() then candidates[#candidates + 1] = name end
@@ -1161,7 +1185,7 @@ if SP.options and SP.options.args and SP.options.args.buttons and SP.options.arg
 					.. " ShamanPower picks the shaman whose party loses the fewest buffs, and only that shaman's own ShamanPower changes their totems.",
 			},
 			enabled = {
-				order = 1, type = "toggle", width = "full", name = "Raid Resistance Requests",
+				order = 1, type = "toggle", width = "full", name = "Enable Raid Resistance Requests",
 				desc = "Show the Raid Resistance checkboxes and answer requests from the raid. Off: you do not see the checkboxes, and a request that picks you passes straight to the next shaman.",
 				get = function() return SP.opt.resistRequests ~= false end,
 				set = function(_, v)
@@ -1189,7 +1213,7 @@ if SP.options and SP.options.args and SP.options.args.buttons and SP.options.arg
 				end,
 			},
 			autoaccept = {
-				order = 2, type = "toggle", width = "full", name = "Auto-Accept Resistance Requests",
+				order = 2, type = "toggle", width = "full", name = "Accept Requests Without Asking",
 				desc = "When the raid asks you for a resistance totem, switch to it without the Accept / Pass prompt. With Free Assign on you are switched without a prompt anyway."
 					.. " Your previous totem comes back when the request ends. Never in combat: a switch that comes up in a fight waits for it to end.",
 				disabled = function() return SP.opt.resistRequests == false end,

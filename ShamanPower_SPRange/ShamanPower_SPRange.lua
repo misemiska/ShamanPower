@@ -199,7 +199,7 @@ local BUFF_RANKS = {
 	[8182] = { 8182, 10476, 10477 },
 	[5677] = { 5677, 10491, 10493, 10494 },
 	[5672] = { 5672, 6371, 6372, 10460, 10461 },
-	[16191] = { 16191, 17355, 17360 },
+	[16191] = { 16191, 17355, 17360, 1325257 },   -- (1325257: rank 4, WoW: Forever)
 	[8185] = { 8185, 10534, 10535 },
 	[8836] = { 8836, 10626, 25360 },
 	[10596] = { 10596, 10598, 10599 },
@@ -542,8 +542,10 @@ function SP:CreateSPRangeFrame()
 	frame:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		-- Save position
-		local point, _, _, x, y = self:GetPoint()
-		ShamanPower_RangeTracker.position = { point = point, x = x, y = y }
+		-- the point's other end too: Unlock UI drops the frame anchored to a corner of the screen, and
+		-- reading that back as "from the center" put it back in the middle (a reviewer's bug, 3.0.9.1)
+		local point, _, relPoint, x, y = self:GetPoint()
+		ShamanPower_RangeTracker.position = { point = point, relPoint = relPoint, x = x, y = y }
 	end)
 
 	-- Right-click to configure (when border is hidden)
@@ -1281,7 +1283,7 @@ function SP:ShowSPRangeOverlay()
 	local pos = ShamanPower_RangeTracker.position
 	if pos then
 		self.spRangeFrame:ClearAllPoints()
-		self.spRangeFrame:SetPoint(pos.point, UIParent, pos.point, pos.x, pos.y)
+		self.spRangeFrame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x, pos.y)
 	end
 	self:UpdateSPRangeFrame()
 	self:UpdateSPRangeBorder()

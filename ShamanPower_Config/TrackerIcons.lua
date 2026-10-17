@@ -209,6 +209,7 @@ do
 		-- copy and reset
 		if Free() then
 			r[#r + 1] = SEP
+			r[#r + 1] = { text = "Copy & Reset", label = true }
 			r[#r + 1] = { text = "Copy Size To...", subMaxHeight = 420,
 				words = "this size onto another totem you watch, or all of them", sub = function()
 				local o, list = {}, {}
@@ -273,6 +274,356 @@ do
 		end
 		if sp.UpdateCoverageLayout then sp:UpdateCoverageLayout() end
 	end
+end
+
+-- ===========================================================================
+-- Party Buff Tracker > Raid Coverage (WoW: Forever, 3.0.9.1): the seven raid-wide totems of
+-- ShamanPower_RaidCoverage.lua. A click turns the totem's cell on or off; a right-click opens its own screen: Watch (a preset), Roles, Classes (a
+-- class whose specs matter opens to them), People (everyone in the raid now, Add a Name), Copy
+-- Who It Watches To, Reset This Totem. The blue corner: a setup of its own (Custom).
+-- The values live in opt.raidCoverage.watch (SP:RaidWatchRule, ShamanPower_RaidCoverage.lua).
+-- ===========================================================================
+local RaidCov
+if SPCompat and SPCompat.FOREVER and SP.RaidWatchRule then
+	local EKEY = { "earth", "fire", "water", "air" }
+	local CLASSES = { { "WARRIOR", "Warriors" }, { "PALADIN", "Paladins" }, { "HUNTER", "Hunters" }, { "ROGUE", "Rogues" },
+		{ "PRIEST", "Priests" }, { "SHAMAN", "Shamans" }, { "MAGE", "Mages" }, { "WARLOCK", "Warlocks" }, { "DRUID", "Druids" } }
+	-- the specs that tell melee from not: the three hybrids
+	local SPECS = {
+		PALADIN = { { "holy", "Holy" }, { "protection", "Protection" }, { "retribution", "Retribution" } },
+		SHAMAN = { { "elemental", "Elemental" }, { "enhancement", "Enhancement" }, { "restoration", "Restoration" } },
+		DRUID = { { "balance", "Balance" }, { "feral", "Feral" }, { "restoration", "Restoration" } },
+	}
+	local function Key(item) return item.element .. ":" .. item.index end
+	local function Items(out)
+		for _, t in ipairs(SP.RAID_COVERAGE_TOTEMS or {}) do
+			local totem = SP.GetTotemSpell and SP:GetTotemSpell(t[1], t[2])
+			if totem and (not SPCompat.SpellExists or SPCompat.SpellExists(totem)) then
+				out[#out + 1] = { key = t[1] * 100 + t[2], element = t[1], index = t[2], totem = totem,
+					name = (SP.GetTotemName and SP:GetTotemName(t[1], t[2])) or SpellName(totem) or tostring(totem) }
+			end
+		end
+	end
+	local function Icon(item) return SpellTexture(item.totem) or QUESTION end
+	local function Learned(item) return SP.KnowsTotem and SP:KnowsTotem(item.element, item.index) and true or false end
+	local function ClassText(class, label)
+		local col = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+		if col and col.colorStr then return "|c" .. col.colorStr .. label .. "|r" end
+		return label
+	end
+	local function Preset(item) return SP:RaidWatchPreset(Key(item)) end
+	local function PresetLabel(item) return SP:RaidWatchLabel(Key(item)) end
+	local function Pick(item, section, id, text)
+		return { text = text, selected = SP:RaidWatchPicked(Key(item), section, id), onClick = function()
+			SP:RaidWatchToggle(Key(item), section, id)
+			Changed(RaidCov, true)
+			return true
+		end }
+	end
+	local function CountPicked(item, section)
+		local t = SP:RaidWatchRule(Key(item))[section]
+		local n = 0
+		for _ in pairs(t or {}) do n = n + 1 end
+		return n
+	end
+	local function PickedValue(item, section, list)
+		local n = CountPicked(item, section)
+		if n == 0 then return "None", false end
+		if n == 1 and list then
+			for _, c in ipairs(list) do if SP:RaidWatchPicked(Key(item), section, c[1]) then return c[2], true end end
+		end
+		return n .. " picked", true
+	end
+	local function TipBody(item)
+		local t = "Reaches the whole raid within 30 yards. Its cell in the Raid Coverage panel watches: " .. PresetLabel(item) .. "."
+		if not Learned(item) then t = t .. " You haven't learned it yet: set it up now, it shows once you learn it." end
+		return t
+	end
+	-- a name typed in (someone not in the raid right now): kept with the picks
+	local function AddName(item)
+		SP:ShowSPDialog({
+			key = "raidWatchName",
+			title = "Add a name",
+			text = "Watch this player whatever their role or class, even when they are not in the raid right now.",
+			input = { text = "", maxLetters = 24 },
+			buttons = {
+				{ text = "Add", onClick = function(dialog)
+					local v = dialog and dialog.GetInput and dialog:GetInput() or ""
+					v = tostring(v or ""):match("^%s*(.-)%s*$") or ""
+					if v ~= "" then SP:RaidWatchToggle(Key(item), "people", v, true); Changed(RaidCov, false) end
+				end },
+				{ text = "Cancel" },
+			},
+		})
+	end
+	local function PeopleItems(item)
+		local o, seen = {}, {}
+		local roster = SP.RaidCoverageRoster and SP:RaidCoverageRoster() or {}
+		table.sort(roster, function(a, b) return (a.group or 9) * 100 + (a.name or "") < (b.group or 9) * 100 + (b.name or "") end)
+		for _, p in ipairs(roster) do
+			if p.name and not seen[p.name] then
+				seen[p.name] = true
+				local label = ClassText(p.class, p.name)
+				if p.group then label = "|cff5A6678G" .. p.group .. "|r  " .. label end
+				o[#o + 1] = Pick(item, "people", p.name, label)
+			end
+		end
+		-- names picked before, not in the raid now
+		local people = SP:RaidWatchRule(Key(item)).people
+		local extra = {}
+		for name in pairs(people or {}) do if not seen[name] then extra[#extra + 1] = name end end
+		table.sort(extra)
+		if #extra > 0 then
+			o[#o + 1] = { text = "Not in the raid now", label = true }
+			for _, name in ipairs(extra) do o[#o + 1] = Pick(item, "people", name, name) end
+		end
+		if #o == 0 then o[#o + 1] = { text = "Nobody else in the raid right now.", disabled = true } end
+		o[#o + 1] = SEP
+		o[#o + 1] = { text = "Add a Name...", tip = "Watch someone by name whatever their role or class, even when they are not here now.",
+			onClick = function() AddName(item) end }
+		return o
+	end
+	local function ClassItems(item)
+		local o = {}
+		for _, c in ipairs(CLASSES) do
+			local specs = SPECS[c[1]]
+			if specs then
+				o[#o + 1] = { text = ClassText(c[1], c[2]), tip = "All of them, or only the specs that matter to this totem.",
+					value = function()
+						if SP:RaidWatchPicked(Key(item), "classes", c[1]) then return "All", true end
+						local names = {}
+						for _, s in ipairs(specs) do if SP:RaidWatchPicked(Key(item), "specs", c[1] .. ":" .. s[1]) then names[#names + 1] = s[2] end end
+						if #names == 0 then return "None", false end
+						return table.concat(names, ", "), true
+					end,
+					sub = function()
+						local items = { Pick(item, "classes", c[1], "All " .. c[2]), SEP }
+						for _, s in ipairs(specs) do items[#items + 1] = Pick(item, "specs", c[1] .. ":" .. s[1], s[2]) end
+						return items
+					end }
+			else
+				o[#o + 1] = Pick(item, "classes", c[1], ClassText(c[1], c[2]))
+			end
+		end
+		return o
+	end
+	local function CopyItems(item)
+		local o, list = {}, {}
+		Items(list)
+		for _, x in ipairs(list) do
+			if x.key ~= item.key then
+				o[#o + 1] = { text = x.name, icon = Icon(x), onClick = function()
+					SP:RaidWatchCopy(Key(item), Key(x))
+					Changed(RaidCov, false)
+				end }
+			end
+		end
+		o[#o + 1] = SEP
+		o[#o + 1] = { text = "All Raid-Wide Totems", tip = "Every raid-wide totem watches who this one watches.", onClick = function()
+			SP:RaidWatchCopy(Key(item), "all")
+			Changed(RaidCov, false)
+		end }
+		return o
+	end
+	local function MenuItems(item)
+		local r = {}
+		local key = item.key
+		r[#r + 1] = { text = "Who It Watches", label = true }
+		local presets = {}
+		for _, c in ipairs(SP.RAID_WATCH_PRESETS or {}) do presets[#presets + 1] = { c[1], c[2] } end
+		r[#r + 1] = Choice("Watch", presets, function() return Preset(item), Preset(item) == "custom" end,
+			function(v) SP:SetRaidWatchPreset(Key(item), v); return Changed(RaidCov, true) end,
+			"Who this totem's cell watches in a raid. Melee: warriors, rogues, protection and retribution paladins, enhancement"
+			.. " shamans, feral druids. Ranged: mages, warlocks, hunters, shadow priests, balance druids, elemental shamans."
+			.. " Tanks and Healers: the role each player picked in the group tool (a raid Main Tank counts as a Tank)."
+			.. " Custom: exactly the classes, specs and people you pick below.", { kind = "none" })
+		r[#r + 1] = { text = "Classes", tip = "A class, or for paladins, shamans and druids the specs that matter. Picking anything here sets Watch to Custom.",
+			value = function()
+				local n = CountPicked(item, "classes") + CountPicked(item, "specs")
+				if n == 0 then return "None", false end
+				return n .. " picked", true
+			end,
+			sub = function() return ClassItems(item) end }
+		r[#r + 1] = { text = "People", tip = "Watch someone by name whatever their role or class. Picking anyone here sets Watch to Custom.",
+			value = function() return PickedValue(item, "people") end,
+			subMaxHeight = 420,
+			sub = function() return PeopleItems(item) end }
+		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Copy & Reset", label = true }
+		r[#r + 1] = { text = "Copy Who It Watches To", words = "who this one watches onto another raid-wide totem, or all of them",
+			sub = function() return CopyItems(item) end }
+		r[#r + 1] = { text = "Reset This Totem", tip = "Back to its own default: " .. PresetLabel({ element = item.element, index = item.index, key = key }) .. " as it came.",
+			onClick = function()
+				SP:RaidWatchReset(Key(item))
+				Changed(RaidCov, false)
+			end }
+		return r
+	end
+	RaidCov = ns.IconRow.New({
+		caption = "These seven totems reach the whole raid. " .. B .. "CLICK" .. E .. " a totem to turn its raid cell on or off. "
+			.. B .. "RIGHT-CLICK" .. E .. " it for who its cell watches: Everyone, Melee, Ranged, Tanks or Healers, or the classes, specs and people you pick."
+			.. " A blue corner: a setup of its own. " .. B .. "Dark" .. E .. ": you haven't learned it yet.",
+		hint = "Click: on / off  ·  Right-click: who it watches",
+		list = Items,
+		textures = function(item, out)
+			out[1] = Icon(item)
+			return 1
+		end,
+		shown = function(item) return SP.RaidWatchOn and SP:RaidWatchOn(Key(item)) or false end,
+		learned = Learned,
+		hasOwn = function(item) return Preset(item) == "custom" end,
+		tooltip = TipBody,
+		toggle = function(item)
+			if SP.RaidWatchSetOn then SP:RaidWatchSetOn(Key(item), not SP:RaidWatchOn(Key(item))) end
+			Changed(RaidCov, false)
+		end,
+		menu = MenuItems,
+		menuElement = function(item) return EKEY[item.element] end,
+	})
+	ns.CustomRows.raidCoverageIcons = RaidCov
+end
+
+-- ===========================================================================
+-- Totem Plates: Totems (3.0.9.1, sheet A54, both games). One icon per totem that can have a
+-- plate, by element. Click: show or hide its plate. Right-click: its own screen: Mark as
+-- Important (its plate glows), Glow Style, Glow Color, its own Size, Copy Important To, Reset.
+-- The blue corner: it is Important. The values live in opt.totemPlates (ShamanPower_TotemPlates).
+-- ===========================================================================
+local Plates
+do
+	local EKEY = { "earth", "fire", "water", "air" }
+	local ELEM = { "Earth", "Fire", "Water", "Air" }
+	local GLOW_STYLES = { { "shape", "Use Glow Shape" }, { "default", "Square" }, { "round", "Round" }, { "proc", "Proc Glow" } }
+	local function Key(item) return item.plateKey end
+	local function Items(out)
+		if not SP.TotemPlateKeyForSpell then return end
+		for e = 1, 4 do
+			local t = SP.Totems and SP.Totems[e] or {}
+			local last = SP.GetTotemIndexLimit and SP:GetTotemIndexLimit(e) or 10
+			for idx = 1, math.max(last, 10) do
+				local id = t[idx]
+				if id and (not (SPCompat and SPCompat.SpellExists) or SPCompat.SpellExists(id)) then
+					local key, english = SP:TotemPlateKeyForSpell(id)
+					if key then
+						out[#out + 1] = { key = id, e = e, idx = idx, plateKey = key,
+							name = (SP.GetTotemName and SP:GetTotemName(e, idx)) or SpellName(id) or english }
+					end
+				end
+			end
+		end
+	end
+	local function Hidden(item) return SP.TotemPlateHidden and SP:TotemPlateHidden(Key(item)) or false end
+	local function Important(item) return SP.TotemPlateImportant and SP:TotemPlateImportant(Key(item)) or false end
+	local function Own(item, name)
+		local o = SP.TotemPlateOwn and SP:TotemPlateOwn(Key(item))
+		return o and o[name]
+	end
+	local function Set(item, name, v) if SP.SetTotemPlateOwn then SP:SetTotemPlateOwn(Key(item), name, v) end end
+	local function Learned(item) return not SP.KnowsTotem or SP:KnowsTotem(item.e, item.idx) end
+	local function GlowColor(item)
+		local c = Own(item, "glowColor")
+		if type(c) == "table" then return c.r or c[1] or 1, c.g or c[2] or 0.2, c.b or c[3] or 0.2 end
+		return 1, 0.2, 0.2
+	end
+	local function TipBody(item)
+		local t = Hidden(item) and "Its plate is hidden." or "Its plate shows."
+		if Important(item) then t = t .. " Important: its plate glows." end
+		if not Learned(item) then t = t .. " You haven't learned it yet; the setting is kept for when you do." end
+		return t
+	end
+	local function MenuItems(item)
+		local r = {}
+		local hidden = Hidden(item)
+		r[#r + 1] = { text = hidden and "Show Its Plate" or "Hide Its Plate", tip = "The same as a click on it.", onClick = function()
+			if SP.SetTotemPlateHidden then SP:SetTotemPlateHidden(Key(item), not hidden) end
+			Changed(Plates, false)
+		end }
+		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Important", label = true }
+		r[#r + 1] = Choice("Mark as Important", { { true, "On" }, { false, "Off" } },
+			function() local v = Important(item); return v, v end,
+			function(v) Set(item, "important", v or nil); return Changed(Plates, true) end,
+			"Its plate glows, in the style and color below, so it stands out in a fight.", { kind = "none" })
+		r[#r + 1] = Choice("Glow Style", GLOW_STYLES,
+			function() local v = Own(item, "glowStyle") or "shape"; return v, v ~= "shape" end,
+			function(v) Set(item, "glowStyle", v ~= "shape" and v or nil); return Changed(Plates, true) end,
+			"Use Glow Shape follows General > Themes > Glow Shape. Or this totem's own: Square, Round, or Proc Glow (the one Ready Reminders use).", { kind = "none" })
+		r[#r + 1] = { text = "Glow Color", tip = "The glow's color for this totem.", swatch = { GlowColor(item) }, onClick = function()
+			if not SP.OpenColorPicker then return false end
+			local before = Own(item, "glowColor")
+			local r0, g0, b0 = GlowColor(item)
+			SP:OpenColorPicker({
+				r = r0, g = g0, b = b0, hasAlpha = false, title = (item.name or "Totem") .. " Glow Color",
+				onChange = function(nr, ng, nb) Set(item, "glowColor", { r = nr, g = ng, b = nb }); Changed(Plates, false) end,
+				onCancel = function() Set(item, "glowColor", before); Changed(Plates, false) end,
+			})
+			return false
+		end }
+		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Its Own Look", label = true }
+		r[#r + 1] = Slider("Size", 20, 80, 2, function() return Own(item, "size") or (SP.opt.totemPlates and SP.opt.totemPlates.iconSize) or 40 end,
+			function(v) Set(item, "size", v); SliderChanged(Plates) end, nil, false,
+			"This totem's own icon size on its plate. The page's Icon Size for the rest.")
+		r[#r + 1] = SEP
+		r[#r + 1] = { text = "Copy & Reset", label = true }
+		r[#r + 1] = { text = "Copy Important To", words = "its Important, glow style and color onto another totem, or all of them", subMaxHeight = 420, sub = function()
+			local o, list = {}, {}
+			Items(list)
+			for _, x in ipairs(list) do
+				if x.plateKey ~= Key(item) then
+					o[#o + 1] = { text = x.name, icon = SpellTexture(x.key), onClick = function()
+						if SP.CopyTotemPlateImportant then SP:CopyTotemPlateImportant(Key(item), x.plateKey) end
+						Changed(Plates, false)
+					end }
+				end
+			end
+			o[#o + 1] = SEP
+			o[#o + 1] = { text = "All Totems", onClick = function()
+				if SP.CopyTotemPlateImportant then SP:CopyTotemPlateImportant(Key(item), "all") end
+				Changed(Plates, false)
+			end }
+			return o
+		end }
+		r[#r + 1] = { text = "Reset This Totem", tip = "Its plate shows again, not Important, the page's size.", onClick = function()
+			if SP.ResetTotemPlate then SP:ResetTotemPlate(Key(item)) end
+			Changed(Plates, false)
+		end }
+		return r
+	end
+	Plates = ns.IconRow.New({
+		caption = B .. "CLICK" .. E .. " a totem to show or hide its plate. " .. B .. "RIGHT-CLICK" .. E
+			.. " it to mark it Important (its plate glows), for its glow and its own size. A blue corner: it is Important. "
+			.. B .. "Dark" .. E .. ": you haven't learned it yet.",
+		hint = "Click: show or hide its plate\nRight-click: Important, glow, size",
+		list = Items,
+		textures = function(item, out)
+			out[1] = SpellTexture(item.key) or QUESTION
+			return 1
+		end,
+		shown = function(item) return not Hidden(item) end,
+		learned = Learned,
+		hasOwn = Important,
+		tooltip = TipBody,
+		toggle = function(item) if SP.SetTotemPlateHidden then SP:SetTotemPlateHidden(Key(item), not Hidden(item)) end end,
+		menu = MenuItems,
+		group = function(item) return item.e end,
+		groupLabelWidth = 56,
+		groupGap = 2,
+		groupLabel = function(holder, e)
+			if not holder.box then
+				holder.box = SP:CreateElementBox(holder, 10, EKEY[e])
+				holder.box:SetPoint("LEFT", holder, "LEFT", 0, 0)
+				holder.text = holder:CreateFontString(nil, "OVERLAY")
+				holder.text:SetFontObject(Core.fonts.section)
+				holder.text:SetPoint("LEFT", holder.box, "RIGHT", 7, 0)
+				holder.text:SetJustifyH("LEFT")
+			end
+			holder.box:SetElement(EKEY[e])
+			holder.text:SetText(ELEM[e]:upper())
+		end,
+		menuElement = function(item) return EKEY[item.e] end,
+	})
+	ns.CustomRows.plateIcons = Plates
 end
 
 -- ===========================================================================
@@ -473,6 +824,7 @@ do
 			r[#r + 1] = SEP
 		end
 		local function S() return Saved(key) or {} end
+		r[#r + 1] = { text = "Appearance", label = true }
 		local sc = Slider("Scale", 0.5, 3, 0.05, function() return S().scale or DefScale() end, function(v)
 			if InCombatLockdown() then return end
 			SP:SetPopOutScale(key, v)
@@ -500,7 +852,8 @@ do
 		hb.disabled = lock
 		r[#r + 1] = hb
 		r[#r + 1] = SEP
-		-- where it sits
+		-- where it sits, and its panel
+		r[#r + 1] = { text = "Position & Keys", label = true }
 		if IsTotem(key) then
 			local fd = Choice("Flyout Direction", { { "top", "Top" }, { "bottom", "Bottom" }, { "left", "Left" }, { "right", "Right" } },
 				function() return S().flyoutDirection or "bottom", S().flyoutDirection ~= nil end, function(v)
@@ -521,8 +874,15 @@ do
 				Changed(Popouts, false)
 				Relayout(Popouts)
 			end }
+		r[#r + 1] = { text = "Open Tracker Settings", disabled = lock,
+			tip = "Opens the same settings panel as the tracker's cog (or SHIFT+middle-click on it).",
+			onClick = function()
+				local f = Frames()[key]
+				if f and SP.ShowPopOutSettingsPanel then SP:ShowPopOutSettingsPanel(key, f) end
+			end }
 		r[#r + 1] = SEP
 		-- copy and reset
+		r[#r + 1] = { text = "Copy & Reset", label = true }
 		r[#r + 1] = { text = "Copy Settings", disabled = lock, onClick = function()
 			Popouts.clip = { from = key, name = item.name, snap = Snapshot(key) }
 			return true
@@ -555,19 +915,11 @@ do
 			end }
 			return o
 		end }
-		r[#r + 1] = { text = "Reset This Tracker", disabled = lock or not HasOwn(key),
+		r[#r + 1] = { text = "Reset Tracker Appearance", disabled = lock or not HasOwn(key),
 			tip = "Restore this tracker's default size, visibility, background, border, and flyout direction. Keep its position.",
 			onClick = function()
 				Apply(RESET, key)
 				Changed(Popouts, false)
-			end }
-		r[#r + 1] = SEP
-		-- its settings panel
-		r[#r + 1] = { text = "Open Tracker Settings", disabled = lock,
-			tip = "Opens the same settings panel as the tracker's cog (or SHIFT+middle-click on it).",
-			onClick = function()
-				local f = Frames()[key]
-				if f and SP.ShowPopOutSettingsPanel then SP:ShowPopOutSettingsPanel(key, f) end
 			end }
 		return r
 	end
@@ -724,6 +1076,7 @@ do
 			r[#r + 1] = { text = "Only your raid leader or an assistant can change these", disabled = true }
 			r[#r + 1] = SEP
 		end
+		r[#r + 1] = { text = "Behavior", label = true }
 		local key = item.key
 		if key == "bl" then
 			local bl = db.bloodlust

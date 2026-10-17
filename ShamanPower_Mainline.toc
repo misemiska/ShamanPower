@@ -1,7 +1,7 @@
 ## Interface: 120100, 16001
 ## Author: Srumar
 ## Title: |cff0070ddShamanPower|r
-## Version: 3.0.8
+## Version: 3.0.9.1
 ## IconTexture: Interface\Icons\ClassIcon_Shaman
 ## Notes: Raid/Party Shaman Totem Coordination
 ## Notes-esES: Coordinacion de Totems de Chaman para Grupo/Banda
@@ -56,11 +56,13 @@ ShamanPowerRows.lua
 ShamanPowerStyles.lua
 ShamanPowerCdItems.lua
 ShamanPowerCues.lua
+ShamanPowerCountdown.lua
 ShamanPowerClickThrough.lua
 ShamanPowerDropped.lua
 ShamanPowerTown.lua
 ShamanPowerCdBarVisibility.lua
 ShamanPowerAppearancePage.lua
+ShamanPowerPageLayouts.lua
 ShamanPowerUsualTotem.lua
 ShamanPowerShieldSound.lua
 ShamanPowerController.lua

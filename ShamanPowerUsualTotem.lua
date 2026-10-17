@@ -900,7 +900,7 @@ do
 		args.usual_where = { order = 3.07, type = "description",
 			name = "|cffa0a0a0Shows on ShamanPower's own totem buttons and Compact lines, and on your usual totem in its"
 				.. " flyout, Totem Row or Grid row. Not on Blizzard's Totem Bar.|r" }
-		args.usual_test = { order = 3.08, type = "execute", name = "Test the Reminder",
+		args.usual_test = { order = 3.08, type = "execute", name = "Test Usual Totem Reminder",
 			desc = "Shows the reminder for 5 seconds on your Air button, or on the next element with an assigned totem"
 				.. " (Water, Earth, Fire), with the text alert if it is on.",
 			disabled = off,

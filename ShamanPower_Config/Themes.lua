@@ -3041,7 +3041,7 @@ end
 local CHOICE_LABEL = { ["tb.duration-text"] = "Text Color", ["tb.pulse"] = "Pulse Color" }
 local SPOT_FIELDS = {
 	theme = { label = "Theme", list = L.theme,
-		desc = ": the theme this part uses. Use General Theme follows the theme picked at the top of this page." },
+		desc = ": the theme this part uses. Use Selected Theme follows the theme picked at the top of this page." },
 	palette = { label = "Colors", list = L.palette,
 		desc = ": the element colors this part uses. Use Theme's follows Element Colors at the top"
 			.. " (Standard: your Appearance colors)." },

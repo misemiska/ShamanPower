@@ -1343,7 +1343,9 @@ local LOOK = {
 		"borderSizeCooldown", "borderSizeCooldownFlyouts", "classColors", "showAs" },
 	opt = { "barTexture", "dotShape", "dotGem", "glowShape", "procGlowOut", "frameEdge", "iconShape", "iconShapeCooldown",
 		"iconShapeReady", "iconShapeSplit", "iconBordersSquare", "durationBarBackground",
-		"barGradientDirection", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection" },
+		"barGradientDirection", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection",
+		"totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors" },
 	shield = { "lookLS", "lookWS", "lookES", "barLook", "orbLook", "chargeColorLS", "chargeColorWS", "chargeColorES",
 		"goneGlowColorLS", "goneGlowColorWS", "goneGlowColorES", "goneGlowShapeLS", "goneGlowShapeWS", "goneGlowShapeES",
 		"goneGlowThickLS", "goneGlowThickWS", "goneGlowThickES" },
@@ -1592,7 +1594,8 @@ end
 local RESET_COLOR_KEYS = { "elementColorPalette", "elementColorsCustom", "cBuffGood", "cBuffNeedSome",
 	"cBuffNeedAll", "compactOutlineColorMode", "compactOutlineColor", "compactIdleColor",
 	"totemCooldownTextColor", "pulseBarColor", "pulseFlashColor", "manaTintColor",
-	"shieldChargeColors", "cdbarSpellColors" }
+	"shieldChargeColors", "cdbarSpellColors", "countdownPreset", "countdownColorMid", "countdownColorEnd",
+	"buffTimerPreset", "buffTimerColorStart", "buffTimerColorMid", "buffTimerColorEnd" }
 -- the colors every page has, kept by a reset (read after the theme has put the
 -- player's own back) and put back by the Custom card
 function LOOK.CaptureColors(o)
@@ -1780,7 +1783,9 @@ function SP:ResetEverythingToDefault()
 	local defaults = SP.db and SP.db.defaults and SP.db.defaults.profile or {}
 	for _, k in ipairs({ "barTexture", "dotShape", "dotGem", "glowShape", "procGlowOut", "frameEdge",
 		"iconShape", "iconShapeCooldown", "iconShapeReady", "iconShapeSplit", "iconBordersSquare",
-		"durationBarBackground", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection" }) do
+		"durationBarBackground", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection",
+		"totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors", "countdownPreset",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors", "buffTimerPreset" }) do
 		o[k] = Copy(defaults[k])
 	end
 	for _, field in ipairs({ "barGradient", "outlineGradient", "chargeGradient" }) do
@@ -2349,7 +2354,12 @@ function Cards.Kinds()
 	for _, k in ipairs({ "dotGem", "iconShapeSplit", "iconBordersSquare", "durationBarBackground", "shieldChargeColors",
 		"cdbarSpellColors", "rangeElementColors" }) do K["o." .. k] = { "b" } end
 	for _, k in ipairs({ "cBuffGood", "cBuffNeedSome", "cBuffNeedAll", "compactOutlineColor", "totemCooldownTextColor",
-		"pulseBarColor", "pulseFlashColor", "manaTintColor" }) do K["o." .. k] = { "c" } end
+		"pulseBarColor", "pulseFlashColor", "manaTintColor", "countdownColorMid", "countdownColorEnd",
+		"buffTimerColorStart", "buffTimerColorMid", "buffTimerColorEnd" }) do K["o." .. k] = { "c" } end
+	K["o.countdownPreset"] = s({ shamanpower = true, wyr = true, solid = true, custom = true })   -- Cooldown Numbers
+	K["o.buffTimerPreset"] = s({ shamanpower = true, wyr = true, solid = true, custom = true })   -- Buff Timers
+	for _, k in ipairs({ "totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors" }) do K["o." .. k] = { "b" } end
 	K["o.elementColorsCustom"], K["t.custom"] = { "cs" }, { "cs" }
 	for _, field in ipairs({ "barGradient", "outlineGradient", "chargeGradient" }) do
 		local dirs = SP.GradientDirectionValues and (SP:GradientDirectionValues(field)) or nil
@@ -2571,6 +2581,12 @@ Cards.LABEL = {
 	["o.rangeElementColors"] = "Range Counter Colors", ["o.elementColorPalette"] = "Element Colors",
 	["o.elementColorsCustom"] = "Custom Element Colors", ["o.cBuffGood"] = "Status Colors", ["o.cBuffNeedSome"] = "Status Colors",
 	["o.cBuffNeedAll"] = "Status Colors", ["o.totemCooldownTextColor"] = "Cooldown Text Color", ["o.pulseBarColor"] = "Pulse Bar Color",
+	["o.countdownPreset"] = "Cooldown Numbers", ["o.countdownColorMid"] = "Cooldown Numbers", ["o.countdownColorEnd"] = "Cooldown Numbers",
+	["o.totemBarCountdownColors"] = "Color the Cooldown Numbers (Totem Bar)", ["o.cdbarCountdownColors"] = "Color the Cooldown Numbers (Cooldown Bar)",
+	["o.readyCountdownColors"] = "Color the Cooldown Numbers (Ready Reminders)",
+	["o.buffTimerPreset"] = "Buff Timers", ["o.buffTimerColorStart"] = "Buff Timers", ["o.buffTimerColorMid"] = "Buff Timers", ["o.buffTimerColorEnd"] = "Buff Timers",
+	["o.totemBarBuffTimerColors"] = "Color the Time Left (Totem Bar)", ["o.cdbarBuffTimerColors"] = "Color the Shield and Imbue Timers (Cooldown Bar)",
+	["o.readyBuffTimerColors"] = "Color the Buff Timers (Ready Reminders)",
 	["o.pulseFlashColor"] = "Pulse Flash Color", ["o.manaTintColor"] = "Mana Tint Color", ["o.shieldChargeColors"] = "Color Shield Charges by Count",
 	["o.cdbarSpellColors"] = "Spell-Colored Progress Bars", ["sc.lookLS"] = "Lightning Shield Look", ["sc.lookWS"] = "Water Shield Look",
 	["sc.lookES"] = "Earth Shield Look", ["sc.barLook"] = "Shield Charges Look", ["sc.orbLook"] = "Shield Charges Look",

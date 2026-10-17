@@ -544,7 +544,7 @@ local STATIC = {
 			.. " Loadouts are made on the Loadouts tab.",
 	},
 	enabled = {
-		order = 1, type = "toggle", width = "full", name = "Switch Loadouts Automatically",
+		order = 1, type = "toggle", width = "full", name = "Enable Auto-Switch",
 		desc = "Turn on the content, zone, target and encounter switching below. Off by default. Turning it on inside an instance or a rule's zone switches right away. Nothing switches while you are dead.",
 		get = function() local d = DB(); return d and d.enabled == true or false end,
 		set = function(_, v) local d = DB(); d.enabled = v and true or nil; SP:UpdateLoadoutRuleEvents(); if v then CheckContent(true) end end,

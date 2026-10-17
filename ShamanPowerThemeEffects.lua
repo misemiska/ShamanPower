@@ -84,7 +84,7 @@ end
 -- in, held, out: 5 seconds at most, like the red X
 local function holdGroup(region)
 	local g = region:CreateAnimationGroup()
-	alphaAnim(g, 1, 0, 1, 0.1); alphaAnim(g, 2, 1, 1, 4.5); alphaAnim(g, 3, 1, 0, 0.4)
+	alphaAnim(g, 1, 0, 1, 0.1); g.stay = alphaAnim(g, 2, 1, 1, 4.5); alphaAnim(g, 3, 1, 0, 0.4)
 	return g
 end
 local function pulses(group, n, peak)
@@ -517,13 +517,16 @@ end
 -- The mark until recast (Red X Until Recast). Standard: false, today's red X.
 -- Elemental: the crack and stone. Signal: the red slash and corner flag.
 -- Crumble brings its own stone: while it is up, that is the mark.
-local function mark(host, lk)
+-- stays (Keep the Red X Until Recast): the held part lasts a day instead of 4.5 s
+local function mark(host, lk, stays)
 	if not cueFrame or not host then return false end
 	local c = host.spCue
 	if c and c.spTheme and c.stoneHold:IsPlaying() then return true end
 	if lk ~= "elemental" and lk ~= "signal" then lk = (lk == nil) and lookOf("destroyed") or "standard" end
 	if lk == "standard" then return false end
 	c = parts(cueFrame(host))
+	c.stoneHold.stay:SetDuration(stays and 86400 or 4.5)
+	c.slashHold.stay:SetDuration(stays and 86400 or 4.5)
 	if lk == "elemental" then
 		c.stoneHold:Stop(); c.stoneHold:Play()
 	else

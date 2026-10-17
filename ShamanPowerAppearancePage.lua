@@ -405,11 +405,59 @@ do
 	if a.outlineGradient_fade then
 		a.outlineGradient_fade.desc = "How much of the color is left at the faded end of the border: 0% fades right into the game world."
 	end
+	-- Cooldown Numbers (3.0.9.1, A49): the colors the number a cooldown counts down with can take, and the three bars' switches
+	a.cc_desc = desc("The number a cooldown counts down with changes color as it runs: the first color while more than half is left, the"
+		.. " second from the half mark down, the third under a quarter. Every cooldown, short or long, goes through all three. Each bar has its own switch, here and on its page.")
+	local presetValues, presetOrder = {}, {}
+	for _, pr in ipairs(SP.COUNTDOWN_PRESETS or {}) do presetValues[pr[1]] = pr[2]; presetOrder[#presetOrder + 1] = pr[1] end
+	a.cc_preset = { type = "select", name = "Colors", width = "full", values = presetValues, sorting = presetOrder,
+		desc = "ShamanPower: red, yellow, green. White / Yellow / Red. One Color the Whole Time: the Totem Bar's Cooldown Text Color, start"
+			.. " to end. Custom: the three swatches below (editing a swatch makes the colors Custom).",
+		get = function() return SP:CountdownPreset() end, set = function(_, v) SP:SetCountdownPreset(v) end }
+	local function swatch(n, label, width)
+		return { type = "color", name = label, width = width or 1.0,
+			hidden = function() return n > 1 and SP:CountdownSolid() end,
+			get = function() return SP:CountdownColorN(n) end, set = function(_, r, g, bb) SP:SetCountdownColor(n, r, g, bb) end }
+	end
+	a.cc_color1 = swatch(1, "More Than Half Left (the Totem Bar's Cooldown Text Color)", "full")
+	a.cc_color2 = swatch(2, "Under Half Left")
+	a.cc_color3 = swatch(3, "Almost Ready (Under a Quarter Left)")
+	local function ccSwitch(key, label, descText)
+		return { type = "toggle", name = label, width = 1.0, desc = descText,
+			get = function() return SP.opt[key] == true end,
+			set = function(_, v)
+				if v then SP.opt[key] = true else SP.opt[key] = nil end
+				SP:CountdownChanged()
+			end }
+	end
+	a.cc_totem = ccSwitch("totemBarCountdownColors", "Totem Bar", "A totem's cooldown number on its button (the same switch as Totem Bar > Duration Bars > Color the Cooldown Numbers).")
+	a.cc_cdbar = ccSwitch("cdbarCountdownColors", "Cooldown Bar", "A cooldown's number on the cooldown bar (the same switch as Cooldown Bar > Color the Cooldown Numbers). Only a number ShamanPower draws.")
+	a.cc_ready = ccSwitch("readyCountdownColors", "Ready Reminders", "The cooldown number on a Ready Reminder's icon, Combined Shocks too (the same switch as the Ready Reminders page's).")
+	-- Buff Timers (the owner, 2026-10-17): the same shape for a time left: a buff's, a shield's, an imbue's, a totem's
+	a.bt_desc = desc("The time left on a buff, a shield, an imbue or a totem changes color as it runs out: the first color while more than half"
+		.. " is left, the second from the half mark down, the third under a quarter. Every buff, short or long, goes through all three. Each bar has its own switch, here and on its page.")
+	a.bt_preset = { type = "select", name = "Colors", width = "full", values = presetValues, sorting = presetOrder,
+		desc = "ShamanPower: red, yellow, green. White / Yellow / Red. One Color the Whole Time: the first swatch, start to end."
+			.. " Custom: the three swatches below (editing a swatch makes the colors Custom).",
+		get = function() return SP:CountdownPreset("buff") end, set = function(_, v) SP:SetCountdownPreset(v, "buff") end }
+	local function bswatch(n, label, width)
+		return { type = "color", name = label, width = width or 1.0,
+			hidden = function() return n > 1 and SP:CountdownSolid("buff") end,
+			get = function() return SP:CountdownColorN(n, "buff") end, set = function(_, r, g, bb) SP:SetCountdownColor(n, r, g, bb, "buff") end }
+	end
+	a.bt_color1 = bswatch(1, "More Than Half Left", "full")
+	a.bt_color2 = bswatch(2, "Under Half Left")
+	a.bt_color3 = bswatch(3, "Almost Gone (Under a Quarter Left)")
+	a.bt_totem = ccSwitch("totemBarBuffTimerColors", "Totem Bar", "A totem's time left on its button (the same switch as Totem Bar > Duration Bars > Color the Time Left).")
+	a.bt_cdbar = ccSwitch("cdbarBuffTimerColors", "Cooldown Bar", "The shield's and the imbue's time left on the cooldown bar (the same switch as Cooldown Bar > Color the Shield and Imbue Timers).")
+	a.bt_ready = ccSwitch("readyBuffTimerColors", "Ready Reminders", "A buff's time left on its Ready Reminder (the same switch as Ready Reminders > Color the Buff Timers).")
 	SP.OrderSettingsBands(b, {
 		{ keys = { "sb_desc", "frame_edge", "sb_hidden_note", "icon_borders_square" } },
 		{ header = "cb_header", name = "Colored Icon Borders", keys = { "cb_desc", "cb_borders", "cb_size", "cb_borders_cd", "cb_size_cd" } },
 		{ header = "sg_header", name = "Shared Border Shading", keys = { "sg_desc", "outlineGradient", "outlineGradient_direction", "outlineGradient_own",
 			"outlineGradient_color1", "outlineGradient_color2", "outlineGradient_fade" } },
+		{ header = "cc_header", name = "Cooldown Numbers", keys = { "cc_desc", "cc_preset", "cc_color1", "cc_color2", "cc_color3", "cc_totem", "cc_cdbar", "cc_ready" } },
+		{ header = "bt_header", name = "Buff Timers", keys = { "bt_desc", "bt_preset", "bt_color1", "bt_color2", "bt_color3", "bt_totem", "bt_cdbar", "bt_ready" } },
 	})
 end
 

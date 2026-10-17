@@ -942,6 +942,10 @@ if fluffy and fluffy.args then
 			testSound = { order = 36.5, type = "execute", name = "Test Sound", desc = "Play the selected sound.", width = 0.7,
 				hidden = function() return not cfg().playSound end, disabled = off,
 				func = function() if SP.GetSoundFile then SP:PlaySoundWithVolume(SP:GetSoundFile(cfg().soundName), nil, true) end end },
+			move = { order = 36, type = "execute", name = "Move the Ready Check List", width = 1,
+				desc = "Unlocks only the Ready Check list: drag its box where you want it, then press Done. It can't be done in a fight.",
+				hidden = function() return not cfg().showPanel end,
+				func = function() ShamanPower:UnlockModuleFrames("readycheck") end },
 			resetPos = { order = 37, type = "execute", name = "Reset List Position", width = 1,
 				hidden = function() return not cfg().showPanel end,
 				func = function() cfg().pos = nil; if panel then applyPos(panel) end end },
@@ -968,8 +972,8 @@ if fluffy and fluffy.args then
 		{ header = "when_header", name = "Behavior", keys = { "onReadyCheck", "onEnterInstance", "onResurrect", "resurrectInFight" } },
 		{ header = "sound_header", name = "Sound", keys = { "playSound", "soundName", "testSound" },
 			names = { playSound = "Play Sound" } },
-		{ header = "position_header", name = "Position", keys = { "resetPos" },
-			names = { resetPos = "Reset Position" } },
-		{ header = "test_header", name = "Test / Reset", keys = { "checkNow" } },
+		{ header = "position_header", name = "Position", keys = { "move", "resetPos" },
+			names = { resetPos = "Reset Ready Check List Position" } },
+		{ header = "test_header", name = "Check", keys = { "checkNow" }, names = { checkNow = "Check My Character Now" } },
 	})
 end

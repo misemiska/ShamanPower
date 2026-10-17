@@ -128,13 +128,15 @@ SP.ReadyReminderSpells = {
 	{ key = "firenova",     name = "Fire Nova",           ids = { 408341, 1535 },         def = false },
 	{ key = "projection",   name = "Totemic Projection",  ids = { 437009 },               def = false },
 	{ key = "grounding",    name = "Grounding Totem",     ids = { 8177 },                 def = false },
-	{ key = "watershield",  name = "Water Shield",        ids = { 24398, 408510, 52127 }, def = false, noCooldownIDs = { [24398] = true } },
 	{ key = "ns",           name = "Nature's Swiftness",  ids = { 16188 },                def = false },
 	{ key = "manatide",     name = "Mana Tide Totem",     ids = { 16190 },                def = false },
 	{ key = "shamrage",     name = "Shamanistic Rage",    ids = { 30823 },                def = false },
 	{ key = "elemastery",   name = "Elemental Mastery",   ids = { 16166 },                def = false },
 	{ key = "earthbind",    name = "Earthbind Totem",     ids = { 2484 },                 def = false },
 	{ key = "chainlightning", name = "Chain Lightning",   ids = { 421 },                  def = false },   -- 6 s cooldown on both clients
+	-- Lightning Bolt has no cooldown: an always-ready icon whose Out of Range tint checks the
+	-- target's range, as the shocks do, until Chain Lightning is learned (a reviewer's ask, 3.0.9.1)
+	{ key = "lightningbolt", name = "Lightning Bolt",     ids = { 403 },                  def = false },
 	-- Weapon Imbue (3.0.8, a shaman tank's ask): shows while an imbue is missing (the main hand;
 	-- with an off-hand weapon, either hand) with the icon of the imbue last on, and counts the
 	-- shorter one down while both are on. ids: Rockbiter, Flametongue, Windfury, Frostbrand.
@@ -147,6 +149,14 @@ SP.ReadyReminderSpells = {
 }
 
 local frames = {}
+-- Cooldown Numbers (ShamanPowerCountdown.lua): the addon's own count text bound to the game's duration
+-- object on WoW: Forever; let go when the icon leaves its cooldown or the look is rebuilt
+function SP:ReadyUnbindCount(f)   -- (a method: the file's main chunk is at the 200-local limit)
+	if f and f.countBound then
+		if SP.CountdownUnbind then SP:CountdownUnbind(f.count) end
+		f.countBound = nil
+	end
+end
 SP.readyReminderFrames = frames   -- read by the setup tour's preview
 local catalogByKey = {}
 for i, e in ipairs(SP.ReadyReminderSpells) do
@@ -182,7 +192,11 @@ do
 			stormstrike = { ids = { 1238931 }, name = "Improved Stormstrike", talent = 1223031, node = 104742 },
 			farseer = { ids = { 425336 }, name = "Rage of the Farseer" },               -- 25 s
 			ns = { ids = { 16188 }, name = "Nature's Swiftness", timed = false },        -- until your next Nature spell
-			-- (no Shamanistic Rage or Elemental Mastery in this game's data)
+			-- Elemental Mastery is back since the 10-15 patch (build 70425), the 31-point Elemental
+			-- talent: 15 s of faster Lightning Bolt / Lava Burst and no Chain Lightning cooldown, 3-minute
+			-- cooldown. The buff is the spell's own aura, 16166.
+			elemastery = { ids = { 16166 }, name = "Elemental Mastery" },               -- 15 s
+			-- (no Shamanistic Rage in this game's data)
 		}
 	else
 		list = {
@@ -1327,6 +1341,7 @@ function SP:UpdateReadyReminderAppearance(key)
 	SP:SetSPFont(f.count, "alerts", ts, "OUTLINE")
 	f.count:ClearAllPoints()
 	local tp = IconOpt(e, "textPosition") or "center"
+	f.countPlace = tp   -- remembered for the game-drawn number (styleEngine): a GetPoint read is a secret in a fight
 	if tp == "top" then f.count:SetPoint("TOP", f, "TOP", 0, -2)
 	elseif tp == "bottom" then f.count:SetPoint("BOTTOM", f, "BOTTOM", 0, 2)
 	elseif tp == "below" then f.count:SetPoint("TOP", f, "BOTTOM", 0, -2)
@@ -2159,7 +2174,10 @@ end
 -- the time left drawn by the game from numbers of ours (a duration text binding, with the
 -- gold formatter); false where the client has neither (the pass writes it then)
 function Buff.TimeBinding(B, start, duration)
-	local f = Buff.Formatter(B.gold)
+	-- Buff Timers (ShamanPowerCountdown.lua): the game colors the time by what is left; the gold steps aside
+	local cc = SP.CountdownOn and SP:CountdownOn("ready", "buff") or false
+	local gold = cc and 0 or B.gold
+	local f = Buff.Formatter(gold)
 	if not f then return false end
 	if B.bind == nil then
 		B.bind = false
@@ -2175,9 +2193,17 @@ function Buff.TimeBinding(B, start, duration)
 	end
 	local bnd = B.bind
 	if not bnd then return false end
-	if B.bindGold ~= B.gold then
+	if B.bindGold ~= gold then
 		if not pcall(bnd.SetFormatter, bnd, f) then return false end
-		B.bindGold = B.gold
+		B.bindGold = gold
+	end
+	local ccv = cc and SP:CountdownVersion() or 0
+	if B.bindCC ~= ccv then
+		B.bindCC = ccv
+		local P = SP.CountdownCurveProperty and SP:CountdownCurveProperty()   -- the time left in percent
+		local curve = cc and SP.CountdownCurve and SP:CountdownCurve("buff")
+		if curve and P then pcall(bnd.SetTextColorCurve, bnd, curve, P)
+		elseif bnd.ClearTextColorCurve then pcall(bnd.ClearTextColorCurve, bnd) end
 	end
 	B.P.time:SetTextColor(1, 1, 1)
 	return pcall(B.dur.SetTimeFromStart, B.dur, start, duration) and pcall(bnd.SetDuration, bnd, B.dur)
@@ -2199,7 +2225,8 @@ function Buff.TickText(B, now)
 	local t = B.P.time
 	if sec <= 0 then t:SetText("") return end
 	if sec >= 60 then t:SetText(string.format("%dm", math.ceil(left / 60))) else t:SetText(string.format("%d", sec)) end
-	if (B.gold or 0) > 0 and left < B.gold then t:SetTextColor(Buff.GoldRGB()) else t:SetTextColor(1, 1, 1) end
+	if SP.CountdownOn and SP:CountdownOn("ready", "buff") then t:SetTextColor(SP:CountdownColor(left, B.total or left, "buff"))   -- Buff Timers
+	elseif (B.gold or 0) > 0 and left < B.gold then t:SetTextColor(Buff.GoldRGB()) else t:SetTextColor(1, 1, 1) end
 end
 
 -- the buff as it is on you now (on UNIT_AURA, and when the buff is switched on)
@@ -2210,6 +2237,7 @@ function Buff.Read(B)
 	B.shown = true
 	B.P.icon:SetTexture(icon or GetSpellTextureC(B.entry.buff.ids[1]) or 136243)
 	B.timedNow = (dur or 0) > 0 and (exp or 0) > 0
+	B.total = dur   -- (Countdown Colors: the whole length, for the share left)
 	if B.timeOn and B.timedNow then
 		if B.exp ~= exp or not (B.ticking or B.bindOn) then
 			B.exp = exp
@@ -2238,6 +2266,27 @@ function Buff.OnAura()
 	for i = 1, #Buff.list do
 		local B = Buff.of[Buff.list[i].key]
 		if B and B.on and not B.c then Buff.Read(B) end
+	end
+end
+
+-- Countdown Colors switched or changed (ShamanPowerCountdown.lua): every timed buff's text starts over
+function SP:ReadyCountdownChanged()
+	-- the icons' cooldown numbers: the engine's feed starts over (the number on the addon's text, or the game's own)
+	for _, f in pairs(frames) do
+		SP:ReadyUnbindCount(f)
+		if f.count and f.count.spCdBucket then f.count.spCdBucket = nil; f.count:SetTextColor(1, 1, 1) end
+		f.ecdOn = nil
+		if styleEngine and f.cooldown then styleEngine(f) end
+	end
+	for i = 1, #Buff.list do
+		local B = Buff.of[Buff.list[i].key]
+		if B then
+			B.bindGold, B.bindCC, B.sec = nil, nil, nil
+			if B.on and not B.c then
+				B.bindOn, B.ticking = nil, nil
+				Buff.Read(B)
+			end
+		end
 	end
 end
 
@@ -2381,7 +2430,7 @@ local function setReady(f, ready)
 	local fade = f.fade or 1   -- (D51: below 1 only while faded out of combat)
 	if ready then
 		setDesat(f, false)
-		f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); f.count:SetText(""); f.countShown = nil
+		f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); SP:ReadyUnbindCount(f); f.count:SetText(""); f.countShown = nil
 		f.ecdOn, f.ecdDur, f.readyDur, f.readyDurStart, f.realDone = nil, nil, nil, nil, nil
 		curveMouseBack(f)
 		if f.engineSheet then f.engineSheet:Hide() end
@@ -3585,8 +3634,13 @@ styleEngine = function(f)
 		local r, g, b = f.count:GetTextColor()
 		fs:SetTextColor(r or 1, g or 1, b or 1)
 		fs:ClearAllPoints()
-		local point, rel, relPoint, x, y = f.count:GetPoint(1)
-		if point then fs:SetPoint(point, rel or f, relPoint or point, x or 0, y or 0) else fs:SetPoint("CENTER", f, "CENTER", 0, 0) end
+		-- the number's place as the addon set it (f.countPlace): a GetPoint read is a secret in a fight on WoW: Forever
+		local tp = f.countPlace
+		if tp == "top" then fs:SetPoint("TOP", f, "TOP", 0, -2)
+		elseif tp == "bottom" then fs:SetPoint("BOTTOM", f, "BOTTOM", 0, 2)
+		elseif tp == "below" then fs:SetPoint("TOP", f, "BOTTOM", 0, -2)
+		elseif tp == "above" then fs:SetPoint("BOTTOM", f, "TOP", 0, 2)
+		else fs:SetPoint("CENTER", f, "CENTER", 0, 0) end
 	end
 	f.ecdOn = nil   -- re-fed with the new look
 end
@@ -3609,6 +3663,15 @@ local function drawEngineCooldown(f)
 	cd:SetDrawSwipe(style == "radial")
 	if not cd:IsShown() then cd:Show() end
 	pcall(cd.SetCooldownFromDurationObject, cd, d, true)
+	-- Cooldown Numbers (ShamanPowerCountdown.lua): the game writes the number on the addon's own text,
+	-- colored by what is left; the engine's own string steps aside meanwhile
+	if SP.CountdownOn and SP:CountdownOn("ready") and IconOpt(f.entry, "showCountdown") ~= false
+		and SP.CountdownBind and SP:CountdownBind(f.count, d, "ready") then
+		cd:SetHideCountdownNumbers(true); f.countBound = true
+	elseif f.countBound then
+		SP:ReadyUnbindCount(f)
+		cd:SetHideCountdownNumbers(IconOpt(f.entry, "showCountdown") == false)
+	end
 	local Dir = Enum and Enum.StatusBarTimerDirection or {}
 	local Interp = Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.Immediate
 	-- the vertical sheet: an engine-filled bar in place of the addon's overlay
@@ -3663,7 +3726,7 @@ local function underCurve(sec)
 	return c or nil
 end
 local function engineCountdownUnder(f)
-	local fs = f.cdText
+	local fs = f.countBound and f.count or f.cdText   -- (the addon's bound number takes the under-N rule too)
 	if fs == nil then
 		local ok, got = pcall(f.cooldown.GetCountdownFontString, f.cooldown)
 		fs = ok and got or false
@@ -3711,6 +3774,7 @@ local function drawCooldown(f, start, duration, remaining)
 			f.count:SetText(shown < 0 and string.format("%dm", -shown) or string.format("%d", shown))
 		end
 	elseif f.countShown ~= false then f.countShown = false; f.count:SetText("") end
+	if f.countShown then SP:CountdownPaint(f.count, "ready", remaining, duration) end   -- Cooldown Numbers (the addon's own number)
 	local frac = duration > 0 and math.max(0, math.min(1, remaining / duration)) or 0
 	local style = IconOpt(e, "sweepStyle") or "radial"
 	if style == "radial" then
@@ -3906,6 +3970,7 @@ local function readyPass(self)
 						if f.overlay:IsShown() then f.overlay:Hide() end
 						if f.bar:IsShown() then f.bar:Hide() end
 						if f.engineSheet and f.engineSheet:IsShown() then f.engineSheet:Hide() end
+						SP:ReadyUnbindCount(f)
 						if f.countShown ~= nil then f.count:SetText(""); f.countShown = nil end
 						f.ecdOn = nil
 						if not f.realDone then curveMouseOff(f) end
@@ -3964,7 +4029,7 @@ function SP:ShowAllReadyReminders()
 			setFade(f, 1)       -- (D51) full while placed
 			curveMouseBack(f)   -- draggable again
 			stopEffects(f)
-			f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); f.count:SetText(""); f.countShown = nil
+			f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); SP:ReadyUnbindCount(f); f.count:SetText(""); f.countShown = nil
 			setDesat(f, false); f:SetAlpha(IconOpt(entry, "opacity") or 1)
 			f.label:SetShown(entry.weaponSet and IconOpt(entry, "wsWord") ~= false or (not entry.weaponSet and IconOpt(entry, "showNames") == true)); f:Show()
 		end
@@ -4091,7 +4156,7 @@ function SP:ReadyRemindersDemo(on)
 		self.readyDemoTick = nil
 		if self.readyDemoTicker then self.readyDemoTicker:Cancel(); self.readyDemoTicker = nil end
 		self.readyDemoStatus = nil
-		for _, f in pairs(frames) do stopEffects(f); f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); f.count:SetText(""); f.countShown = nil; f.spDemoHidden = nil; f.spDemoOff = nil; f:Hide() end
+		for _, f in pairs(frames) do stopEffects(f); f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); SP:ReadyUnbindCount(f); f.count:SetText(""); f.countShown = nil; f.spDemoHidden = nil; f.spDemoOff = nil; f:Hide() end
 		if frames.shocks then applyShockLook(frames.shocks) end   -- the demo showed every shock: back to the known ones
 		-- the settings preview hands its frames back on the points they had when it
 		-- borrowed them (this runs after that): Placement, Reset or a drag made meanwhile
@@ -4622,7 +4687,7 @@ function R.FlashTab.inject(root)
 		flashName = { order = 1.4, type = "toggle", name = "Show Spell Name", width = 1.0,
 			desc = "The spell's name under the flash.",
 			get = function() return sv().flashName == true end, set = function(_, v) sv().flashName = v and true or false; look() end },
-		flashTest = { order = 1.9, type = "execute", name = "Test Ready Flash", width = 1.2,
+		flashTest = { order = 1.9, type = "execute", name = "Test the Ready Flash", width = 1.2,
 			desc = "Plays one flash on the shared spot with the look above.",
 			func = function() SP:ReadyFlashTest(nil) end },
 		whenHeader = { order = 2, type = "header", name = "When" },
@@ -4656,9 +4721,11 @@ function R.FlashTab.inject(root)
 	}
 	SP.OrderSettingsBands({ args = args }, {
 		{ header = "iconsHeader", name = "Spells", keys = { "yourFlash" } },
-		{ header = "lookHeader", name = "Look", keys = { "flashAnim", "flashSize", "flashHold", "flashName", "flashTest" } },
+		{ header = "lookHeader", name = "Look", keys = { "flashSize", "flashAnim", "flashHold", "flashName" } },
 		{ header = "whenHeader", name = "When", keys = { "flashMin", "flashEarly", "flashCombat" } },
-		{ header = "positionHeader", name = "Position", keys = { "flashMove", "flashReset", "ownSpots", "ownReset" } },
+		{ header = "positionHeader", name = "Position", keys = { "flashMove", "ownSpots", "ownReset", "flashReset" },
+			names = { flashMove = "Move the Ready Flash", flashReset = "Reset Shared Flash Position" } },
+		{ header = "testHeader", name = "Test", keys = { "flashTest" } },
 	})
 	-- every write on the tab: each icon reads its settings again
 	for _, option in pairs(args) do
@@ -4682,6 +4749,10 @@ local function InjectOptions()
 	local args = {
 			-- 3.0.6 and 3.0.7: a card at the top for players who had Ready Reminders before
 			-- (the settings window draws it: ReadyIcons.lua, the notice row)
+			enabled = { order = 0.005, type = "toggle", width = "full", name = "Enable Ready Reminders",
+				desc = "Turn Ready Reminders on or off. Every spell's settings stay as they are.",
+				get = function() return SP.ReadyRemindersEnabled() end,
+				set = function(_, v) SP:SetReadyRemindersEnabled(v) end },
 			noticeHeader = { order = 0.01, type = "header", name = "Settings Moved",
 				hidden = function() return not SP.ReadyReminderNoticeShown() end },
 			notice306 = { order = 0.02, type = "description", width = "full",
@@ -4775,11 +4846,14 @@ local function InjectOptions()
 				end },
 	}
 	SP.OrderSettingsBands({ args = args }, {
+		-- the pictures first, the switches under them (the owner, 2026-10-17: every icon page); the two
+		-- Countdown Colors switches below join the "enabled" band by their order (3000 + n)
 		{ header = "noticeHeader", name = "Settings Moved", keys = { "notice306" } },
 		{ header = "iconsHeader", name = "Spells", keys = { "townNote", "yourIcons", "yourUnplaced" } },
-		{ header = "positionHeader", name = "Position", keys = { "arrange", "gridColumns", "gridGrow", "gridAlign", "addRow", "move", "unlock", "layout", "spacing", "reset" },
-			names = { move = "Move", unlock = "Unlock Position", layout = "Arrange As",
-				spacing = "Spacing", reset = "Reset Position" } },
+		{ keys = { "enabled" } },
+		{ header = "positionHeader", name = "Position", keys = { "move", "unlock", "arrange", "gridColumns", "gridGrow", "gridAlign", "addRow", "layout", "spacing", "reset" },
+			names = { move = "Move the Ready Reminders", unlock = "Unlock Position", layout = "Layout After Reset",
+				spacing = "Spacing", reset = "Reset Ready Reminder Positions" } },
 	})
 	-- every write on this page: each icon reads its settings again (some setters draw nothing)
 	for _, option in pairs(args) do
@@ -4793,6 +4867,23 @@ local function InjectOptions()
 	SP.OptionCustomRow[args.yourIcons] = "readyIcons"
 	SP.OptionCustomRow[args.yourUnplaced] = "readyUnplaced"
 	SP.OptionCustomRow[args.notice306] = "readyNotice"
+	-- Countdown Colors (3.0.9.1, A49): this page's own switch; the colors on Appearance > Colors & Borders
+	args.countdownColors = { order = 3002, type = "toggle", width = "full", name = "Color the Cooldown Numbers",
+		desc = "The number that counts a spell's cooldown down on its icon (Combined Shocks too) changes color as it runs: the Cooldown"
+			.. " Numbers colors on Appearance > Colors & Borders (the same switch as there).",
+		get = function() return SP.opt.readyCountdownColors == true end,
+		set = function(_, v)
+			if v then SP.opt.readyCountdownColors = true else SP.opt.readyCountdownColors = nil end
+			if SP.CountdownChanged then SP:CountdownChanged() end
+		end }
+	args.buffTimerColors = { order = 3003, type = "toggle", width = "full", name = "Color the Buff Timers",
+		desc = "A buff's time left on its icon changes color as it runs out: the Buff Timers colors on Appearance > Colors & Borders"
+			.. " (the same switch as there). While this is on, the gold under N seconds steps aside.",
+		get = function() return SP.opt.readyBuffTimerColors == true end,
+		set = function(_, v)
+			if v then SP.opt.readyBuffTimerColors = true else SP.opt.readyBuffTimerColors = nil end
+			if SP.CountdownChanged then SP:CountdownChanged() end
+		end }
 	root.args.fluffy.args.readyreminders_section = { order = 9.5, type = "group", name = "Ready Reminders", args = args }
 	R.FlashTab.migrate()   -- (A26) once: the icons' flash settings become the tab's
 	R.FlashTab.inject(root)

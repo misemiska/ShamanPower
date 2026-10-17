@@ -604,6 +604,7 @@ local function MenuItems(key)
 	local name = spell.name
 	local items = {}
 	-- the icon itself
+	items[#items + 1] = { text = "Show", label = true }
 	local on = Shown(key)
 	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
 		onClick = function() TT("TT_Set", key, "shown", not on); Row:Changed(false) end }
@@ -616,6 +617,8 @@ local function MenuItems(key)
 	places.tip = "Turn it on or off in each kind of place: the open world, dungeons, raids, Battlegrounds and Arenas."
 	items[#items + 1] = places
 	if key == "purge" then
+		items[#items + 1] = { separator = true }
+		items[#items + 1] = { text = "Behavior", label = true }
 		LongRows(key, items)
 		local bosses = OnOffRow(key, "Check Every Boss", "watchBosses", PIC.none)
 		bosses.tip = "In a boss fight, Purge also lights up when any boss has a buff you can remove, not only your target."
@@ -624,10 +627,11 @@ local function MenuItems(key)
 		end
 		items[#items + 1] = bosses
 	elseif key == "fs" then
-		local ns = Group("Next Shock", NextShockRows, "which shock to press next, on Flame Shock's icon")
-		ns.value = function() return OnOff(Get("ns", "on")), false end
-		ns.tip = "Flame Shock's icon shows which shock to press next, on each enemy by its own Flame Shock."
-		items[#items + 1] = ns
+		items[#items + 1] = { separator = true }
+		local nextShock = Group("Next Shock", NextShockRows, "which shock to press next, on Flame Shock's icon")
+		nextShock.value = function() return OnOff(Get("ns", "on")), false end
+		nextShock.tip = "Flame Shock's icon shows which shock to press next, on each enemy by its own Flame Shock."
+		items[#items + 1] = nextShock
 	end
 	items[#items + 1] = { separator = true }
 	-- how it looks
@@ -649,6 +653,7 @@ local function MenuItems(key)
 	items[#items + 1] = { separator = true }
 	-- where it sits
 	if key == "purge" then
+		items[#items + 1] = { text = "Position & Keys", label = true }
 		local pos = ChoiceRow(key, "Position", "showOn", SHOWON_CHOICES, PIC.none)
 		pos.tip = "Where Purge shows: a spot you place on your screen (Move Purge on this page), on your target's"
 			.. " nameplate, or under the target frame."
@@ -668,6 +673,7 @@ local function MenuItems(key)
 	items[#items + 1] = plates
 	items[#items + 1] = { separator = true }
 	-- copy and reset
+	items[#items + 1] = { text = "Copy & Reset", label = true }
 	items[#items + 1] = { text = "Copy Settings", onClick = function() TT("TT_Copy", key); return true end }
 	local from = TT("TT_ClipboardFrom")
 	local fromSpell = from and SpellOf(from)

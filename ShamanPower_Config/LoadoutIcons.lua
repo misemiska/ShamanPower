@@ -273,6 +273,7 @@ local function MenuItems(item)
 			onClick = function() Switch(lo); Row:Changed(false) end }
 	end
 	r[#r + 1] = SEP
+	r[#r + 1] = { text = "Behavior", label = true }
 	for e = 1, 4 do
 		r[#r + 1] = { text = ELEMENTS[e], subMaxHeight = 260,
 			icon = (lo[e] or 0) > 0 and SP:GetTotemIcon(e, lo[e]) or nil,
@@ -296,7 +297,7 @@ local function MenuItems(item)
 	end
 	r[#r + 1] = SEP
 	r[#r + 1] = { text = "Rename...", tip = "Rename this loadout.", onClick = function() NameBox(lo, false) end }
-	r[#r + 1] = { text = "Icon...", tip = "The icon picker, beside this window. Without an icon of its own a loadout shows its first totem.",
+	r[#r + 1] = { text = "Pick an Icon...", tip = "The icon picker, beside this window. Without an icon of its own a loadout shows its first totem.",
 		onClick = function() PickIcon(lo) end }
 	r[#r + 1] = SEP
 	r[#r + 1] = { text = "Delete This Loadout...", tip = "Asks first.", onClick = function()

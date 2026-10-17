@@ -413,7 +413,7 @@ end
 local function AddEntries(pack, ctx, list, path, forced, skipChoices)
 	local def, item, row = ctx.def, ctx.item, ctx.row
 	for index, entry in ipairs(list) do
-		if type(entry) == "table" and not (skipChoices and entry.selected ~= nil) then
+		if type(entry) == "table" and not entry.label and not (skipChoices and entry.selected ~= nil) then
 			local sub = entry.sub and SubOf(entry) or nil
 			local kind = Kind(entry, sub)
 			local p = {}
