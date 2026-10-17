@@ -228,7 +228,7 @@ local function BuildLookDialog()
 	if lookDlg then return lookDlg end
 	lookDlg = Core:CreateDialog({
 		name = "ShamanPowerWhatsNewLook", width = 560, height = 200,
-		title = "What's new", subtitle = "shown once",
+		title = "What's new",
 		headerHeight = 46, footer = 52, special = true, strata = "DIALOG",
 	})
 	local solid = lookDlg:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -365,7 +365,7 @@ local function BuildDialog(since, preview)
 	local dlg = Core:CreateDialog({
 		name = "ShamanPowerWhatsNew" .. ((key == "all") and "" or key:gsub("%.", "_")), width = 560, height = 200,
 		title = "What's new",
-		subtitle = "shown once per update", headerHeight = 46, footer = 52, special = true,
+		headerHeight = 46, footer = 52, special = true,
 	})
 	cards[key] = dlg
 	dlg:SetFrameStrata("DIALOG")
