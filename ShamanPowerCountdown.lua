@@ -191,12 +191,13 @@ function SP:CountdownCurveProperty() return Prop() end
 -- 2026-10-17: a curve point at 2 colored a binding with 99.7% left). Scaled by the getter, every line
 -- sat in the last half percent: white to the end, then a flash of the last color. Measured here once on
 -- a binding of our own (not a secret: our own duration), 100 when the measure cannot be taken.
-local bindScale, probeText
+local bindScale, bindMeasured, bindNoApi, probeText
 local function BindScale()
 	if bindScale then return bindScale end
 	bindScale = 100
 	local D, CU = Util(), C_CurveUtil
 	if not (D and D.CreateDurationTextBinding and D.CreateDuration and CU and CU.CreateColorCurve and CreateColor and Prop()) then
+		bindNoApi = true
 		return bindScale
 	end
 	pcall(function()
@@ -212,10 +213,17 @@ local function BindScale()
 		b:SetDuration(d)
 		b:SetTextColorCurve(c, Prop())
 		local r = b:GetFormattedTextColor():GetRGB()
-		if type(r) == "number" and not (issecretvalue and issecretvalue(r)) then bindScale = (r > 0.5) and 100 or 1 end
+		if type(r) == "number" and not (issecretvalue and issecretvalue(r)) then bindScale = (r > 0.5) and 100 or 1; bindMeasured = true end
 		b:SetEnabled(false)
 	end)
 	return bindScale
+end
+-- the support code's reading: the scale in use and whether it was measured (false: 100 assumed);
+-- nil where the game has no duration text bindings (Anniversary)
+function SP:CountdownScale()
+	local s = BindScale()
+	if bindNoApi then return nil end
+	return s, bindMeasured == true
 end
 function SP:CountdownCurve(set)
 	set = set or "cd"

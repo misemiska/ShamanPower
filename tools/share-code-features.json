@@ -536,6 +536,74 @@
     {
       "key": "cdbarHideOutOfCombat",
       "label": "Hide cooldown bar out of combat"
+    },
+    {
+      "key": "iconScreens",
+      "label": "Icon screens"
+    },
+    {
+      "key": "flyoutOrder",
+      "label": "Totem flyouts: own order"
+    },
+    {
+      "key": "partyStripOnlyDown",
+      "label": "Party strip: only while the totem is down"
+    },
+    {
+      "key": "alertsGrowUp",
+      "label": "Expiring alerts grow upward"
+    },
+    {
+      "key": "totemBarClickThrough",
+      "label": "Totem bar: click through"
+    },
+    {
+      "key": "cdbarClickThrough",
+      "label": "Cooldown bar: click through"
+    },
+    {
+      "key": "loadoutsRememberOrder",
+      "label": "Loadouts remember the totem bar order"
+    },
+    {
+      "key": "raidCoverage",
+      "label": "Raid coverage"
+    },
+    {
+      "key": "countdownColors",
+      "label": "Cooldown numbers colored"
+    },
+    {
+      "key": "buffTimerColors",
+      "label": "Buff timers colored"
+    },
+    {
+      "key": "keysWhenOff",
+      "label": "Keybinds work with the icon off"
+    },
+    {
+      "key": "totemBarFadeNoTotem",
+      "label": "Totem bar: fade elements with no totem down"
+    },
+    {
+      "key": "redXUntilRecast",
+      "label": "Effect: red X kept until recast"
+    },
+    {
+      "key": "dropAllStartOver",
+      "label": "Drop All: start over time changed"
+    },
+    {
+      "key": "readyLightningBolt",
+      "label": "Ready reminders: Lightning Bolt"
+    },
+    {
+      "key": "readyOwnIconShape",
+      "label": "Ready reminders: an icon's own shape"
+    },
+    {
+      "key": "totemPlatesImportant",
+      "label": "Totem plates: important totems"
     }
   ]
 }

@@ -3,7 +3,7 @@
 the changelog, then the real addon in the headless sim (sp-uipreview) on both clients: every
 settings page and tab opened, every icon row's menus built, and the tests in tools/ci/tests.
 Run from an addon tree:  sp-ci [--client both|forever|anniversary] [--skip-lint] [--only a,b] [-v]"""
-import argparse, os, re, subprocess, sys, glob, time
+import argparse, json, os, re, subprocess, sys, glob, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RELEASE = False
@@ -99,6 +99,25 @@ def step_shared_tables(tree):
                 if rx.search(line) and not ok(lines, i):
                     bad.append("%s:%d: %s (%s)" % (rel, i + 1, line.strip()[:90], why))
     return (not bad), bad
+
+def step_share_mirror(tree):
+    """the setup code's feature list (SP.SHARE_FEATURES, append-only) and its mirror tools/share-code-features.json,
+    which the Discord bot decodes with: same keys, same order"""
+    lua_path, json_path = os.path.join(tree, "ShamanPowerShareCode.lua"), os.path.join(tree, "tools", "share-code-features.json")
+    if not (os.path.exists(lua_path) and os.path.exists(json_path)):
+        return True, []
+    src = open(lua_path, encoding="utf-8").read()
+    block = src[src.index("SP.SHARE_FEATURES = {"):]
+    lua_keys = re.findall(r'^\t\{ key = "([^"]+)"', block, re.M)
+    json_keys = [f["key"] for f in json.load(open(json_path, encoding="utf-8"))["features"]]
+    if lua_keys == json_keys:
+        return True, []
+    bad = ["ShamanPowerShareCode.lua has %d features, tools/share-code-features.json %d" % (len(lua_keys), len(json_keys))]
+    for i, (a, b) in enumerate(zip(lua_keys, json_keys)):
+        if a != b:
+            bad.append("feature %d: %s in the Lua, %s in the json" % (i + 1, a, b))
+            break
+    return False, bad
 
 LINT_LINE = re.compile(r"^(\S+?\.lua):(\d+)")
 def changed_lines(tree, base):
@@ -320,7 +339,7 @@ def main():
                 print("      " + str(d))
         if not ok: failed.append(name)
     if not test_only:
-        for name, fn in (("syntax", step_syntax), ("endings", step_endings), ("andor", step_andor), ("shared tables", step_shared_tables), ("changelog", step_changelog)):
+        for name, fn in (("syntax", step_syntax), ("endings", step_endings), ("andor", step_andor), ("shared tables", step_shared_tables), ("share code mirror", step_share_mirror), ("changelog", step_changelog)):
             if only and name not in only: continue
             ok, d = fn(tree); report(name, ok, d)
         if (not only or "lint" in only) and not a.skip_lint:

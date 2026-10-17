@@ -21,7 +21,9 @@
 --        game draws the shield (engine), ss shadow shield record, ln the game's
 --        Lightning Shield name is the English one, sb cooldown bar has a shield
 --        button, ly game-drawn layers (only where auras can be hidden):
---        [name] = 0 missing, 1 built (hidden), 2 built and showing
+--        [name] = 0 missing, 1 built (hidden), 2 built and showing, cc the
+--        cooldown number colors: { s the scale the game's duration text counts
+--        on (100 or 1), m measured (false: 100 assumed) } (nil without that text)
 --   s    the SPS1 setup code (feature on/offs, decoded by the same bot)
 --   nl   ShamanPower's modules that are not loaded (folder names; none = nil)
 --   set  the profile, only what differs from the defaults (decimals to 4 digits)
@@ -35,7 +37,9 @@
 --        stack lines } } the newest ShamanPower errors (the player's name and
 --        realm taken out), ad { loaded addon names } (not ShamanPower's), sc
 --        { w, h physical screen, u UI scale, ui uiScale cvar on }, bars { [name]
---        = { v shown, o on screen } }, kb { [binding] = key }, cv { [cvar] =
+--        = { v shown, o on screen } }, kb { [binding] = key }, ko { [binding] =
+--        stand-in button } the keys Keybinds Still Work Even If Icon Is Turned Off
+--        took over (ShamanPowerKeyNone: the key does nothing), cv { [cvar] =
 --        value }, mem ShamanPower KB, cpu { avg, recent, peak ms, all addons recent ms },
 --        fps frame rate, lat { home, world } latency ms, up seconds since login,
 --        bars[name] also a (alpha), s (scale)
@@ -489,12 +493,23 @@ local function extras()
 	if health.loginAt then x.up = math.floor(GetTime() - health.loginAt) end
 	-- ShamanPower's key bindings
 	if GetNumBindings and GetBinding then
-		local kb = {}
+		local kb, ko = {}, {}
 		for i = 1, safe(GetNumBindings) or 0 do
-			local ok, command, _, key1 = pcall(GetBinding, i)
-			if ok and type(command) == "string" and command:find("^SHAMANPOWER") and key1 then kb[command] = key1 end
+			local ok, command, _, key1, key2 = pcall(GetBinding, i)
+			if ok and type(command) == "string" then
+				if command:find("^SHAMANPOWER") and key1 then kb[command] = key1 end
+				-- a key Keybinds Still Work took over answers through a stand-in instead of its own button
+				if GetBindingAction and (command:find("^SHAMANPOWER") or command:find("^CLICK ShamanPower")) then
+					for _, key in ipairs({ key1, key2 }) do
+						local via = safe(GetBindingAction, key, true)
+						local stand = type(via) == "string" and via:match("^CLICK (ShamanPowerKey[%w_]+):")
+						if stand then ko[command] = stand end
+					end
+				end
+			end
 		end
 		if next(kb) then x.kb = kb end
+		if next(ko) then x.ko = ko end
 	end
 	-- game options that change what ShamanPower shows
 	if GetCVar then
@@ -614,6 +629,10 @@ local function snapshot()
 		ly.chargesShield = layer(frames and frames.player, "engine")    -- Shield Charges: your shield
 		ly.chargesES = layer(frames and frames.earth, "engine")         -- Shield Charges: Earth Shield
 		n.ly = ly
+	end
+	if SP.CountdownScale then
+		local ok, scale, measured = pcall(SP.CountdownScale, SP)
+		if ok and scale then n.cc = { s = scale, m = measured == true } end
 	end
 	return n
 end

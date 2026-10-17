@@ -298,6 +298,51 @@ SP.SHARE_FEATURES = {
 		return n > 1
 	end },
 	{ key = "cdbarHideOutOfCombat", label = "Hide cooldown bar out of combat",    get = function() return on(O().cdbarHideOutOfCombat) end },
+	-- 3.0.9: Click an Icon Opens Its Screen (General > Main)
+	{ key = "iconScreens",        label = "Icon screens",                       get = function() return on(O().iconScreens) end },
+	-- 3.0.9: Totems In The Flyouts, your own order (any element)
+	{ key = "flyoutOrder",        label = "Totem flyouts: own order",           get = function() return type(O().flyoutOrder) == "table" and next(O().flyoutOrder) ~= nil end },
+	{ key = "partyStripOnlyDown", label = "Party strip: only while the totem is down", get = function()
+		local ps = O().partyStrip
+		return on(sub(ps, "enabled")) and on(sub(ps, "onlyDown"))
+	end },
+	{ key = "alertsGrowUp",       label = "Expiring alerts grow upward",        get = function() return on(sub(G("ShamanPowerExpiringAlertsDB"), "growUp")) end },
+	{ key = "totemBarClickThrough", label = "Totem bar: click through",         get = function() local v = O().totemBarClickThrough; return v ~= nil and v ~= "off" end },
+	{ key = "cdbarClickThrough",  label = "Cooldown bar: click through",        get = function() local v = O().cdbarClickThrough; return v ~= nil and v ~= "off" end },
+	-- 3.0.9.1
+	{ key = "loadoutsRememberOrder", label = "Loadouts remember the totem bar order", get = function() return on(O().loadoutsRememberOrder) end },
+	{ key = "raidCoverage",       label = "Raid coverage",                      get = function() return on(sub(O().raidCoverage, "enabled")) end },
+	-- Cooldown Numbers / Buff Timers (Appearance > Colors & Borders): on for any bar
+	{ key = "countdownColors",    label = "Cooldown numbers colored",           get = function()
+		for _, k in pairs(SP.COUNTDOWN_SWITCHES or {}) do if on(O()[k]) then return true end end
+		return false
+	end },
+	{ key = "buffTimerColors",    label = "Buff timers colored",                get = function()
+		for _, k in pairs(SP.BUFF_TIMER_SWITCHES or {}) do if on(O()[k]) then return true end end
+		return false
+	end },
+	{ key = "keysWhenOff",        label = "Keybinds work with the icon off",    get = function() return on(O().keybindsWorkWhenOff) end },
+	{ key = "totemBarFadeNoTotem", label = "Totem bar: fade elements with no totem down", get = function() return on(O().totemBarFadeNoTotem) end },
+	{ key = "redXUntilRecast",    label = "Effect: red X kept until recast",    get = function()
+		if on(O().totemCueDestroyedMark) and on(O().totemCueDestroyedMarkStays) then return true end
+		return (on(item(1, "cueMark")) and on(item(1, "cueMarkStays"))) or (on(item(7, "cueMark")) and on(item(7, "cueMarkStays")))
+	end },
+	{ key = "dropAllStartOver",   label = "Drop All: start over time changed",  get = function() local v = O().dropAllResetSeconds; return v ~= nil and v ~= 15 end },
+	{ key = "readyLightningBolt", label = "Ready reminders: Lightning Bolt",    get = function() return on(sub(sub(G("ShamanPower_ReadyReminders"), "spells"), "lightningbolt")) end },
+	{ key = "readyOwnIconShape",  label = "Ready reminders: an icon's own shape", get = function()
+		local icons = sub(G("ShamanPower_ReadyReminders"), "icons")
+		if type(icons) == "table" then
+			for _, own in pairs(icons) do if sub(own, "iconShape") ~= nil then return true end end
+		end
+		return false
+	end },
+	{ key = "totemPlatesImportant", label = "Totem plates: important totems",   get = function()
+		local t = sub(O().totemPlates, "totems")
+		if type(t) == "table" then
+			for _, own in pairs(t) do if on(sub(own, "important")) then return true end end
+		end
+		return false
+	end },
 }
 
 -- ---------------------------------------------------------------------------
