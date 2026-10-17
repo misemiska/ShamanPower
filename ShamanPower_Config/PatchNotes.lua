@@ -9,7 +9,7 @@ local _, ns = ...
 ns.PATCH_NOTES = {
 	{
 		v = "3.0.9.1",
-		date = "in progress",
+		date = "2026-10-17",
 		headline = "Raid Coverage, colored cooldown numbers, keybinds that keep working, and Dropped Totems",
 		new = {
 			{ h = "Raid Coverage", icon = "Interface\\Icons\\Spell_Nature_Windfury", client = "forever",

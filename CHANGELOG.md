@@ -1,6 +1,6 @@
 # ShamanPower Changelog
 
-## v3.0.9.1 (in progress)
+## v3.0.9.1 (2026-10-17)
 
 ### After updating
 - After updating, fully close and restart the game once: 3.0.9.1 adds new files (Click Through, the cooldown bar's Hide Out of Combat, the Appearance page, the page layouts), and a /reload alone does not load them.
