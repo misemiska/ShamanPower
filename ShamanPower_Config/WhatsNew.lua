@@ -147,7 +147,7 @@ local function ShowStylePreview(key)
 end
 
 -- ---------------------------------------------------------------------------
--- The ShamanPower look (General > Themes). Offered once per account, to
+-- The ShamanPower look (Appearance > Themes). Offered once per account, to
 -- existing users only: a new install picks its look in the setup tour. It
 -- only ever shows and opens: nothing changes unless the player changes it on
 -- the Themes tab, and "Keep my look" / "Got it" / the X change nothing.
@@ -164,7 +164,7 @@ end
 local LOOK_TEXT = "One look for every color in ShamanPower: the logo's element colors, WoW's own green, yellow"
 	.. " and red for charges and timers, and navy panels. ShamanPower Minimal adds flat element boxes."
 	.. " Your look stays exactly as it is unless you pick a theme, and Standard always puts it back."
-	.. "\n|cff3FA9F5Settings > General > Themes|r"
+	.. "\n|cff3FA9F5Settings > Appearance > Themes|r"
 
 -- The item: an info box (accent fill and border) with the NEW tag, the heading,
 -- the text and the player's bar now next to it in the ShamanPower look.
@@ -216,7 +216,7 @@ local function LookBox(parent, y, W, onTry)
 		local try = Core:MakeButton(box, "Try it", 80, false)
 		try:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -12, 12)
 		try:SetScript("OnClick", onTry)
-		Core:AttachTooltip(try, "Try it", "Opens Settings > General > Themes. Nothing changes until you pick a theme there.")
+		Core:AttachTooltip(try, "Try it", "Opens Settings > Appearance > Themes. Nothing changes until you pick a theme there.")
 	end
 	box:SetHeight(h)
 	return box, h
@@ -228,7 +228,7 @@ local function BuildLookDialog()
 	if lookDlg then return lookDlg end
 	lookDlg = Core:CreateDialog({
 		name = "ShamanPowerWhatsNewLook", width = 560, height = 200,
-		title = "What's new", subtitle = "shown once",
+		title = "What's new",
 		headerHeight = 46, footer = 52, special = true, strata = "DIALOG",
 	})
 	local solid = lookDlg:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -333,7 +333,7 @@ local function NewLookBox(parent, y, W, it, onTry)
 	local try = Core:MakeButton(box, "Try it", 80, false)
 	try:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -12, 12)
 	try:SetScript("OnClick", onTry)
-	Core:AttachTooltip(try, "Try it", "Opens Settings > General > Themes. Nothing changes until you pick something there.")
+	Core:AttachTooltip(try, "Try it", "Opens Settings > Appearance > Themes. Nothing changes until you pick something there.")
 	box:SetHeight(h)
 	return box, h
 end
@@ -365,7 +365,7 @@ local function BuildDialog(since, preview)
 	local dlg = Core:CreateDialog({
 		name = "ShamanPowerWhatsNew" .. ((key == "all") and "" or key:gsub("%.", "_")), width = 560, height = 200,
 		title = "What's new",
-		subtitle = "shown once per update", headerHeight = 46, footer = 52, special = true,
+		headerHeight = 46, footer = 52, special = true,
 	})
 	cards[key] = dlg
 	dlg:SetFrameStrata("DIALOG")

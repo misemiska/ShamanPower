@@ -73,7 +73,7 @@ local GROUPS = {
 	show    = { "runOutOnly", "runOutReady", "runOutSecs", "almostSecs" },
 	look    = { "buttonStyle", "sweep", "sweepDirection", "progressBar", "progressColor", "timeOnIcon", "ankhCount" },
 	charges = { "chargeCount", "colorCount", "chargeBar" },
-	effects = { "cueReady", "cueReadyStyle", "cueAlmost", "cueAlmostStyle", "cueGone", "cueGoneStyle", "cueMark",
+	effects = { "cueReady", "cueReadyStyle", "cueAlmost", "cueAlmostStyle", "cueGone", "cueGoneStyle", "cueMark", "cueMarkStays",
 	            "cueMissing", "cueMissingGlow", "cueRunning", "cueRunningStyle", "cueTimeColor", "cueTimeOnly" },
 	flyout  = { "flyoutDirection", "flyoutIconSize", "flyoutOpacity" },
 	clicks  = { "rightClickOther" },
@@ -88,7 +88,7 @@ local APPLIES = {
 	timeOnIcon = CDS_IMBUE, ankhCount = { [3] = true },
 	chargeCount = { [SHIELD] = true }, colorCount = { [SHIELD] = true }, chargeBar = { [SHIELD] = true },
 	cueReady = CDS, cueReadyStyle = CDS, cueAlmost = CDS, cueAlmostStyle = CDS,
-	cueGone = SI, cueGoneStyle = SI, cueMark = SI, cueMissing = SI, cueMissingGlow = SI, cueRunning = SI_ES, cueRunningStyle = SI_ES,
+	cueGone = SI, cueGoneStyle = SI, cueMark = SI, cueMarkStays = SI, cueMissing = SI, cueMissingGlow = SI, cueRunning = SI_ES, cueRunningStyle = SI_ES,
 	cueTimeColor = ALL, cueTimeOnly = { [SHIELD] = true },
 	flyoutDirection = SI, flyoutIconSize = SI, flyoutOpacity = SI,
 	rightClickOther = { [SHIELD] = true }, onTotemBar = { [2] = true },
@@ -160,6 +160,7 @@ local FALLBACK = {
 	flyoutOpacity   = function(o) return o.cooldownFlyoutOpacity or 1.0 end,
 	rightClickOther = function(o) return truthy(o.cdbarShieldRightClickOther) end,
 	onTotemBar      = function(o) return truthy(o.totemicCallOnTotemBar) end,
+	cueMarkStays    = function(o) return truthy(o.cdbarCueMarkStays) end,   -- Keep the Red X Until You Recast (3.0.9.1)
 }
 
 -- the effect styles Signature Moves writes into the shared keys
@@ -244,6 +245,9 @@ end
 
 function SP:SetCdItemOpt(t, name, v)
 	if not FALLBACK[name] then return end
+	if name == "cueMark" or name == "cueMarkStays" or name == "cueGone" then
+		C_Timer.After(0, function() if SP.CueMarksRefresh then SP:CueMarksRefresh() end end)   -- (after the value lands)
+	end
 	local it, items = itemTable(self, t, v ~= nil)
 	if not it then return end
 	it[name] = v

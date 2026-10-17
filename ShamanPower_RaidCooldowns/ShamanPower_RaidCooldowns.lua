@@ -18,8 +18,9 @@ end
 local callPractice = false
 local function KnowsManaTide() return callPractice or SPCompat.KnowsSpellID(16190) end
 -- Every Mana Tide cast: 16190 (the talent), and on WoW: Forever the trainer ranks at
--- level 48 and 58 (17354, 17359). A cast of a higher rank reports its own ID.
-local MANA_TIDE_CASTS = { [16190] = true, [17354] = true, [17359] = true }
+-- level 38, 48 and 58 (17354, 17359, 1325256: rank 4 since the 10-15 patch). A cast of a
+-- higher rank reports its own ID.
+local MANA_TIDE_CASTS = { [16190] = true, [17354] = true, [17359] = true, [1325256] = true }
 
 -- Mark module as loaded
 SP.RaidCooldownsLoaded = true
@@ -564,7 +565,7 @@ function SP:ShowManaTideAlert()
 end
 
 -- ============================================================================
--- THEME (General > Themes, spot mod.raidcd-colors): the caller buttons' panel
+-- THEME (Appearance > Themes, spot mod.raidcd-colors): the caller buttons' panel
 -- and the center alert's text. Looks only. On Standard every read is nil and
 -- the colours set below stay exactly as they are; a theme change repaints
 -- (restore = true puts today's colours back).
@@ -1717,7 +1718,7 @@ SP:OnOnOff(function(off)
 	SP:UpdateCallerButtons()
 end)
 
--- Theme changed (General > Themes): repaint the panel and the alert if they
+-- Theme changed (Appearance > Themes): repaint the panel and the alert if they
 -- exist. Plain frames, so this is safe in combat; nothing runs otherwise.
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

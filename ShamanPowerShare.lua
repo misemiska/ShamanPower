@@ -99,6 +99,10 @@ function SP:BuildSharePayload(opts)
 		for _, name in ipairs(EXTRA_SVARS) do
 			if _G[name] then payload.extras[name] = CleanCopy(_G[name]) end
 		end
+		-- Your Themes (account-wide, Appearance > Themes): the full export carries them, so the
+		-- profile's own theme comes along to another account or game (ImportShare puts them in)
+		local themes = self.db and self.db.global and self.db.global.themes
+		if type(themes) == "table" and #themes > 0 then payload.themes = CleanCopy(themes) end
 	end
 	return payload
 end
@@ -166,6 +170,7 @@ function SP:ImportShare(str, mode, profileName)
 	if not payload then return nil, err end
 	if type(payload.profile) ~= "table" then return nil, "the setup code has no profile settings" end
 
+	self.shareImporting = true   -- (no theme migration of the half-written profile)
 	if mode == "overwrite" then
 		wipe(self.db.profile)
 		for k, v in pairs(payload.profile) do self.db.profile[k] = CleanCopy(v) end
@@ -211,7 +216,24 @@ function SP:ImportShare(str, mode, profileName)
 		end
 	end
 
+	-- the code's saved themes (a full export carries them): each one becomes a theme here, a
+	-- same-named one replaced; the imported profile's card refs follow them to their numbers here
+	if type(payload.themes) == "table" and not payload.preset and self.ThemeTakeShared then
+		local map = self:ThemeTakeShared(payload.themes)
+		local th = self.db.profile.theme
+		if type(th) == "table" then
+			local function remap(card)
+				local n = type(card) == "string" and tonumber(card:match("^mine:(%d+)$"))
+				if n and map[n] then return "mine:" .. map[n] end
+				return card
+			end
+			th.card = remap(th.card)
+			if type(th.pending) == "table" then th.pending.card = remap(th.pending.card) end
+		end
+	end
+
 	self.opt = self.db.profile
+	self.shareImporting = nil
 	-- Re-apply everything to the live UI now that the imported data is in
 	-- place. OnProfileChanged rebuilds positions, layout, skin, opacity and
 	-- pop-outs from the current profile; SetProfile above already ran it once

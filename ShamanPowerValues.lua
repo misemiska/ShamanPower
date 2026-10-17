@@ -129,6 +129,12 @@ SHAMANPOWER_DEFAULT_VALUES = {
         cooldownFlyoutOpacity = 1.0,  -- Opacity of cooldown bar flyout menus (0.1 to 1.0)
         showTotemFlyouts = true,  -- Show flyout menus on mouseover for quick totem selection
         swapFlyoutClickButtons = false,  -- Swap flyout mouse buttons (left=assign, right=cast instead of default)
+        totemBarClickThrough = "off",  -- Click Through The Totem Bar: off / combat / always (ShamanPowerClickThrough.lua)
+        cdbarClickThrough = "off",     -- Click Through The Cooldown Bar: off / combat / always
+        cdbarHideOutOfCombat = false,  -- Appearance > Visibility > Cooldown Bar Auto-Hide: Hide Out of Combat (3.0.9)
+        cdbarFadeInsteadOfHide = false,  -- ... fade to cdbarFadeOpacity instead of hiding
+        cdbarFadeOpacity = 0.25,       -- ... the faded opacity (cdbarFadeSmooth: nil = glide, false = at once)
+        cdbarShowWithTarget = false,   -- ... back while targeting something attackable
         flyoutRequiresClick = false,  -- Require right-click to show flyout instead of mouseover
         flyoutSingleOpen = true,      -- In-combat arrow flyouts: opening one closes the others (false = they stay open)
         flyoutCloseOnCast = true,     -- Box-mode flyouts: picking from a flyout closes it (false = it stays open)
@@ -229,6 +235,7 @@ SHAMANPOWER_DEFAULT_VALUES = {
         esFlyoutClasses = {},             -- ES flyout filter: show only these classes (WARRIOR, ...); combined with roles as OR  -- Dropped-totem indicator: "auto" (above, or flyout side on vertical bars), "above", "below", "left", "right"
         -- Compact style: element-colored lines instead of icons (see ShamanPowerCompact.lua)
         compactStyle = false,
+        droppedTotems = false,  -- Dropped Totems: the bar is only the totems that are down (ShamanPowerDropped.lua)
         compactOrientation = "horizontal",  -- "horizontal" (lines stacked) / "vertical" (lines side by side)
         compactLength = 120,                -- line length px
         compactThickness = nil,             -- line thickness px (nil = 14 horizontal / 16 vertical)
@@ -293,6 +300,7 @@ SHAMANPOWER_DEFAULT_VALUES = {
             scale = 1.0,               -- Size
             bgOpacity = 0.8,           -- Background Opacity (the panel only; the markers stay)
             breakUp = false,           -- Break Up Totem List: each picked totem a strip of its own
+            onlyDown = false,          -- Only While The Totem Is Down: a totem's line only while you have it down
             -- position = { anchor, x, y } once moved (SP:SavePositionRecord)
             -- totems = { ["element:index"] = true }: the Totems row's picks. No default: until the
             --   first pick the strip shows the old Buff to Watch (buff above) alone
@@ -966,6 +974,7 @@ ShamanPower.TotemBaseDurations = {
     [16190] = 13,           -- Mana Tide Totem
     [17354] = 13,           -- Mana Tide Totem
     [17359] = 13,           -- Mana Tide Totem
+    [1325256] = 13,         -- Mana Tide Totem (rank 4, WoW: Forever)
     [10595] = 300,          -- Nature Resistance Totem
     [10600] = 300,          -- Nature Resistance Totem
     [10601] = 300,          -- Nature Resistance Totem

@@ -27,7 +27,7 @@
 
 local SP = ShamanPower
 if not SP then return end
--- General > Themes: the bar's looks are part of a theme (Layout and the pad pictures;
+-- Appearance > Themes: the bar's looks are part of a theme (Layout and the pad pictures;
 -- its colors are the element colors and WoW's own, which themes already hold). On both
 -- clients, data only (nothing shows on Anniversary): a theme shared from WoW: Forever then
 -- reads the same on Anniversary instead of turning Custom there.
@@ -847,7 +847,11 @@ do
 		local args = {
 			controller_intro = { type = "description", width = "full",
 				name = "Your four totems shaped like your controller, with Drop All in the middle. Clicking a slot presses the same button on your totem bar." },
-			controller_look = { type = "select", width = 1.0, name = "Controller Look",
+			controller_enabled = { type = "toggle", width = "full", name = "Enable Controller",
+				desc = "Turn the controller bar on or off.",
+				get = function() local c = SP.opt and SP.opt.controller return c and c.enabled and true or false end,
+				set = function(_, v) if SP.Controller then SP.Controller:SetEnabled(v) end end },
+			controller_look = { type = "select", width = 1.0, name = "Show Controller Bar",
 				desc = "Automatic: shows while Blizzard's controller mode (Gamepad UI) is on. Always: shows whenever the Controller switch is on. It shows, hides, moves and changes size out of a fight only.",
 				values = { auto = "Automatic", always = "Always" }, sorting = { "auto", "always" },
 				get = get("look", "auto"), set = set("look") },
@@ -859,10 +863,10 @@ do
 			controller_scale = { type = "range", width = 1.0, name = "Size", isPercent = true, min = 0.5, max = 2.5, step = 0.05,
 				desc = "How big the controller bar is. Your keyboard totem bar keeps its own size.",
 				get = get("scale", 1.35), set = set("scale") },
-			controller_glyphs = { type = "toggle", width = 1.0, name = "Show The Pad Button's Picture",
+			controller_glyphs = { type = "toggle", width = 1.0, name = "Show Controller Button Icons",
 				desc = "Shows the controller button for each slot in its corner, as Xbox, PlayStation or Switch pictures, whichever pad you use.",
 				get = function() local o = O(); return not (o and o.glyphs == false) end, set = set("glyphs") },
-			controller_hide_bar = { type = "toggle", width = "full", name = "Hide My Totem Bar While This Shows",
+			controller_hide_bar = { type = "toggle", width = "full", name = "Hide Totem Bar While Controller Bar Is Shown",
 				desc = "While the controller bar shows, your normal totem bar hides: they are the same buttons. Your totem keys and the controller bar keep working while it is hidden. It hides and comes back out of a fight only.",
 				get = function() local o = O(); return not (o and o.hideTotemBar == false) end,
 				set = function(_, v) local o = O(); if not o then return end; o.hideTotemBar = v and true or false
@@ -871,10 +875,10 @@ do
 				desc = "Your controller rumbles once when a totem has a few seconds left (the same seconds as Totem Bar > Effects > Expiring Soon).",
 				get = get("rumble", false), set = set("rumble") },
 			-- your cooldowns in the controller look (ShamanPowerControllerCooldowns.lua)
-			controller_cooldowns = { type = "select", width = 1.0, name = "Show My Cooldowns",
+			controller_cooldowns = { type = "select", width = 1.0, name = "Show Cooldowns",
 				desc = "Shows the items on your Cooldown Bar (shield, imbue and cooldowns, in the Cooldown Bar's order) in the controller look."
 					.. " On The Controller Bar: Controller Layout puts your first four in the cross's corners and the rest in a small row under it;"
-					.. " Round Slots In A Row and Square put them all in a smaller row above your totems. Separate: in a frame of their own."
+					.. " Round Slots In A Row and Square put them all in a smaller row above your totems. Separate: in their own panel."
 					.. " Clicking one presses the same button on your cooldown bar. It shows, hides, moves and changes size out of a fight only.",
 				values = { off = "Off", bar = "On The Controller Bar", separate = "Separate" }, sorting = { "off", "bar", "separate" },
 				get = function() local o = O(); local v = o and o.cooldowns; return (v == "bar" or v == "separate") and v or "off" end,
@@ -885,7 +889,7 @@ do
 				hidden = function() local o = O(); return not (o and o.cooldowns == "separate") end,
 				get = function() local o = O(); return (o and o.cdLayout == "row") and "row" or "cross" end,
 				set = function(_, v) local o = O(); if not o then return end; o.cdLayout = v; if C.CdChanged then C:CdChanged() end end },
-			controller_cd_scale = { type = "range", width = 1.0, name = "Size Of My Cooldowns", isPercent = true, min = 0.5, max = 2.5, step = 0.05,
+			controller_cd_scale = { type = "range", width = 1.0, name = "Cooldown Icon Size", isPercent = true, min = 0.5, max = 2.5, step = 0.05,
 				desc = "How big your cooldowns are in their own frame. The controller bar and your cooldown bar keep their own sizes.",
 				hidden = function() local o = O(); return not (o and o.cooldowns == "separate") end,
 				get = get("cdScale", 1), set = function(_, v) local o = O(); if not o then return end; o.cdScale = v; if C.CdChanged then C:CdChanged() end end },
@@ -894,7 +898,7 @@ do
 				hidden = function() local o = O(); local v = o and o.cooldowns; return not (v == "bar" or v == "separate") end,
 				get = function() local o = O(); return not (o and o.hideCooldownBar == false) end,
 				set = function(_, v) local o = O(); if not o then return end; o.hideCooldownBar = v and true or false; if C.CdChanged then C:CdChanged() end end },
-			controller_cd_move = { type = "execute", width = "full", name = "Move My Cooldowns",
+			controller_cd_move = { type = "execute", width = "full", name = "Move Controller Cooldowns",
 				desc = "Unlocks only your cooldowns' own frame: drag its box where you want it, then press Done. It can't be done in a fight. Turn on the Controller switch first.",
 				hidden = function() local o = O(); return not (o and o.cooldowns == "separate") end,
 				disabled = function() local o = O(); return not (o and o.enabled) end,
@@ -913,11 +917,14 @@ do
 		SP.OptionCustomRow = SP.OptionCustomRow or {}
 		SP.OptionCustomRow[args.controller_buttons] = "controller_buttons"
 		SP.OrderSettingsBands(F.controller_page, {
-			{ keys = { "controller_intro", "controller_move" } },
+			-- the pictures first, the words and switches under them (the owner, 2026-10-17: every icon page)
+			{ header = "controller_buttons_header", name = "Controller Buttons", keys = { "controller_buttons" } },
+			{ keys = { "controller_enabled", "controller_intro" } },
 			{ header = "controller_look_header", name = "Look", keys = { "controller_look", "controller_layout",
 				"controller_scale", "controller_glyphs", "controller_hide_bar", "controller_rumble",
-				"controller_cooldowns", "controller_cd_layout", "controller_cd_scale", "controller_cd_hide_bar", "controller_cd_move" } },
-			{ header = "controller_buttons_header", name = "Controller Buttons", keys = { "controller_buttons" } },
+				"controller_cooldowns", "controller_cd_layout", "controller_cd_scale", "controller_cd_hide_bar" },
+				names = { controller_scale = "Scale", controller_cd_scale = "Scale" } },
+			{ header = "controller_position_header", name = "Position", keys = { "controller_move", "controller_cd_move" } },
 		})
 		C.pageArgs = args
 	end

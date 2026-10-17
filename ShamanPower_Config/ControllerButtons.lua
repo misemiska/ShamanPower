@@ -36,12 +36,12 @@ local BOX        = 10     -- the tiny totem box before a totem's name
 local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0   -- gold text (ui-style-guide 2.3)
 -- (the words that say what to do in the settings' blue, so a player sees them first)
 local CAPTION_HOW = " |cff3FA9F5CLICK|r a line (or move with the |cff3FA9F5d-pad|r and press |cff3FA9F5A|r), then press the"
-	.. " controller button you want. |cff3FA9F5RIGHT-CLICK|r a line to take its button off. |cff3FA9F5Esc|r stops."
+	.. " controller button you want. |cff3FA9F5RIGHT-CLICK|r a line to clear its button. |cff3FA9F5Esc|r cancels."
 local PRESS = "Press a controller button..."
 local HINTS = { { "PADDUP", "Up" }, { "PADDDOWN", "Down" }, { "PAD1", "Change" }, { "PAD2", "Back" } }
 local ELEMENT_OF = { earth = "earth", fire = "fire", water = "water", air = "air" }
 local TIPS = {
-	layer = "Hold this button and ShamanPower's buttons below work; let go and the pad is Blizzard's again. While the controller look is on, this one button is ShamanPower's.",
+	layer = "Hold this button to use ShamanPower's controls below; let go and the pad is WoW's again. While the controller bar is on, this one button is ShamanPower's.",
 	earth = "drops your Earth totem.",
 	fire = "drops your Fire totem.",
 	water = "drops your Water totem.",
@@ -322,7 +322,7 @@ local function PaintLine(row, key, glyphX)
 	end
 	local padKey = P and P:Get(key)
 	if not padKey then
-		row.state:SetText("No button")
+		row.state:SetText("No Button Set")
 		row.state:SetTextColor(Core:Color("textMute"))
 		row.state:Show()
 		return
@@ -387,7 +387,7 @@ local function Build(body)
 	Core:AttachTooltip(f.recommended, "Use The Recommended Buttons",
 		"Hold LB for ShamanPower's buttons: the d-pad drops your Earth (Up), Fire (Right), Water (Down) and Air (Left) totems,"
 		.. " A drops them all, and RB opens the totem picker.")
-	f.reset = Core:MakeButton(f, "Reset", 80, false)
+	f.reset = Core:MakeButton(f, "Clear Controller Bindings", 190, false)
 	f.reset:SetScript("OnClick", function()
 		local P = Pad()
 		if not P then return end

@@ -19,7 +19,7 @@ local SP = ShamanPower
 local FONT  = "Fonts\\FRIZQT__.TTF"
 local EMPTY = { r = 0.32, g = 0.32, b = 0.32 }   -- "nothing down" line color
 local ES_MAX_CHARGES = 6
--- General > Themes (st.compact): a themed line colour per element, filled in place
+-- Appearance > Themes (st.compact): a themed line colour per element, filled in place
 -- when a theme is in play (nothing is allocated while painting)
 local THEMED_LINE = { { r = 1, g = 1, b = 1 }, { r = 1, g = 1, b = 1 },
 	{ r = 1, g = 1, b = 1 }, { r = 1, g = 1, b = 1 } }
@@ -453,7 +453,7 @@ end
 local function SegmentColor(self, charges, n, useColors, base)
 	local r, g, b = 0.25, 0.85, 0.3
 	if base then r, g, b = base.r, base.g, base.b end
-	-- General > Themes (st.compact-shield): the full colour (Earth Shield line: "es",
+	-- Appearance > Themes (st.compact-shield): the full colour (Earth Shield line: "es",
 	-- your shield: its SHIELD_COLORS role) and low / last; nil = the colours here
 	local themed = self:ThemeActive("st.compact-shield")
 	if themed then
@@ -686,7 +686,7 @@ end
 local SHIELD_MAX_CHARGES = 3
 local SHIELD_COLORS = { [324] = { r = 1.0, g = 0.85, b = 0.25 }, [24398] = { r = 0.35, g = 0.65, b = 1.0 },
 	[408510] = { r = 0.35, g = 0.65, b = 1.0 } }   -- Water Shield on WoW: Forever (talent, Season of Discovery spell ID)
--- which st.compact-shield role (General > Themes) each one's full colour is
+-- which st.compact-shield role (Appearance > Themes) each one's full colour is
 SHIELD_COLORS[324].spRole, SHIELD_COLORS[24398].spRole, SHIELD_COLORS[408510].spRole = "full", "water", "water"
 
 -- Validate shield names on spellbook changes for both clients, never in the
@@ -1159,7 +1159,7 @@ function SP:UpdateCompactTotems()
 			local haveTotem, _, startTime, duration, icon = self:GetElementTotemInfo(element)
 			c.idleCol = (self.opt.compactIdleColor == "element") and self.ElementColors[element] or nil
 			c.idleOl = ((self.opt.compactIdleOutline or LOOK.compactIdleOutline) == "element") and self.ElementColors[element] or nil
-			-- General > Themes (st.compact): the theme's line colour; nil = the Appearance palette above
+			-- Appearance > Themes (st.compact): the theme's line colour; nil = the Appearance palette above
 			local col = self.ElementColors[element]
 			local tr, tg, tb = self:ThemeColor("st.compact", element)
 			if tr then
@@ -1253,7 +1253,7 @@ function SP:ApplyCompactStyle()
 	if self.UpdateCooldownBarScale then self:UpdateCooldownBarScale() end
 end
 
--- General > Themes (st.compact): Compact Style > Outline Color is this spot's
+-- Appearance > Themes (st.compact): Compact Style > Outline Color is this spot's
 -- setting. The ShamanPower themes set it to Element color, so the outline follows
 -- the theme's line colours (a custom outline colour would hide them); Standard
 -- puts the player's choice back, and the Compact Style page still changes it.

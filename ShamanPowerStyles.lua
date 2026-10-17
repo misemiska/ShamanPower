@@ -21,35 +21,39 @@ end
 -- is     reads the flags back; evaluated in the order of PRECEDENCE below
 SP.TOTEM_BAR_STYLES = {
 	{ key = "normal", label = "Normal",
-	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil end,
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.droppedTotems = nil end,
 	  is = function(o) return true end },
 	{ key = "totemtimers", label = "TotemTimers Style",
-	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = true; o.activeAssignedCorner = nil end,
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = true; o.activeAssignedCorner = nil; o.droppedTotems = nil end,
 	  is = function(o) return o.activeTotemAsMain == true end },
 	{ key = "dynamic", label = "Dynamic (PvP)",
-	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = true; o.activeTotemAsMain = false; o.activeAssignedCorner = nil end,
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = true; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.droppedTotems = nil end,
 	  is = function(o) return o.dynamicTotemMode == true end },
 	-- Single Totem: the active totem without the assigned totem in the corner. The
 	-- button shows the totem that is down, a click always drops the assigned one,
 	-- and it goes back to the assigned one the moment the dropped totem is gone.
 	{ key = "single", label = "Single Totem",
-	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = true; o.activeAssignedCorner = false end,
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = true; o.activeAssignedCorner = false; o.droppedTotems = nil end,
 	  is = function(o) return o.activeTotemAsMain == true and o.activeAssignedCorner == false end },
 	{ key = "compact", label = "Compact (lines)",
-	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = true; o.dynamicTotemMode = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil end,
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = true; o.dynamicTotemMode = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.droppedTotems = nil end,
 	  is = function(o) return o.compactStyle == true end },
+	-- Dropped Totems: only the totems that are down, centered, nothing else (ShamanPowerDropped.lua)
+	{ key = "dropped", label = "Dropped Totems",
+	  apply = function(o) o.gridStyle = false; o.useBlizzardTotemBar = nil; o.compactStyle = false; o.dynamicTotemMode = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.droppedTotems = true end,
+	  is = function(o) return o.droppedTotems == true end },
 	{ key = "grid", label = "Grid (every totem)", only = HasGrid,
-	  apply = function(o) o.useBlizzardTotemBar = nil; o.compactStyle = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.gridStyle = true end,
+	  apply = function(o) o.useBlizzardTotemBar = nil; o.compactStyle = false; o.activeTotemAsMain = false; o.activeAssignedCorner = nil; o.gridStyle = true; o.droppedTotems = nil end,
 	  is = function(o) return o.gridStyle == true end },
 	{ key = "blizzard", label = "Blizzard's Totem Bar", only = HasBlizzardBar,
-	  apply = function(o) o.gridStyle = false; o.compactStyle = false; o.useBlizzardTotemBar = true; o.activeAssignedCorner = nil end,
+	  apply = function(o) o.gridStyle = false; o.compactStyle = false; o.useBlizzardTotemBar = true; o.activeAssignedCorner = nil; o.droppedTotems = nil end,
 	  is = function(o) return o.useBlizzardTotemBar == true end },
 }
 -- Blizzard's bar wins over Grid, Grid over the four looks of ShamanPower's bar,
 -- Compact over Dynamic over Single Totem over the display with a corner (Single Totem is
 -- the same display with the corner off); Normal is what is left. (Totem Rows is not a
 -- style: a switch that goes with any of them but Grid, ShamanPowerRows.lua.)
-local PRECEDENCE = { "blizzard", "grid", "compact", "dynamic", "single", "totemtimers", "normal" }
+local PRECEDENCE = { "blizzard", "grid", "dropped", "compact", "dynamic", "single", "totemtimers", "normal" }
 
 local byKey = {}
 for _, st in ipairs(SP.TOTEM_BAR_STYLES) do byKey[st.key] = st end
@@ -118,6 +122,10 @@ function SP:SetTotemBarStyle(key)
 		o.compactStyle = false
 		if self.ApplyCompactStyle then self:ApplyCompactStyle() end
 	end
+	if o.droppedTotems and key ~= "dropped" then
+		o.droppedTotems = nil
+		if self.ApplyDroppedTotems then self:ApplyDroppedTotems() end   -- the Normal bar's parts back, Drop All as it was
+	end
 	st.apply(o)
 	if key == "grid" then
 		if self.SetGridStyle then self:SetGridStyle(true) end   -- builds the rows and refreshes the bar itself
@@ -129,6 +137,8 @@ function SP:SetTotemBarStyle(key)
 		if self.UpdateLayout then self:UpdateLayout() end
 		if self.UpdateMiniTotemBar then self:UpdateMiniTotemBar() end
 		if self.UpdateActiveTotemOverlays then self:UpdateActiveTotemOverlays() end
+		if key == "dropped" and self.ApplyDroppedTotems then self:ApplyDroppedTotems() end
+		if self.UpdateTotemBarFrame then self:UpdateTotemBarFrame() end   -- (Dropped Totems has no frame)
 	end
 	if self.FollowStyleSpot then self:FollowStyleSpot() end   -- each style keeps its own spot
 	if self.RefreshConfig then self:RefreshConfig() end

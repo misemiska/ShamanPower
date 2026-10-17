@@ -21,6 +21,40 @@ local Menu = ns.IconRow.Menu
 local Choice, OnOff, Slider, Group = Menu.Choice, Menu.OnOff, Menu.Slider, Menu.Group
 local SEP = { separator = true }
 
+-- 3.0.9: a row's `pic` / `words` are picture hints for the icon's own screen (IconScreen.lua); the
+-- menus ignore them. The colors are plain numbers, the ones the bar draws with: the cues' gold, blue
+-- and Running Out orange and WoW's red (ShamanPowerCues.lua), the progress bar's green and the charge
+-- strip's blue (ShamanPower.lua); a picture never reads a widget.
+local PIC = {
+	plain = { kind = "plain" }, none = { kind = "none" }, redx = { kind = "redx" },
+	GOLD = { 1, 0.82, 0.25 }, BLUE = { 0.35, 0.65, 1 }, ORANGE = { 1, 0.6, 0.1 }, RED = { 1, 0.125, 0.125 },
+	GREEN = { 0.2, 0.8, 0.2 }, STRIP = { 0.2, 0.6, 1 },
+	-- the Dot pops in the logo's blue (ShamanPowerThemeEffects.lua)
+	LOGO = (SP.THEME_BRAND and SP.THEME_BRAND.logoBlue) or { 63 / 255, 169 / 255, 245 / 255 },
+}
+-- what an effect's styles draw, in that effect's color: Flash washes the icon, Glow glows, Shine / Shield
+-- burst / Element flare ring it, Frame drains / Frame blink edge it, Bar under it bars it, Pulse darkens
+-- it, Dot / Corner flag sit in its corner, Turns red is WoW's red. Shake and Pop are motion: no picture
+local function EffectPics(color)
+	local tex = "Interface\\AddOns\\ShamanPower\\textures\\"
+	return {
+		off = PIC.plain, shake = PIC.none, pop = PIC.none,
+		flash = { kind = "tint", color = color },
+		glow = { kind = "glow", color = color },
+		shine = { kind = "glow", shape = "round", color = color },
+		burst = { kind = "glow", shape = "round", color = color },
+		flare = { kind = "glow", shape = "round", color = color },
+		drain = { kind = "edge", color = color },
+		blinkflag = { kind = "edge", color = color },
+		underbar = { kind = "bar", frac = 0.4, color = color },
+		pulse = { kind = "dark" },
+		dot = { kind = "corner", icon = tex .. "dot", color = PIC.LOGO },
+		flag = { kind = "corner", icon = tex .. "cue_flag", color = color },
+		red = { kind = "tint", color = PIC.RED },
+	}
+end
+PIC.ready, PIC.gone, PIC.running = EffectPics(PIC.GOLD), EffectPics(PIC.BLUE), EffectPics(PIC.ORANGE)
+
 -- (the words that say what to do in the settings' blue, so a player sees them first)
 local CAPTION = "|cff3FA9F5CLICK|r an item to show or hide it on the bar. |cff3FA9F5RIGHT-CLICK|r it for its settings."
 	.. " |cff3FA9F5DRAG|r it to move it. |cff3FA9F5Dark|r: not learned yet."
@@ -155,6 +189,7 @@ local SHARED = {
 	cueAlmostStyle  = { E, "cdbarCueAlmostStyle" },
 	cueMissing      = { E, "cdbarCueMissing" },
 	cueMissingGlow  = { E, "cdbarCueMissingGlow" },
+	cueMarkStays    = { E, "cdbarCueMarkStays" },
 	cueRunning      = { E, "cdbarCueRunning" },
 	cueRunningStyle = { E, "cdbarCueRunningStyle" },
 	cueTimeColor    = { E, "cdbarCueTimeColor" },
@@ -241,27 +276,28 @@ local function SliderSet(t, name, v)
 	if cfg and cfg.PreviewChanged then cfg:PreviewChanged() end
 end
 
-local function OnOffName(t, text, name, tip)
-	return OnOff(text, function() return Get(t, name) end, function(v) return Set(t, name, v) end, tip)
+-- pic: the row's picture hint (an On / Off row's ON picture; a choice's fallback)
+local function OnOffName(t, text, name, tip, pic)
+	return OnOff(text, function() return Get(t, name) end, function(v) return Set(t, name, v) end, tip, pic)
 end
-local function ChoiceName(t, text, name, list, tip, fallback)
+local function ChoiceName(t, text, name, list, tip, fallback, pic)
 	return Choice(text, list, function()
 		local v, own = Get(t, name)
 		if v == nil then v = fallback end
 		return v, own
-	end, function(v) return Set(t, name, v) end, tip)
+	end, function(v) return Set(t, name, v) end, tip, pic)
 end
 local function Secs(v) return string.format("%d sec", tonumber(v) or 0) end
 local function IsShieldOrImbue(t) return t == SHIELD or t == IMBUE end
 
--- an effect's switch and style as one row: Off, or the style it plays (Q7)
+-- an effect's switch and style as one row: Off, or the style it plays (Q7); pics: each style's picture
 -- Signature Moves (the page's Effects): every effect plays the Effects Look's own move
 local function SignatureOn()
 	local o = SP.opt
 	return (o and o.cdbarCueSignature and (o.cdbarCueLook or "standard") ~= "standard") and true or false
 end
 
-local function EffectRow(t, text, onName, styleName, list, fallback, tip)
+local function EffectRow(t, text, onName, styleName, list, fallback, tip, pics)
 	local function cur()
 		local on, own1 = Get(t, onName)
 		local st, own2 = Get(t, styleName)
@@ -281,7 +317,8 @@ local function EffectRow(t, text, onName, styleName, list, fallback, tip)
 			local items = {}
 			for _, c in ipairs(list) do
 				local v = c[1]
-				items[#items + 1] = { text = c[2], selected = now == v, disabled = (sig and v ~= "off" and v ~= sig) or nil, onClick = function()
+				items[#items + 1] = { text = c[2], selected = now == v, pic = pics and pics[v],
+					disabled = (sig and v ~= "off" and v ~= sig) or nil, onClick = function()
 					if v == "off" then
 						Data.Set(t, onName, false)
 					elseif SignatureOn() then
@@ -301,24 +338,42 @@ end
 
 local STYLE_CHOICES = { { "mirror", "Same As The Totem Bar" }, { "normal", "Normal" }, { "totemtimers", "TotemTimers Style" },
 	{ "single", "Single Totem" }, { "dynamic", "Dynamic (PvP)" }, { "grid", "Grid (every choice)" } }
-local SWEEP_CHOICES = { { "none", "None" }, { "greys", "Vertical - Grays Out" }, { "fills", "Vertical - Fills Back In" },
-	{ "radial", "Radial Swipe" } }
+-- (the sweeps' pictures: Radial Swipe as it is, Grays Out as the gray; Fills Back In has no picture of its own)
+local SWEEP_CHOICES = { { "none", "None", nil, PIC.plain }, { "greys", "Gray Fills In", nil, { kind = "gray" } },
+	{ "fills", "Color Fills In", nil, PIC.none },
+	{ "radial", "Clock Sweep", nil, { kind = "sweep", frac = 0.6, text = "6m" } } }
 local SWEEP_CHOICES_IMBUE = { SWEEP_CHOICES[1], SWEEP_CHOICES[2], SWEEP_CHOICES[3] }
 local DIRECTION_CHOICES = { { "top", "From The Top" }, { "bottom", "From The Bottom" } }
 local BARCOLOR_CHOICES = { { false, "By Time Left" }, { true, "Spell Color" } }
 local FLYDIR_CHOICES = { { "below", "Below" }, { "auto", "Auto" }, { "above", "Above" } }
 local READY_STYLES = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
 	{ "shine", "Shine" }, { "dot", "Dot" } }
-local ALMOST_STYLES = { { "off", "Off" }, { "pulse", "Pulse" }, { "glow", "Glow" }, { "drain", "Frame drains" },
-	{ "underbar", "Bar under it" } }
+local ALMOST_STYLES = { { "off", "Off" }, { "pulse", "Pulse" }, { "glow", "Glow" }, { "drain", "Shrinking Border" },
+	{ "underbar", "Bar Below Icon" } }
 local RUNNING_STYLES = { { "off", "Off" }, { "red", "Turns red" }, { "pulse", "Pulse" }, { "glow", "Glow" },
-	{ "drain", "Frame drains" }, { "underbar", "Bar under it" } }
+	{ "drain", "Shrinking Border" }, { "underbar", "Bar Below Icon" } }
 local GONE_STYLES = {
 	[SHIELD] = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
-		{ "burst", "Shield burst" }, { "blinkflag", "Frame blink + flag" } },
+		{ "burst", "Shield burst" }, { "blinkflag", "Blinking Border and Corner Mark" } },
 	[IMBUE] = { { "off", "Off" }, { "shake", "Shake" }, { "pop", "Pop" }, { "flash", "Flash" }, { "glow", "Glow" },
-		{ "flare", "Element flare" }, { "flag", "Corner flag" } },
+		{ "flare", "Element Flash" }, { "flag", "Corner Mark" } },
 }
+
+-- a choice list with its pictures (value -> pic), for the lists whose pictures are the item's own
+local function WithPics(list, pics)
+	local out = {}
+	for i, c in ipairs(list) do out[i] = { c[1], c[2], c[3], pics[c[1]] } end
+	return out
+end
+-- the progress bar's color with plenty of time left: the spell's own (Spell Color: ShamanPower.lua's
+-- SpellBarColors / ImbueBarColors; the shield's Lightning, the imbue's Flametongue) or green (By Time Left)
+local function SpellColor(t)
+	local c
+	if t == SHIELD then c = SP.SpellBarColors and SP.SpellBarColors[324]
+	elseif t == IMBUE then c = SP.ImbueBarColors and SP.ImbueBarColors[2]
+	else c = SP.SpellBarColors and SPELLS[t] and SP.SpellBarColors[SPELLS[t]] end
+	return c or PIC.GREEN
+end
 
 -- ---------------------------------------------------------------------------
 -- Copy, Paste, Copy To, and each group's own copy line (the item's values, or "follow the
@@ -365,10 +420,15 @@ local function CopyEffectsToCooldowns(t)
 end
 local function CopyLine(text, fn) return { text = text, onClick = fn } end
 
-local function LookRows(t)
+local function AppearanceRows(t)
 	local r = {}
 	if IsShieldOrImbue(t) then
-		r[#r + 1] = ChoiceName(t, "Button Style", "buttonStyle", STYLE_CHOICES,
+		-- (TotemTimers Style: the other shield / imbue in the corner; Single Totem: in place of the icon; Dynamic
+		-- draws as Single; Same As The Totem Bar and Grid have no picture of their own)
+		local other = ICONS[t] and ICONS[t][2]
+		local pics = { mirror = PIC.none, normal = PIC.plain, totemtimers = { kind = "corner", icon = other },
+			single = { kind = "swap", icon = other }, dynamic = PIC.none, grid = PIC.none }
+		r[#r + 1] = ChoiceName(t, "Button Style", "buttonStyle", WithPics(STYLE_CHOICES, pics),
 			"How the button picks what it shows. Same As The Totem Bar: the way your Totem Bar Style works (General > Main).\n\n"
 			.. "Normal: the one you assigned, lit only while it is up. TotemTimers Style: the one that is up, with your assigned"
 			.. " one in its corner. Single Totem: the one that is up, without the corner. Dynamic (PvP): the one that is up, and"
@@ -386,12 +446,21 @@ local function LookRows(t)
 	if t == IMBUE and sweep == "radial" then sweep = "greys" end
 	if sweep == "greys" or sweep == "fills" then
 		r[#r + 1] = ChoiceName(t, "Sweep Direction", "sweepDirection", DIRECTION_CHOICES,
-			"Where the gray (Grays Out) or the color (Fills Back In) starts.", "top")
+			"Where the gray (Grays Out) or the color (Fills Back In) starts.", "top", PIC.none)
 	end
 	r[#r + 1] = OnOffName(t, "Progress Bar", "progressBar", "A colored bar beside the button that runs down with the time left."
-		.. " Where it sits and how big it is: Progress Bars and Time on this page.")
+		.. " Where it sits and how big it is: Progress Bars and Time on this page.",
+			{ kind = "bar", color = function()   -- (follows Progress Bar Color)
+				local c = PIC.GREEN
+				if Get(t, "progressColor") then c = SpellColor(t) end
+				return c[1], c[2], c[3]
+			end })
+	if SP.opt and SP.opt.cdbarShowProgressBars == false then
+		r[#r + 1] = { text = "Show Progress Bars is off on the Cooldown Bar page: no item shows one.", disabled = true }
+	end
 	if Get(t, "progressBar") ~= false then
-		r[#r + 1] = Choice("Progress Bar Color", BARCOLOR_CHOICES, function()
+		r[#r + 1] = Choice("Progress Bar Color", WithPics(BARCOLOR_CHOICES, { [false] = { kind = "bar", color = PIC.GREEN },
+			[true] = { kind = "bar", color = SpellColor(t) } }), function()
 			local v, own = Get(t, "progressColor")
 			return v and true or false, own
 		end, function(v) return Set(t, "progressColor", v) end,
@@ -401,23 +470,29 @@ local function LookRows(t)
 	if t ~= SHIELD then
 		local where = OptGet(D, "cdbar_duration_text") or "none"
 		if where == "none" then
-			r[#r + 1] = OnOffName(t, "Time Left On The Icon", "timeOnIcon", "The time left, in the middle of the icon.")
+			r[#r + 1] = OnOffName(t, "Show Time Left", "timeOnIcon", "The time left, in the middle of the icon.",
+				{ kind = "word", text = "45" })
 		end
 	end
 	if t == ANKH then
-		r[#r + 1] = OnOffName(t, "Ankh Count", "ankhCount", "How many Ankhs are in your bags, on the icon.")
+		r[#r + 1] = OnOffName(t, "Ankh Count", "ankhCount", "How many Ankhs are in your bags, on the icon.",
+			{ kind = "number", text = "5" })
 	end
 	r[#r + 1] = SEP
-	r[#r + 1] = CopyLine("Copy Look To All Items", function() return CopyGroup(t, "all", "look") end)
+	r[#r + 1] = CopyLine("Copy Appearance To All Items", function() return CopyGroup(t, "all", "look") end)
 	return r
 end
 
 local function ChargeRows(t)
-	local r = { OnOffName(t, "Charge Count", "chargeCount", "The charges left, in the button's corner.") }
+	local r = { OnOffName(t, "Charge Count", "chargeCount", "The charges left, in the button's corner.",
+		{ kind = "number", text = "3" }) }
 	if Get(t, "chargeCount") ~= false then
-		r[#r + 1] = OnOffName(t, "Color The Count", "colorCount", "Green when full, yellow at half, red when low. Off: white.")
+		-- (no picture says a colored count: the count is the row above's)
+		r[#r + 1] = OnOffName(t, "Color by Charges Left", "colorCount", "Green when full, yellow at half, red when low. Off: white.",
+			PIC.none)
 	end
-	r[#r + 1] = OnOffName(t, "Charge Bar", "chargeBar", "A bar along the bottom of the button, one piece per charge.")
+	r[#r + 1] = OnOffName(t, "Charge Bar", "chargeBar",
+		"A bar along the bottom of the button, one piece per charge.", { kind = "bar", frac = 1, color = PIC.STRIP })
 	return r
 end
 
@@ -430,8 +505,8 @@ end
 local function EffectRows(t)
 	local r = {}
 	if SignatureOn() then
-		r[#r + 1] = { text = "Signature Moves is on (this page, Effects):", disabled = true }
-		r[#r + 1] = { text = "each effect plays the look's own move.", disabled = true }
+		r[#r + 1] = { text = "Signature Moves is on under Effects.", disabled = true }
+		r[#r + 1] = { text = "Effects use the selected look's animations.", disabled = true }
 		r[#r + 1] = SEP
 	end
 	if IsShieldOrImbue(t) then
@@ -439,32 +514,38 @@ local function EffectRows(t)
 		r[#r + 1] = EffectRow(t, shield and "Shield Gone" or "Weapon Imbue Gone", "cueGone", "cueGoneStyle", GONE_STYLES[t], "shake",
 			shield and ("When your shield is gone, the button plays this in blue."
 				.. (FOREVER and " In a fight it pulses red while no shield is up (at 100% Cooldown Bar opacity)." or ""))
-			or "When the imbue drops off (it ran out, or you swapped weapons), the button plays this in blue.")
-		if Get(t, "cueGone") then
-			r[#r + 1] = OnOffName(t, shield and "Red X Until You Cast a Shield Again" or "Red X Until You Imbue Again", "cueMark",
-				shield and ("Also a red X on the button until you cast a shield again (5 seconds at most)."
-					.. (FOREVER and " In a fight it shows while no shield is up instead (at 100% Cooldown Bar opacity)." or ""))
-				or "Also a red X on the button until you put an imbue on again (5 seconds at most).")
+			or "When the imbue drops off (it ran out, or you swapped weapons), the button plays this in blue.", PIC.gone)
+		-- its own switch (3.0.9.1): works with the Gone animation off too; off clears an X on the button
+		r[#r + 1] = OnOffName(t, "Red X When It's Gone", "cueMark",
+			shield and ("A red X on the button until you cast a shield again (5 seconds at most). Its own switch: with Shield Gone off,"
+				.. " the X alone." .. (FOREVER and " In a fight it shows while no shield is up instead (at 100% Cooldown Bar opacity)." or ""))
+			or "A red X on the button until you put an imbue on again (5 seconds at most). Its own switch: with Weapon Imbue Gone off,"
+				.. " the X alone.", PIC.redx)
+		if Get(t, "cueMark") then
+			r[#r + 1] = OnOffName(t, "Keep the Red X Until You Recast", "cueMarkStays",
+				"The X stays on the button until you cast again, instead of fading after 5 seconds. Off: an X held now fades.", PIC.redx)
 		end
 		r[#r + 1] = OnOffName(t, "Turns Red While Missing", "cueMissing",
 			shield and "While your shield is gone, the button turns red until you cast it again."
-			or "While a weapon imbue is gone, the button turns red until you imbue again (with two weapons: either hand).")
+			or "While a weapon imbue is gone, the button turns red until you imbue again (with two weapons: either hand).",
+			{ kind = "tint", color = PIC.RED })
 		r[#r + 1] = OnOffName(t, "Glow While Missing", "cueMissingGlow",
 			(shield and "While your shield is gone, the button's edges glow red until you cast it again."
 			or "While a weapon imbue is gone, the button's edges glow red until you imbue again (with two weapons: either hand).")
-			.. " With Proc Glow as your Glow Shape, that plays round the button too.")
+			.. " With Proc Glow as your Glow Shape, that plays round the button too.", { kind = "glow", color = PIC.RED })
 		r[#r + 1] = EffectRow(t, "Running Out", "cueRunning", "cueRunningStyle", RUNNING_STYLES, "red",
 			"Over its last moments (Running Out At), the button plays this until you cast it again."
-			.. (shield and " A shield also counts as running out on its last charge." or ""))
+			.. (shield and " A shield also counts as running out on its last charge." or ""), PIC.running)
 		r[#r + 1] = OnOffName(t, "Time Turns Red While Running Out", "cueTimeColor",
-			"The time on the button turns red while it is running out. On a button that turns red, the time stays white so you can read it.")
+			"The time on the button turns red while it is running out. On a button that turns red, the time stays white so you can read it.",
+			PIC.none)   -- (no picture says a red time: the time is the sweep's)
 		if shield then
-			r[#r + 1] = OnOffName(t, "Time Only While Running Out", "cueTimeOnly",
+			r[#r + 1] = OnOffName(t, "Show Time Only When Running Out", "cueTimeOnly",
 				"The shield's time stays out of sight while there is plenty left, and shows the moment it is running out (Running Out At)."
-				.. (FOREVER and " In a fight the game draws it, so it is exact to the second." or ""))
+				.. (FOREVER and " In a fight the game draws it, so it is exact to the second." or ""),
+				{ kind = "word", text = "45" })   -- (the time alone: the sweep is its own setting)
 		end
 		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Test This Item's Effects", onClick = function() return TestItem(t) end }
 		if shield then
 			r[#r + 1] = CopyLine("Copy Effects To Weapon Imbue", function() return CopyGroup(t, IMBUE, "effects") end)
 		else
@@ -472,13 +553,12 @@ local function EffectRows(t)
 		end
 	else
 		r[#r + 1] = EffectRow(t, "Cooldown Ready", "cueReady", "cueReadyStyle", READY_STYLES, "pop",
-			"When the cooldown is ready again, the button plays this in gold.")
+			"When the cooldown is ready again, the button plays this in gold.", PIC.ready)
 		r[#r + 1] = EffectRow(t, "Cooldown Almost Ready", "cueAlmost", "cueAlmostStyle", ALMOST_STYLES, "glow",
-			"Over the cooldown's last seconds (Almost Ready At), the button plays this in gold.")
+			"Over the cooldown's last seconds (Almost Ready At), the button plays this in gold.", PIC.ready)
 		r[#r + 1] = OnOffName(t, "Time Turns Gold When Almost Ready", "cueTimeColor",
-			"The time on the button turns gold over its last seconds (Almost Ready At).")
+			"The time on the button turns gold over its last seconds (Almost Ready At).", PIC.none)   -- (as Time Turns Red)
 		r[#r + 1] = SEP
-		r[#r + 1] = { text = "Test This Item's Effects", onClick = function() return TestItem(t) end }
 		r[#r + 1] = CopyLine("Copy Effects To All Cooldowns", function() return CopyEffectsToCooldowns(t) end)
 	end
 	return r
@@ -500,7 +580,8 @@ local function ClickRows(t)
 	if SP.KnownShieldCount and SP:KnownShieldCount() < 2 then
 		desc = desc .. "\n\nYou know only one of the two shields right now, so there is nothing to switch to yet."
 	end
-	return { OnOffName(t, (swapped and "Left" or "Right") .. "-Click Casts Your Other Shield", "rightClickOther", desc) }
+	return { OnOffName(t, (swapped and "Left" or "Right") .. "-Click Casts Your Other Shield", "rightClickOther", desc,
+		PIC.none) }
 end
 
 local function FlyoutRows(t)
@@ -508,18 +589,18 @@ local function FlyoutRows(t)
 	local layout = SP.opt and (SP.opt.cdbarLayout or SP.opt.layout)
 	if layout == "Horizontal" then
 		r[#r + 1] = ChoiceName(t, "Direction", "flyoutDirection", FLYDIR_CHOICES,
-			"Where the flyout opens while the bar is horizontal.", "auto")
+			"Where the flyout opens while the bar is horizontal.", "auto", PIC.none)
 	end
 	r[#r + 1] = Slider("Icon Size", 12, 56, 1, function() return Get(t, "flyoutIconSize") or 22 end,
 		function(v) SliderSet(t, "flyoutIconSize", v) end, nil, false,
 		"How big the icons in the flyout are. 22 is the classic size. The Cooldown Bar's scale still applies on top.")
 	r[#r + 1] = Slider("Opacity", 0.1, 1, 0.05, function() return Get(t, "flyoutOpacity") or 1 end,
-		function(v) SliderSet(t, "flyoutOpacity", v) end, nil, true, "How see-through the flyout is.")
+		function(v) SliderSet(t, "flyoutVisibility", v) end, nil, true, "How see-through the flyout is.")
 	r[#r + 1] = SEP
 	if t == SHIELD then
-		r[#r + 1] = CopyLine("Copy Flyout To Weapon Imbue", function() return CopyGroup(t, IMBUE, "flyout") end)
+		r[#r + 1] = CopyLine("Copy Flyout Settings To Weapon Imbue", function() return CopyGroup(t, IMBUE, "flyout") end)
 	else
-		r[#r + 1] = CopyLine("Copy Flyout To Shield", function() return CopyGroup(t, SHIELD, "flyout") end)
+		r[#r + 1] = CopyLine("Copy Flyout Settings To Shield", function() return CopyGroup(t, SHIELD, "flyout") end)
 	end
 	return r
 end
@@ -534,7 +615,7 @@ local function KeybindRows(t)
 	local r = { { text = "Button Key", value = function() return KeyText(b[1]), false end } }
 	if b[2] then r[#r + 1] = { text = "Flyout Key", value = function() return KeyText(b[2]), false end } end
 	r[#r + 1] = SEP
-	r[#r + 1] = { text = "Set Keys In Keybind Mode", onClick = function()
+	r[#r + 1] = { text = "Open Keybind Mode...", tip = "Opens Keybind Mode: press the key you want on the button, or on its flyout.", onClick = function()
 		if SP.SetKeybindMode then SP:SetKeybindMode(true) end
 	end }
 	return r
@@ -543,21 +624,33 @@ end
 local function MenuItems(item)
 	local t = item.key
 	local r = {}
+	-- the icon itself
+	local on = ShownOnBar(t)
+	r[#r + 1] = { text = "Show", label = true }
+	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon", onClick = function()
+		OptSet(I, SHOW_OPTION[t], not on)
+		Row:Changed(false)
+	end }
+	-- when it shows
 	if IsShieldOrImbue(t) then
-		r[#r + 1] = Choice("Show", { { "always", "Always" }, { "runout", "Only When Running Out" } }, function()
+		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.8, text = "8m" } },
+			{ "runout", "Only When Running Out", nil, { kind = "sweep", frac = 0.15, text = "45" } } }, function()
 			local v, own = Get(t, "runOutOnly")
 			return v and "runout" or "always", own
 		end, function(v) return Set(t, "runOutOnly", v == "runout") end,
 			"Only When Running Out: out of sight until it is running out, then up with its time left. Gone: up until you cast"
 			.. " it again. It keeps its place on the bar."
 			.. ((FOREVER and t == SHIELD) and " On WoW: Forever your shield stays on the bar during a fight: the game doesn't tell addons when it runs out there." or ""))
-		r[#r + 1] = Slider("Running Out At", 10, 300, 5, function() return Get(t, "runOutSecs") or 60 end,
+		r[#r].words = "when the button is on the bar"
+		r[#r + 1] = Slider("Running Out (Seconds Left)", 10, 300, 5, function() return Get(t, "runOutSecs") or 60 end,
 			function(v) SliderSet(t, "runOutSecs", v) end, Secs, false,
 			"When it counts as running out, for Show and for the Running Out effect."
 			.. (t == SHIELD and " A shield also counts as running out on its last charge." or ""))
+		r[#r].words = "the seconds that count as running out"
 	else
-		r[#r + 1] = Choice("Show", { { "always", "Always" }, { "hide", "Only When Almost Ready, Then Hide Again" },
-			{ "keep", "Only When Almost Ready, Until Used" } }, function()
+		r[#r + 1] = Choice("Show", { { "always", "Always", nil, { kind = "sweep", frac = 0.7, text = "2m" } },
+			{ "hide", "When Almost Ready, Then Hide Once Ready", nil, { kind = "sweep", frac = 0.1, text = "3" } },
+			{ "keep", "When Almost Ready, Keep Until Used", nil, PIC.plain } }, function()
 			local on, own1 = Get(t, "runOutOnly")
 			if not on then return "always", own1 end
 			local ready, own2 = Get(t, "runOutReady")
@@ -573,27 +666,58 @@ local function MenuItems(item)
 			return true
 		end, "Out of sight until its last seconds (Almost Ready At). Then Hide Again: gone again once it is ready."
 			.. " Until Used: up until you use it.")
-		r[#r + 1] = Slider("Almost Ready At", 0, 30, 1, function()
+		r[#r].words = "when the button is on the bar"
+		r[#r + 1] = Slider("Almost Ready (Seconds Left)", 0, 30, 1, function()
 			local s = Get(t, "almostSecs")
 			if s == nil then s = 5 end
 			return s
 		end, function(v) SliderSet(t, "almostSecs", v) end, Secs, false,
-			"When it counts as almost ready, for Show and for the Cooldown Almost Ready effect. At 0 seconds a cooldown has"
-			.. " no last seconds, so Cooldown Almost Ready never plays.")
+			"When it counts as almost ready, for Show and for the Cooldown Almost Ready effect. At 0 seconds the Cooldown"
+			.. " Almost Ready effect never plays.")
+		r[#r].words = "the seconds that count as almost ready"
 	end
+	r[#r + 1] = SEP
+	-- how it looks
+	r[#r + 1] = { text = "Appearance", label = true }
+	r[#r + 1] = Group("Appearance", function() return AppearanceRows(t) end, nil, nil,
+		IsShieldOrImbue(t) and "button style, sweep and progress bar" or "sweep and progress bar")
+	if t == SHIELD then
+		r[#r + 1] = Group("Charges", function() return ChargeRows(t) end, nil, nil, "the count and the bar for its charges")
+	end
+	if IsShieldOrImbue(t) then
+		r[#r + 1] = Group("Flyout", function() return FlyoutRows(t) end, nil, nil,
+			"where the flyout opens, its size and opacity")
+	end
+	r[#r + 1] = SEP
+	-- what it plays at its moments
+	r[#r + 1] = Group("Effects", function() return EffectRows(t) end, nil, nil,
+		IsShieldOrImbue(t) and "what the button plays when it is gone or running out"
+		or "what the button plays when it is ready or almost ready")
+	r[#r + 1] = SEP
+	-- where it sits (Totemic Recall: which bar; the rest sit on the cooldown bar), its clicks and keys
+	local pk = {}
 	if t == RECALL then
-		r[#r + 1] = Choice("Where", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
+		pk[#pk + 1] = Choice("Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
 			local v, own = Get(t, "onTotemBar")
 			return v and true or false, own
-		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.")
+		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
+			PIC.none)
+		pk[#pk].words = "which bar the button sits on"
 	end
-	r[#r + 1] = Group("Look", function() return LookRows(t) end)
-	if t == SHIELD then r[#r + 1] = Group("Charges", function() return ChargeRows(t) end) end
-	r[#r + 1] = Group("Effects", function() return EffectRows(t) end)
-	if t == SHIELD then r[#r + 1] = Group("Clicks", function() return ClickRows(t) end) end
-	if IsShieldOrImbue(t) then r[#r + 1] = Group("Flyout", function() return FlyoutRows(t) end) end
-	if BINDINGS[t] then r[#r + 1] = Group("Keybind", function() return KeybindRows(t) end) end
-	r[#r + 1] = SEP
+	if t == SHIELD then
+		pk[#pk + 1] = Group("Clicks", function() return ClickRows(t) end, nil, nil, "what a click on the button casts")
+	end
+	if BINDINGS[t] then
+		pk[#pk + 1] = Group("Keys", function() return KeybindRows(t) end, nil, nil,
+			BINDINGS[t][2] and "the keys for the button and its flyout" or "the key for the button")
+	end
+	if #pk > 0 then
+		if #pk > 1 then r[#r + 1] = { text = "Position & Keys", label = true } end
+		for _, x in ipairs(pk) do r[#r + 1] = x end
+		r[#r + 1] = SEP
+	end
+	-- copy and reset
+	r[#r + 1] = { text = "Copy & Reset", label = true }
 	r[#r + 1] = { text = "Copy Settings", disabled = not HasAPI("CdItemSnapshot"), onClick = function()
 		Row.clip = { from = t, name = NAMES[t] or ("Item " .. t), snap = SP:CdItemSnapshot(t) }
 		return true
@@ -609,7 +733,8 @@ local function MenuItems(item)
 			Row:Changed(true)
 			return true
 		end }
-	r[#r + 1] = { text = "Copy Settings To...", subMaxHeight = 420, disabled = not HasAPI("CopyCdItem"), sub = function()
+	r[#r + 1] = { text = "Copy Settings To...", subMaxHeight = 420, disabled = not HasAPI("CopyCdItem"),
+		words = "this item's settings onto another item, or all of them", sub = function()
 		local o = {}
 		for _, x in ipairs(SP:GetCooldownBarOrder()) do
 			if x ~= t then
@@ -621,18 +746,15 @@ local function MenuItems(item)
 		o[#o + 1] = { text = "All Items", onClick = function() Copy(t, "all"); Row:Changed(false) end }
 		return o
 	end }
-	r[#r + 1] = SEP
-	local on = ShownOnBar(t)
-	r[#r + 1] = { text = on and "Hide This Item" or "Show This Item", onClick = function()
-		OptSet(I, SHOW_OPTION[t], not on)
-		Row:Changed(false)
-	end }
-	r[#r + 1] = { text = "Reset This Item", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
-		tip = "Back to the bar's settings: everything this item set for itself goes.",
+	r[#r + 1] = { text = "Reset This Button", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
+		tip = "Clear this icon's changes and use the bar's settings again.",
 		onClick = function()
 			if SP.ResetCdItem then SP:ResetCdItem(t) end
 			Row:Changed(false)
 		end }
+	r[#r + 1] = SEP
+	-- its test
+	r[#r + 1] = { text = "Test This Button's Effects", onClick = function() return TestItem(t) end }
 	return r
 end
 
@@ -717,7 +839,7 @@ local RESET_SHARED = { "cdbarRunOutOnly", "cdbarRunOutReady", "cdbarRunOutSecs",
 	"cdbarStyle", "cdbarShowColorSweep", "cdbarSweepStyle", "cdbarShowProgressBars", "cdbarShowCDText", "showAnkhCount",
 	"cdbarShowShieldCount", "cdbarShieldChargeBar", "cdbarCueReady", "cdbarCueReadyStyle", "cdbarCueAlmost",
 	"cdbarCueAlmostStyle", "cdbarCueShield", "cdbarCueShieldStyle", "cdbarCueShieldMark", "cdbarCueImbue",
-	"cdbarCueImbueStyle", "cdbarCueImbueMark", "cdbarCueMissing", "cdbarCueMissingGlow", "cdbarCueRunning", "cdbarCueRunningStyle",
+	"cdbarCueImbueStyle", "cdbarCueImbueMark", "cdbarCueMarkStays", "cdbarCueMissing", "cdbarCueMissingGlow", "cdbarCueRunning", "cdbarCueRunningStyle",
 	"cdbarCueTimeColor", "cdbarCueTimeOnly", "cdbarFlyoutDirection", "cooldownFlyoutButtonSize", "cooldownFlyoutOpacity",
 	"cdbarShieldRightClickOther", "totemicCallOnTotemBar", "cooldownBarOrder" }
 local RESET_SHOWN = { "cdbarShowShields", "cdbarShowRecall", "cdbarShowReincarnation", "cdbarShowNS", "cdbarShowManaTide",
@@ -733,7 +855,7 @@ function SP.CooldownBarResetPage(sp)
 			if sp:CdItemOwnOpt(EARTH_SHIELD, name) == nil then sp:SetCdItemOpt(EARTH_SHIELD, name, sp:CdItemOpt(EARTH_SHIELD, name)) end
 		end
 	end
-	-- each item's own looks a theme holds (General > Themes) stay: the theme stays as it is
+	-- each item's own looks a theme holds (Appearance > Themes) stay: the theme stays as it is
 	local looks = sp.CdItemThemeLooks or {}
 	if sp.CdItemHasOwn and sp.ResetCdItem then
 		for t = 1, 11 do

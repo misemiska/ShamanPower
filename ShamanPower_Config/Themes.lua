@@ -1,5 +1,5 @@
 -- ShamanPower_Config :: Themes
--- General > Themes: every theme setting of ShamanPower on one page, and nowhere
+-- Appearance > Themes: every theme setting of ShamanPower on one page, and nowhere
 -- else. Top to bottom:
 --   1. one intro line
 --   2. the theme picker: three cards, each with a live mini totem bar, then the
@@ -1299,22 +1299,22 @@ local BLOCKS = {
 	shapes = { label = "Shapes & Textures" },
 	barTexture = { label = "Bar Texture",
 		desc = "The texture of every bar ShamanPower draws, unless a part picks its own."
-			.. " The same setting as Bar Texture on General > Fonts & Textures." },
+			.. " The same setting as Bar Texture on Appearance > Fonts & Textures." },
 	shieldTexture = { label = "Shield Charge Bars",
 		desc = "The texture for the Cooldown Bar's Shield Charge Bar. Set separately from Bar Texture. Each shield's charges on"
-			.. " screen have their own (Shield Charge Display, below). The same setting as on General > Fonts & Textures." },
+			.. " screen have their own (Shield Charge Display, below). The same setting as on Appearance > Fonts & Textures." },
 	wow = { label = "WoW's Own Colors",
 		desc = "The colors WoW itself uses, so the ShamanPower themes match the rest of your game."
 			.. " A swatch below tagged WOW is one of these; click it to pick your own color for that part instead." },
-	reset = { label = "Reset Colors for Current Theme",
+	reset = { label = "Restore Theme Colors",
 		desc = "Keeps your theme. Clears every color you changed on this page (the Element Colors and Shield Colors picks,"
 			.. " each shield's Charge Color, the gradients' Two-Tone colors), so each part shows the theme's colors again." },
-	resetAll = { label = "Reset All Colors and Theme", caption = "Reset All Colors and Theme",
+	resetAll = { label = "Reset Theme and All Colors", caption = "Reset Theme and All Colors",
 		desc = "Reset every color in ShamanPower to its default:"
 			.. " the Standard theme with nothing changed, and every color option on every page, Shield Charges included."
 			.. " It asks first, then reloads your interface." },
-	resetEverything = { label = "Reset Everything", caption = "Reset Everything",
-		desc = "Reset every setting on this page to its default. Includes Reset All Colors and Theme, plus:"
+	resetEverything = { label = "Reset All Theme Settings", caption = "Reset All Theme Settings",
+		desc = "Reset every setting on this page to its default. Includes Reset Theme and All Colors, plus:"
 			.. " Bar Texture and Shield Charge Bars, Dot Shape, Gem Dot Finish, Glow Shape, Frame Edge, each bar's Icon Shape,"
 			.. " Keep Borders Square, all three gradients, Duration Bar Background, each shield's charge look and"
 			.. " Sweep Direction on the bars, Ready Reminders and Target Tracker, plus Target Tracker's Look When Missing and Icon Edge."
@@ -1459,7 +1459,7 @@ end
 -- ---------------------------------------------------------------------------
 local PICKS = {
 	{ key = "standard", label = "Standard",
-	  desc = "ShamanPower's default look. Choosing this preset restores that look every time." },
+	  desc = "Restore ShamanPower's default appearance." },
 	{ key = "shamanpower", label = "ShamanPower",
 	  desc = "The logo's colors on duration bars, borders and flyout tabs. Green, yellow and red charges and timers. Navy panels. Your icons stay the same. This preset never changes." },
 	{ key = "minimal", label = "ShamanPower Minimal",
@@ -1469,7 +1469,7 @@ local TC = {}   -- the theme cards' helpers (one local: this file is near Lua's 
 TC.PRESET_LABEL = { standard = "Standard", shamanpower = "ShamanPower", minimal = "ShamanPower Minimal" }
 local function CustomCardShown() return SP:ThemeIsCustom() or SP:ThemeHasSavedCustom() end
 local CUSTOM_ON = GOLD_TEXT .. "Custom|r is in use: your changes. Save it as a theme to keep it,"
-	.. " or pick any card: your changes wait on the Custom card."
+	.. " or pick any card: your changes stay on the Custom card."
 local CUSTOM_OFF = "Change anything below and it becomes your " .. GOLD_TEXT
 	.. "Custom|r look. Save it to keep it as your own theme."
 TC.MINE_DESC = "Your theme. Picking it gives exactly this look, every time."
@@ -1482,7 +1482,7 @@ function TC.Say(msg) print("|cff0070ddShamanPower|r: " .. msg) end
 function TC.SaveAsDialog(suggest)
 	SP:ShowSPDialog({
 		key = "themesaveas", title = "Save as Theme", subtitle = "Your Themes", width = 420,
-		text = "Saves your whole look from the Themes tab under this name. Pick it any time to get exactly this look back, on any of your characters.",
+		text = "Saves your whole look from the Themes tab under this name, so you can get it back any time, on any of your characters.",
 		input = { text = suggest or "", maxLetters = 32 },
 		buttons = {
 			{ text = "Save", onClick = function(d)
@@ -1512,7 +1512,7 @@ end
 function TC.RenameDialog(th)
 	SP:ShowSPDialog({
 		key = "themerename", title = "Rename " .. th.name, subtitle = "Your Themes", width = 400,
-		text = "The new name, on every character.",
+		text = "Enter a new name. It changes on all your characters.",
 		input = { text = th.name, maxLetters = 32 },
 		buttons = {
 			{ text = "Rename", onClick = function(d)
@@ -1528,7 +1528,7 @@ end
 function TC.DeleteDialog(th)
 	SP:ShowSPDialog({
 		key = "themedelete", title = "Delete " .. th.name .. "?",
-		text = "It goes from Your Themes on every character. If it is in use, your look stays as it is, as an unsaved Custom look.",
+		text = "Deletes it from Your Themes on every character. If it is in use, your look stays as it is, as an unsaved Custom look.",
 		buttons = {
 			{ text = "Delete", onClick = function() SP:ThemeDelete(th.id); TC.Rerender() end },
 			{ text = "Cancel" },
@@ -1540,7 +1540,7 @@ function TC.ShareDialog(th)
 	if not code then TC.Say("could not make a code for that theme.") return end
 	SP:ShowSPDialog({
 		key = "themeshare", title = "Share " .. th.name, subtitle = "Theme code", width = 460, editScroll = true,
-		text = "Press |cffFFD100Ctrl+C|r to copy it. Anyone with ShamanPower can paste it into Import Theme on General > Themes"
+		text = "Press |cffFFD100Ctrl+C|r to copy it. Anyone with ShamanPower can paste it into Import Theme on Appearance > Themes"
 			.. " to add this theme to theirs, or share it in #ui-showcase on the ShamanPower Discord.",
 		editText = code,
 	})
@@ -1613,7 +1613,7 @@ local function NewPickCard(p)
 					text = "Your whole Custom look comes back: its theme, every color and every look (shapes, gradients, borders and the rest)."
 						.. " Your interface reloads to finish.",
 					buttons = {
-						{ text = "Load and Reload", onClick = function() SP:ThemeLoadCustom(); ReloadUI() end },
+						{ text = "Restore and Reload", onClick = function() SP:ThemeLoadCustom(); ReloadUI() end },
 						{ text = "Cancel" },
 					},
 				})
@@ -1710,7 +1710,7 @@ end
 
 local function RenderPicker(y, W)
 	for i = #pickCards, 1, -1 do pickCards[i] = nil end
-	y = TC.SubLabel("pick:presetslabel", y, W, "PRESETS", "Fixed looks: picking one always gives exactly this. They never change.")
+	y = TC.SubLabel("pick:presetslabel", y, W, "PRESETS", "Choose a preset to restore its saved look.")
 	for _, p in ipairs(PICKS) do
 		local c = Keep("pick:" .. p.key, function() return NewPickCard(p) end)
 		c.kind, c.mineId = "preset", nil
@@ -2291,15 +2291,15 @@ local SHAPE_ROWS = {
 		})
 		return y + h + 10
 	  end },
-	{ key = "edge", label = "Frame Edge", list = function() return SP.FRAME_EDGES end,
-	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Totem Bar and Cooldown Bar.",
+	{ key = "edge", label = "Panel Edge Style", list = function() return SP.FRAME_EDGES end,
+	  note = "The totem bar, the cooldown bar and ShamanPower's panels. Also on Appearance > Colors & Borders (Panel Edge Style) and the Cooldown Bar page.",
 	  get = function() return SP.opt.frameEdge or "default" end, set = function(k) SP:SetFrameEdge(k) end },
 	-- Icon Shape: one per bar (the same settings as on each bar's own page)
 	{ key = "icon", iconKind = "totem", label = "Totem Bar Icon Shape", list = function() return SP.ICON_SHAPES end,
 	  note = "The totem bar's buttons, its flyouts, pop-outs and Drop All (ShamanPower Minimal's boxes too). Also on Appearance > Totem Bar.",
 	  get = function() return SP:IconShapeOf("totem") or "default" end, set = function(k) SP:SetIconShape(k, "totem") end },
 	{ key = "iconcd", iconKind = "cooldown", label = "Cooldown Bar Icon Shape", list = function() return SP.ICON_SHAPES end,
-	  note = "The cooldown bar's buttons and its shield and imbue flyouts (ShamanPower Minimal's boxes too). Also on the Cooldown Bar page (Bar).",
+	  note = "The cooldown bar's buttons and its shield and imbue flyouts (ShamanPower Minimal's boxes too). Also on Appearance > Cooldown Bar and the Cooldown Bar page.",
 	  get = function() return SP:IconShapeOf("cooldown") or "default" end, set = function(k) SP:SetIconShape(k, "cooldown") end },
 	{ key = "iconrr", iconKind = "ready", label = "Ready Reminders Icon Shape", list = function() return SP.ICON_SHAPES end,
 	  search = "Keep Borders Square",
@@ -2310,7 +2310,7 @@ local SHAPE_ROWS = {
 		if not IconShapedAny() then return y end
 		local _, h = Widgets:Toggle(page.body, {
 			label = "Keep Borders Square", x = 0, y = y, width = W,
-			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Totem Bar, Cooldown Bar and Ready Reminders.",
+			desc = "Keep borders square around Rounded or Circle icons. Applies to all bars and Ready Reminders. Also on Appearance > Colors & Borders (Keep Icon Borders Square), the Cooldown Bar page and Ready Reminders.",
 			get = function() return SP.opt.iconBordersSquare == true end,
 			set = function(v) SP:SetIconBordersSquare(v) end,
 			onChanged = PageChanged,
@@ -2421,7 +2421,7 @@ SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "bargrad", label = "Bar Gradient", list = 
 	end }
 SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "outgrad", label = "Outline Gradient", list = function() return SP.GRADIENTS end,
 	search = "Outline Gradient Direction Two-Tone First Color Second Color Fade To",
-	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Totem Bar.",
+	note = "The element-colored borders round each totem, and the totem bar, cooldown bar and panel borders. Also on Appearance > Colors & Borders (Border Gradient).",
 	get = function() return SP.opt.outlineGradient or "default" end, set = function(k) SP:SetGradientField("outlineGradient", k) end,
 	extra = GradientExtra("outlineGradient", "Outline") }
 
@@ -2513,7 +2513,7 @@ SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "chargegrad", label = "Charge Bar Gradient
 -- Target Tracker (Look When Missing on the three shocks, Icon Edge on all four spells); the
 -- cards are drawn by Target Tracker itself, so each shows exactly what the spell looks like
 local TT_SHOCKS, TT_ALL = { "fs", "frs", "ss" }, { "fs", "frs", "ss", "purge" }
-SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "ttmiss", tt = "miss", label = "Target Tracker Look When Missing",
+SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "ttmiss", tt = "miss", label = "Target Tracker Missing Debuff Style",
 	note = "How the gray warning looks while your shock isn't on your target: Flame Shock, Frost Shock and Stormstrike. Also on Target Tracker (right-click a spell > Look).",
 	shown = function() return SP.TT_MISS_LOOKS ~= nil end, list = function() return SP.TT_MISS_LOOKS end,
 	get = function() return SP.TT_Get and SP:TT_Get("fs", "missLook") or "edge" end,
@@ -2524,7 +2524,7 @@ SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "ttedge", tt = "edge", label = "Target Tra
 	get = function() return SP.TT_Get and SP:TT_Get("fs", "border") or "thin" end,
 	set = function(k) for _, key in ipairs(TT_ALL) do SP:TT_Set(key, "border", k) end end }
 -- Next Shock's look (D49): the same setting as Look When It's Time to Cast in Flame Shock's right-click menu (Target Tracker)
-SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "ttcast", tt = "cast", label = "Next Shock Look When It's Time to Cast",
+SHAPE_ROWS[#SHAPE_ROWS + 1] = { key = "ttcast", tt = "cast", label = "Next Shock Recast Warning Style",
 	note = "How Next Shock's Flame Shock looks when it's time to cast it: while your target doesn't have yours, and again just before yours runs out. Also in Flame Shock's right-click menu on Target Tracker, under Next Shock.",
 	shown = function() return SP.TT_CAST_LOOKS ~= nil end, list = function() return SP.TT_CAST_LOOKS end,
 	get = function() return SP.TT_Get and SP:TT_Get("ns", "castLook") or "gold" end,
@@ -2716,7 +2716,7 @@ local function NewShapeCard(row, s)
 end
 
 local function RenderShapes(y, W, selection)
-	-- the two bar texture choices: the same settings as General > Fonts & Textures
+	-- the two bar texture choices: the same settings as Appearance > Fonts & Textures
 	local function texValues(def)
 		return function()
 			local v = { [DEFAULT] = def }
@@ -2734,7 +2734,7 @@ local function RenderShapes(y, W, selection)
 		local _, h1 = Widgets:Dropdown(page.body, {
 			label = BLOCKS.barTexture.label, x = 0, y = y, width = W,
 			desc = BLOCKS.barTexture.desc,
-			values = texValues("Default (as designed)"), order = texOrder,
+			values = texValues("Default"), order = texOrder,
 			get = function() return SP.opt.barTexture or DEFAULT end,
 			set = function(v) if v == DEFAULT then v = nil end; SP.opt.barTexture = v; refresh() end,
 			onChanged = PageChanged,
@@ -2745,7 +2745,7 @@ local function RenderShapes(y, W, selection)
 		local _, h2 = Widgets:Dropdown(page.body, {
 			label = BLOCKS.shieldTexture.label, x = 0, y = y, width = W,
 			desc = BLOCKS.shieldTexture.desc,
-			values = texValues("Default (as designed)"), order = texOrder,
+			values = texValues("Default"), order = texOrder,
 			get = function() local t = SP.opt.barTextureAreas; return (t and t.shieldcharges) or DEFAULT end,
 			set = function(v)
 				if v == DEFAULT then v = nil end
@@ -2883,8 +2883,8 @@ local SPOT_EXTRAS = {
 		{ "fluffy", "totembar_duration_section", "pulse_bar_color" },
 		{ "fluffy", "totembar_duration_section", "pulse_flash_color" } },
 	["tb.frame"] = {
-		{ "fluffy", "color_section", "color_partial", label = "Background (Partially Buffed)" },
-		{ "fluffy", "color_section", "color_missing", label = "Background (None Buffed)" } },
+		{ "fluffy", "color_section", "color_partial", label = "Background (Some Totems Down)" },
+		{ "fluffy", "color_section", "color_missing", label = "Background (No Totems Down)" } },
 	["st.compact"] = {
 		{ "settings", "settings_totemMode", "compactOptions", "compactOutlineColorMode" },
 		{ "settings", "settings_totemMode", "compactOptions", "compactOutlineColor" } },
@@ -2896,7 +2896,7 @@ local SPOT_EXTRAS = {
 -- a section's own extra row, labelled like a part: Mana Tint at the end of Totem Bar
 local MODULE_EXTRAS = {
 	totembar = { { key = "extra.manatint", label = "Mana Tint",
-		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Textures & Colors (turn Mana Tint on there).",
+		note = "Totem and cooldown buttons you do not have the mana for. Also on Appearance > Colors & Borders (Low-Mana Tint).",
 		paths = { { "fluffy", "button_tints_section", "manaTintColor" } } } },
 	shieldcharges = {},
 }
@@ -3041,7 +3041,7 @@ end
 local CHOICE_LABEL = { ["tb.duration-text"] = "Text Color", ["tb.pulse"] = "Pulse Color" }
 local SPOT_FIELDS = {
 	theme = { label = "Theme", list = L.theme,
-		desc = ": the theme this part uses. Use General Theme follows the theme picked at the top of this page." },
+		desc = ": the theme this part uses. Use Selected Theme follows the theme picked at the top of this page." },
 	palette = { label = "Colors", list = L.palette,
 		desc = ": the element colors this part uses. Use Theme's follows Element Colors at the top"
 			.. " (Standard: your Appearance colors)." },
@@ -3097,7 +3097,7 @@ local SOURCE_TEXT = {
 	custom = "Your color for this part.",
 	wow = "WoW's own color.",
 	theme = "The theme's color.",
-	standard = "Today's color.",
+	standard = "Original color.",
 }
 local tagW = 0
 
@@ -3450,7 +3450,7 @@ function Page.Search(_, query)
 	local textures = SP.TextureList and SP:TextureList() or {}
 	for _, key in ipairs({ "barTexture", "shieldTexture" }) do
 		local parts = SearchParts(BLOCKS[key])
-		AddSearchText(parts, "Default (as designed)")
+		AddSearchText(parts, "Default")
 		for _, name in ipairs(textures) do AddSearchText(parts, name) end
 		result.shapes[key] = allShapes or SearchMatch(parts, query)
 		if result.shapes[key] then result.blocks.shapes, any = true, true end
@@ -3589,7 +3589,7 @@ function Page.Render(_, body, W, onChanged, selection, startY)
 			func = function()
 				SP:ShowSPDialog({
 					key = "resetallcolors",
-					title = "Reset All Colors and Theme?",
+					title = "Reset Theme and All Colors?",
 					text = "Reset every color in ShamanPower to its default:\n\n"
 						.. "- the Standard theme, with no separate choices for individual features, color edits or element-colored borders\n"
 						.. "- the default Element Colors and Status Colors\n"
@@ -3617,9 +3617,9 @@ function Page.Render(_, body, W, onChanged, selection, startY)
 			func = function()
 				SP:ShowSPDialog({
 					key = "reseteverything",
-					title = "Reset Everything?",
+					title = "Reset All Theme Settings?",
 					text = "Reset every setting on the Themes tab to its default:\n\n"
-						.. "- everything Reset All Colors and Theme does: the Standard theme with nothing changed, and every color option on every page\n"
+						.. "- everything Reset Theme and All Colors does: the Standard theme with nothing changed, and every color option on every page\n"
 						.. "- Bar Texture and Shield Charge Bars: Default\n"
 						.. "- Dot Shape: Round, Gem Dot Finish off\n"
 						.. "- Glow Shape: Square\n"

@@ -151,6 +151,9 @@ function SP:ShowImportDialog()
 			if ok then
 				importDlg:SetStatus("Imported into profile: " .. res, "on")
 				C_Timer.After(1.2, function() importDlg:Hide() end)
+				-- the import re-applies what it can live; the bars' size and look, the cooldown bar's
+				-- items, the shields, the alerts and the themes come up exactly only on a reload
+				Core:RequestReload("Imported into profile '" .. tostring(res) .. "'. A reload finishes applying it to the bars and every module.")
 			else
 				importDlg:SetStatus("Import failed: " .. tostring(res), "warn")
 			end
@@ -187,14 +190,55 @@ end
 -- ---------------------------------------------------------------------------
 -- Inject Export / Import into the Profiles options page.
 -- ---------------------------------------------------------------------------
+-- the Profiles page's own words (AceDBOptions' library text, overridden here so a library update never undoes it)
+local function PlainProfileWords(args)
+	local function word(key, field, text) if args[key] then args[key][field] = text end end
+	word("desc", "name", "Use profiles to save different settings for each character.")
+	word("choosedesc", "name", "Enter a name to create a profile, or choose a saved profile.")
+	word("new", "name", "New Profile Name")
+	word("reset", "name", "Reset Current Profile")
+	word("new", "desc", "Create a profile with default settings.")
+	word("choose", "name", "Use Profile")
+	word("copydesc", "name", "Replace this profile's settings with settings from another profile.")
+	word("copyfrom", "name", "Copy Settings From")
+	word("copyfrom", "desc", "Pick a profile, then press Copy Settings to This Profile.")
+	word("deldesc", "name", "Delete a profile you no longer use.")
+	word("delete", "name", "Profile to Delete")
+	word("delete", "desc", "Pick a profile, then press Delete Selected Profile.")
+	word("descreset", "name", "Restore this profile's default settings.")
+	word("reset", "desc", "Restore this profile's default settings.")
+end
 local function InjectProfileButtons()
 	local root = SP.options
 	local profiles = root and root.args and root.args.profiles
 	if not (profiles and profiles.args) or profiles.args.spShareHeader then return end
+	PlainProfileWords(profiles.args)
+	-- a dropdown only picks; a button does the copying or deleting (nothing happens from a pick alone)
+	local function twoStep(key, applyKey, buttonName, buttonDesc)
+		local opt = profiles.args[key]
+		if not (opt and opt.set) then return end
+		local pending
+		local set = opt.set
+		opt.get = function() return pending end
+		opt.set = function(_, v) pending = v end
+		opt.confirm, opt.confirmText = nil, nil
+		profiles.args[applyKey] = { type = "execute", width = 1.0, name = buttonName, desc = buttonDesc,
+			disabled = function() return pending == nil end,
+			func = function() local v = pending; pending = nil; set({}, v) end }
+	end
+	twoStep("copyfrom", "copy_apply", "Copy Settings to This Profile", "Copies every setting of the picked profile onto this one. Your saved themes and positions come along.")
+	twoStep("delete", "delete_apply", "Delete Selected Profile", "Deletes the picked profile for good. The one in use can't be picked.")
+	-- four bands (A39): the profile first, then Share, Built-in Layouts, Recovery
+	profiles.args.spCurrentHeader = { order = 0.001, type = "header", name = "Current Profile" }
+	local order = { desc = 0.002, current = 0.003, choose = 0.004, new = 0.005, copyfrom = 0.006, copy_apply = 0.0061, delete = 0.007, delete_apply = 0.0071, reset = 0.008,
+		choosedesc = 0.0045, copydesc = 0.0055, deldesc = 0.0065, descreset = 0.0075 }
+	for k, o in pairs(order) do if profiles.args[k] then profiles.args[k].order = o end end
+	if profiles.args.desc then profiles.args.desc.name = "A profile holds every setting. Each character can use its own, or share one." end
+	for _, k in ipairs({ "choosedesc", "copydesc", "deldesc", "descreset" }) do if profiles.args[k] then profiles.args[k].hidden = true end end
 	profiles.args.spShareHeader = { order = 0.1, type = "header", name = "Share" }
 	profiles.args.spShareDesc = {
 		order = 0.15, type = "description", fontSize = "medium",
-		name = "|cffE6EAF0Export|r gives you a code to back up or share this profile. |cffE6EAF0Import|r creates a new profile from a code and keeps your current profile.",
+		name = "A code holds a whole profile and your saved themes. Export yours to back it up; import someone's to try it. Importing makes a new profile; this one stays.",
 	}
 	profiles.args.spExport = {
 		order = 0.2, type = "execute", name = "Export This Profile",
@@ -202,7 +246,7 @@ local function InjectProfileButtons()
 		func = function() SP:ShowExportDialog(SP:ExportCurrentProfile(), "copy this code") end,
 	}
 	profiles.args.spImport = {
-		order = 0.3, type = "execute", name = "Import a Code",
+		order = 0.3, type = "execute", name = "Import as New Profile",
 		desc = "Paste a ShamanPower code to create a new profile.",
 		func = function() SP:ShowImportDialog() end,
 	}
@@ -213,6 +257,14 @@ local function InjectProfileButtons()
 			order = 0.45, type = "description", fontSize = "medium",
 			name = "A complete setup with bars, sizes, colors, positions and all features ready to use. Preview it before applying it. Your totem choices and raid assignments stay as they are.",
 		}
+		profiles.args.spRecoveryHeader = { order = 0.8, type = "header", name = "Recovery",
+			hidden = function() return not (SP.db.global.setupBackups and SP.db.global.setupBackups[1]) end }
+		profiles.args.spRecoveryDesc = { order = 0.85, type = "description", fontSize = "medium",
+			hidden = function() return not (SP.db.global.setupBackups and SP.db.global.setupBackups[1]) end,
+			name = function()
+				local b = SP.db.global.setupBackups and SP.db.global.setupBackups[1]
+				return b and ("Applying a layout or importing a code backs your setup up first. Backed up " .. b.date .. " (" .. b.reason .. ").") or ""
+			end }
 		profiles.args.spRestoreBackup = {
 			order = 0.9, type = "execute", name = "Restore My Previous Setup",
 			desc = function()
@@ -220,7 +272,10 @@ local function InjectProfileButtons()
 				return b and ("Backed up " .. b.date .. " (" .. b.reason .. "). Comes back as a new profile; your current profile is kept.") or ""
 			end,
 			hidden = function() return not (SP.db.global.setupBackups and SP.db.global.setupBackups[1]) end,
-			func = function() SP:RestoreSetupBackup(1) end,
+			func = function()
+				local ok, res = SP:RestoreSetupBackup(1)
+				if ok then Core:RequestReload("Your previous setup is back as profile '" .. tostring(res) .. "'. A reload finishes applying it to the bars and every module.") end
+			end,
 		}
 		for i, preset in ipairs(SP.Presets) do
 			profiles.args["spPreset" .. i] = {
@@ -272,7 +327,7 @@ local function InjectCompanionPage()
 					.. "You do |cffE6EAF0not|r install it. Send it to your melee; they import it into WeakAuras once and never touch it again.",
 			},
 			str = {
-				order = 3, type = "execute", name = "Show WeakAura String",
+				order = 3, type = "execute", name = "Show WeakAura Import Code",
 				desc = "Show the WeakAura import string to copy and send to a melee player.",
 				func = function() SP:ShowWindfuryCompanion(false) end,
 			},

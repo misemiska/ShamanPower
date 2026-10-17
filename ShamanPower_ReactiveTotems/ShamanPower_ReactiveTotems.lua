@@ -68,7 +68,7 @@ for _, data in pairs(SP.ReactiveTotems) do
 	data.totemName = SPCompat.SpellLabel(data.totemSpellID, data.totemName)
 end
 
--- Theme (General > Themes, spot mod.reactive): each alert's colour table above
+-- Theme (Appearance > Themes, spot mod.reactive): each alert's colour table above
 -- is bound to the element of the totem that answers it (Tremor = Earth, the
 -- cleansing totems = Water). The engine rewrites these tables in place and
 -- puts today's colours back on Standard, so every paint site below reads them
@@ -344,7 +344,7 @@ end
 -- the defaults (Reset This Page)
 function SP:ReactiveTotemsDefaults() return defaultSettings end
 
--- General > Themes (ShamanPowerTheme.lua, the theme cards): each alert's own looks are part
+-- Appearance > Themes (ShamanPowerTheme.lua, the theme cards): each alert's own looks are part
 -- of a theme, the way the Cooldown Bar's per-item looks are: "default" = the alert follows
 -- the page's shared value, a value = its own. A theme card (every default first) puts every
 -- alert back on the shared looks; a saved or shared theme brings each alert's own back.
@@ -1983,7 +1983,7 @@ SP:OnOnOff(function(off)
 end)
 
 -- ============================================================================
--- Theme changed (General > Themes): the colour tables are already rewritten;
+-- Theme changed (Appearance > Themes): the colour tables are already rewritten;
 -- repaint what was drawn with the old colours. Nothing runs unless an alert
 -- colour actually moved.
 -- ============================================================================

@@ -17,7 +17,7 @@ SP.activeTotemPlates = {}      -- unitId -> nameplate
 SP.totemPlateCache = {}        -- Recycled frames
 SP.detectedNameplateAddon = "Blizzard"
 
--- Theme (General > Themes, spot mod.plates-colors): the enemy / friendly border.
+-- Theme (Appearance > Themes, spot mod.plates-colors): the enemy / friendly border.
 -- nil on Standard: the colours set where a plate is filled stay exactly as they are.
 local function ThemePlateBorder(frame)
     if not SP.ThemeColor then return end
@@ -203,6 +203,7 @@ local npcIdToTotemName = {
     [10467] = "Mana Tide Totem",
     [11100] = "Mana Tide Totem",
     [11101] = "Mana Tide Totem",
+    [277993] = "Mana Tide Totem",   -- rank 4 (WoW: Forever, the 10-15 patch)
     [17061] = "Mana Tide Totem",
 
     -- Mana Spring Totem (all ranks)
@@ -326,6 +327,189 @@ for name, data in pairs(totemData) do
     for _, npcId in ipairs(data.npcIds) do
         npcIdToTotem[npcId] = data
     end
+end
+
+-- ============================================================================
+-- 3.0.9.1 (sheet A54): each totem's own plate settings, the plate's look and where plates show.
+-- opt.totemPlates.totems[key] = { important, glowStyle ("shape" = Glow Shape, "default", "round",
+-- "proc"), glowColor, size }; a hidden plate stays opt.totemPlates.perTotem[key] = false as before.
+-- opt.totemPlates: iconPosition ("above" | "left" | "right"), borderSize (0-6, 2 as today's edge),
+-- offsetX / offsetY, onlyPvP (arenas and battlegrounds), hideInRaid (on to start).
+-- ============================================================================
+local SPELL_TO_TOTEM = {}
+for name, id in pairs(TOTEM_SPELL_IDS) do SPELL_TO_TOTEM[id] = name end
+local function PlateKey(name) return "totem_" .. name:gsub(" ", "_"):lower() end
+-- a totem's settings key (and its English name) from its rank-1 spell: the icon row lists totems by that spell
+function SP:TotemPlateKeyForSpell(spellID)
+    local name = SPELL_TO_TOTEM[spellID]
+    if not name then return nil end
+    return PlateKey(name), name
+end
+local function Settings()
+    SP:EnsureProfileTable("totemPlates")
+    return SP.opt.totemPlates
+end
+function SP:TotemPlateOwn(key, make)
+    local s = Settings()
+    s.totems = s.totems or {}
+    if make and not s.totems[key] then s.totems[key] = {} end
+    return s.totems[key]
+end
+function SP:TotemPlateHidden(key)
+    local s = Settings()
+    return s.perTotem ~= nil and s.perTotem[key] == false
+end
+function SP:SetTotemPlateHidden(key, hidden)
+    local s = Settings()
+    s.perTotem = s.perTotem or {}
+    if hidden then s.perTotem[key] = false else s.perTotem[key] = nil end
+    self:RefreshTotemPlatesLook()
+end
+function SP:TotemPlateImportant(key)
+    local o = self:TotemPlateOwn(key)
+    return o ~= nil and o.important == true
+end
+function SP:SetTotemPlateOwn(key, name, value)
+    local o = self:TotemPlateOwn(key, true)
+    o[name] = value
+    if not next(o) then Settings().totems[key] = nil end
+    self:RefreshTotemPlatesLook()
+end
+-- Copy Important To: this totem's Important, Glow Style and Glow Color onto another totem, or all
+function SP:CopyTotemPlateImportant(from, to)
+    local src = self:TotemPlateOwn(from) or {}
+    local s = Settings()
+    s.totems = s.totems or {}
+    for id in pairs(SPELL_TO_TOTEM) do
+        local key = self:TotemPlateKeyForSpell(id)
+        if key and key ~= from and (to == "all" or to == key) then
+            local o = s.totems[key] or {}
+            o.important, o.glowStyle = src.important, src.glowStyle
+            o.glowColor = src.glowColor and { r = src.glowColor.r, g = src.glowColor.g, b = src.glowColor.b } or nil
+            if next(o) then s.totems[key] = o else s.totems[key] = nil end
+        end
+    end
+    self:RefreshTotemPlatesLook()
+end
+function SP:ResetTotemPlate(key)
+    local s = Settings()
+    if s.totems then s.totems[key] = nil end
+    if s.perTotem then s.perTotem[key] = nil end
+    self:RefreshTotemPlatesLook()
+end
+
+-- Where plates show: Hide in Raids (on to start), Only in Arenas and Battlegrounds
+function SP:TotemPlatesAllowedHere()
+    local s = self.opt and self.opt.totemPlates
+    if not s then return true end
+    if s.hideInRaid ~= false and IsInRaid and IsInRaid() then return false end
+    if s.onlyPvP then
+        local _, kind = IsInInstance()
+        return kind == "arena" or kind == "pvp"
+    end
+    return true
+end
+
+-- The plate's look: its own size, Border Size, Icon Position with the offsets, and the Important glow
+local PLATE_GLOW_KEY = "tpImportant"
+local function PlateSizeFor(s, key)
+    local o = key and s.totems and s.totems[key]
+    return (o and o.size) or s.iconSize or 40
+end
+local function PlateGlowTexture(frame)
+    local g = frame.spGlow
+    if g then return g end
+    g = frame:CreateTexture(nil, "OVERLAY", nil, 1)
+    g:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
+    g:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
+    g:SetBlendMode("ADD")
+    g:Hide()
+    local ag = g:CreateAnimationGroup()
+    ag:SetLooping("REPEAT")
+    local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.35); a1:SetToAlpha(1); a1:SetDuration(0.6); a1:SetOrder(1)
+    local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(1); a2:SetToAlpha(0.35); a2:SetDuration(0.6); a2:SetOrder(2)
+    g.anim = ag
+    frame.spGlow = g
+    return g
+end
+-- the Important glow: the Glow Shape (or the totem's own style) in its color; Proc Glow is WeakAuras'
+-- on the frame, as Ready Reminders do it. off: both gone.
+function SP:TotemPlateGlow(frame, on, own)
+    local tex = frame.spGlow
+    if not on then
+        if tex then tex.anim:Stop(); tex:Hide() end
+        if frame.spProcGlow then self:ProcGlowStop(frame, PLATE_GLOW_KEY); frame.spProcGlow = nil end
+        return
+    end
+    local style = (own and own.glowStyle) or "shape"
+    if style == "shape" then style = (self.opt and self.opt.glowShape) or "default" end
+    local c = own and own.glowColor
+    local r, g, b = 1, 0.2, 0.2
+    if type(c) == "table" then r, g, b = c.r or c[1] or r, c.g or c[2] or g, c.b or c[3] or b end
+    if style == "proc" and SP.ProcGlow_Start and self.ProcGlowOptions then
+        if tex then tex.anim:Stop(); tex:Hide() end
+        local col = { r, g, b, 1 }
+        if r > 0.98 and g > 0.98 and b > 0.98 then col = nil end   -- (white: the game's gold)
+        SP.ProcGlow_Start(frame, self:ProcGlowOptions(frame, col, PLATE_GLOW_KEY, frame.spProcGlow and true or false))
+        frame.spProcGlow = true
+        return
+    end
+    if frame.spProcGlow then self:ProcGlowStop(frame, PLATE_GLOW_KEY); frame.spProcGlow = nil end
+    tex = PlateGlowTexture(frame)
+    if self.PaintGlowShape then self:PaintGlowShape(tex, style) end
+    tex:SetVertexColor(r, g, b)
+    tex:Show()
+    tex.anim:Play()
+end
+function SP:ApplyTotemPlateLook(frame, host)
+    local s = self.opt.totemPlates or {}
+    local info = frame.totemInfo
+    local key = info and info.settingsKey
+    if not key and info and info.name then
+        key = PlateKey(info.name)
+        info.settingsKey = key
+    end
+    local size = PlateSizeFor(s, key)
+    frame:SetSize(size, size)
+    -- Border Size: the plate's edge (today's edge at 2; 0 is none)
+    local edge = tonumber(s.borderSize)
+    if edge == nil then edge = 2 end
+    local want = (edge <= 0) and 0 or (4 + edge * 2)
+    if frame.spEdge ~= want then
+        frame.spEdge = want
+        if want > 0 then
+            frame:SetBackdrop({ bgFile = nil, edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = want, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+        end
+    end
+    if want > 0 then
+        if frame.isEnemy then frame:SetBackdropBorderColor(0.82, 0.15, 0.08, 1) else frame:SetBackdropBorderColor(0.08, 0.82, 0.09, 1) end
+        ThemePlateBorder(frame)
+    else
+        frame:SetBackdropBorderColor(0, 0, 0, 0)
+    end
+    -- Icon Position and the offsets, on the plate it belongs to
+    if host then
+        local pos, dx, dy = s.iconPosition or "above", tonumber(s.offsetX) or 0, tonumber(s.offsetY) or 0
+        frame:ClearAllPoints()
+        if pos == "left" then frame:SetPoint("RIGHT", host, "LEFT", -4 + dx, dy)
+        elseif pos == "right" then frame:SetPoint("LEFT", host, "RIGHT", 4 + dx, dy)
+        else frame:SetPoint("CENTER", host, "CENTER", dx, dy) end
+    end
+    local o = key and s.totems and s.totems[key]
+    self:TotemPlateGlow(frame, o ~= nil and o.important == true, o)
+end
+-- A look or where setting changed: every plate on screen takes it (given back and taken again:
+-- the hidden ones go, the others come back with the new look); the preview is filled again
+function SP:RefreshTotemPlatesLook()
+    local units = {}
+    for unitId, nameplate in pairs(self.activeTotemPlates) do
+        if not (type(unitId) == "string" and unitId:find("^demo")) and nameplate.totemPlateFrame then units[#units + 1] = unitId end
+    end
+    for _, unitId in ipairs(units) do
+        self:OnTotemPlateUnitRemoved(unitId)
+        if UnitExists(unitId) then self:OnTotemPlateUnitAdded(unitId) end
+    end
+    if self.totemPlatesDemoActive then self:TotemPlatesDemo(true) end
 end
 
 -- ============================================================================
@@ -563,6 +747,7 @@ end
 function SP:OnTotemPlateUnitAdded(unitId)
     local settings = self.opt.totemPlates
     if not settings or not settings.enabled or self:IsOff() then return end
+    if not self:TotemPlatesAllowedHere() then return end   -- (A54) Hide in Raids / Only in Arenas and Battlegrounds
     if SPIdentitySecret(unitId) then return end   -- instanced map on a restricted client: Blizzard's own totem plates apply
 
     local nameplate = C_NamePlate.GetNamePlateForUnit(unitId)
@@ -616,6 +801,7 @@ function SP:OnTotemPlateUnitAdded(unitId)
         frame:SetBackdropBorderColor(0.08, 0.82, 0.09, 1)
     end
     ThemePlateBorder(frame)   -- the theme's colours (nothing on Standard)
+    self:ApplyTotemPlateLook(frame, nameplate)   -- (A54) its own size, Border Size, Icon Position, the Important glow
 
     -- Set alpha
     frame:SetAlpha(settings.alpha or 0.9)
@@ -659,6 +845,7 @@ function SP:OnTotemPlateUnitRemoved(unitId)
     if nameplate.totemPlateFrame then
         -- Stop pulse timer before recycling
         self:StopPulseTimer(nameplate.totemPlateFrame)
+        self:TotemPlateGlow(nameplate.totemPlateFrame, false)   -- (A54)
 
         nameplate.totemPlateFrame:Hide()
         nameplate.totemPlateFrame:SetParent(nil)
@@ -682,7 +869,9 @@ function SP:UpdateTotemPlatesSize()
     for unitId, nameplate in pairs(self.activeTotemPlates) do
         local frame = nameplate.totemPlateFrame
         if frame then
-            frame:SetSize(size, size)
+            local own = frame.totemInfo and frame.totemInfo.settingsKey and settings.totems and settings.totems[frame.totemInfo.settingsKey]
+            local n = (own and own.size) or size   -- (A54) its own size wins
+            frame:SetSize(n, n)
         end
     end
 end
@@ -921,6 +1110,8 @@ function SP:SetupTotemPlatesEvents()
     frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     frame:RegisterEvent("PLAYER_TARGET_CHANGED")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("GROUP_ROSTER_UPDATE")      -- (A54) Hide in Raids
+    frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")    -- (A54) Only in Arenas and Battlegrounds
 
     frame:SetScript("OnEvent", function(_, event, ...)
         if event == "NAME_PLATE_UNIT_ADDED" then
@@ -931,6 +1122,8 @@ function SP:SetupTotemPlatesEvents()
             if not SP:IsOff() then SP:UpdateTotemPlateHighlights() end   -- switched off: no plates to mark
         elseif event == "PLAYER_ENTERING_WORLD" then
             SP.activeTotemPlates = {}
+        elseif event == "GROUP_ROSTER_UPDATE" or event == "ZONE_CHANGED_NEW_AREA" then
+            if not SP:IsOff() then SP:RefreshTotemPlatesLook() end   -- (A54) Hide in Raids / Only in Arenas and Battlegrounds
         end
     end)
 
@@ -1038,9 +1231,22 @@ end
 -- Initialize Function
 -- ============================================================================
 
+-- 3.0.9.1 (A54): Hide in Raids starts on, but a player who already had Totem Plates on keeps
+-- plates in raids as before: set off for them, once. The flag lives in the profile, so a
+-- profile switched to later gets its own pass (OnProfileChanged calls this too).
+function SP:TotemPlatesCarryOver()
+    self:EnsureProfileTable("totemPlates")
+    local s = self.opt.totemPlates
+    if not s.hideInRaidSet3091 then
+        s.hideInRaidSet3091 = true
+        if s.enabled and s.hideInRaid == nil then s.hideInRaid = false end
+    end
+end
+
 function SP:InitializeTotemPlates()
     self:EnsureProfileTable("totemPlates")
     self:DetectNameplateAddon()
+    self:TotemPlatesCarryOver()
 
     if self.opt.totemPlates.enabled and not (self.WindfuryOnly and self:WindfuryOnly()) and not self:IsOff() then
         self:SetupTotemPlatesEvents()
@@ -1189,6 +1395,7 @@ function SP:TotemPlatesDemo(on)
         end
         ThemePlateBorder(frame)
         frame:SetSize(settings.iconSize or 40, settings.iconSize or 40)
+        self:ApplyTotemPlateLook(frame, np)   -- (A54) its own size, Border Size, Icon Position, the Important glow
         frame:SetAlpha(settings.alpha or 0.9)
         -- plate sits just above the totem body whatever the icon size
         if np.model then
@@ -1247,7 +1454,7 @@ end
 -- on replaces them again if Totem Plates is on in the settings
 SP:OnOnOff(function() SP:ToggleTotemPlates() end)
 
--- Theme changed (General > Themes): repaint the plates on screen (today's
+-- Theme changed (Appearance > Themes): repaint the plates on screen (today's
 -- colours on Standard). Nothing runs otherwise.
 if SP.OnThemeChanged then
     SP:OnThemeChanged(function()
@@ -1260,6 +1467,7 @@ if SP.OnThemeChanged then
                     frame:SetBackdropBorderColor(0.08, 0.82, 0.09, 1)
                 end
                 ThemePlateBorder(frame)
+                SP:ApplyTotemPlateLook(frame, nameplate.totemPlateFrame and nameplate)   -- (A54: Border Size 0, the Glow Shape)
             end
         end
     end)

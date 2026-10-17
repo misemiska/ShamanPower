@@ -23,7 +23,8 @@ local SP = ShamanPower
 
 -- Geometry -------------------------------------------------------------------
 local PAD        = 14
-local NAME_W     = 150
+local FOREVER    = SPCompat and SPCompat.FOREVER
+local NAME_W     = FOREVER and 190 or 150   -- (WoW: Forever names are two words)
 -- The Earth Shield column only exists where Earth Shield does (not on WoW: Forever)
 local ES_W       = ShamanPower.ESTrackerUnavailable and 0 or 56
 local CELL_W     = 84
@@ -35,6 +36,8 @@ local HEADER_H   = 52
 local COLHEAD_H  = 26
 local FOOTER_H   = 48
 local MAX_ROWS   = 10   -- rows visible before the body scrolls
+-- Raid Buffs (WoW: Forever, 3.0.9.1): the strip over the rows for the four totems that reach the whole raid
+local RAIDBUFFS_H = FOREVER and 78 or 0
 
 local WIN_W = PAD + NAME_W + ES_W + 4 * CELL_W + 3 * CELL_GAP + PAD
 
@@ -44,7 +47,7 @@ local ELEMENTS = {
 	{ label = "Water", r = 0.42, g = 0.58, b = 1.00 },
 	{ label = "Air",   r = 0.86, g = 0.88, b = 0.98 },
 }
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot win.assign: a
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot win.assign: a
 -- theme recolours these in place and puts today's numbers back on Standard;
 -- an open window repaints at the end of this file.
 if SP and SP.ThemeBind then
@@ -63,6 +66,68 @@ end
 
 local function CellX(e)
 	return NAME_W + ES_W + (e - 1) * (CELL_W + CELL_GAP)
+end
+
+-- ---------------------------------------------------------------------------
+-- Raid-wide totems (WoW: Forever since the 10-15 patch): Strength of Earth, Windfury,
+-- Grace of Air and Flametongue reach the whole raid. Windfury and Flametongue exclude
+-- each other; Grace of Air stacks with either.
+-- ---------------------------------------------------------------------------
+local RAID_WIDE = FOREVER and { [1] = { [1] = true }, [2] = { [5] = true }, [4] = { [1] = true, [2] = true } } or {}
+local RAID_CHIPS = FOREVER and {
+	{ element = 1, index = 1 },   -- Strength of Earth
+	{ element = 4, index = 2 },   -- Grace of Air
+	{ element = 4, index = 1 },   -- Windfury
+	{ element = 2, index = 5 },   -- Flametongue
+} or {}
+local WF, FT = RAID_CHIPS[3], RAID_CHIPS[4]
+local demoGroup = {}   -- [name] = subgroup, for the demo's pretend shamans
+
+local function IsRaidWide(e, idx) return RAID_WIDE[e] and RAID_WIDE[e][idx] or false end
+
+-- the shamans assigned that totem, in sync order
+local function Providers(e, idx)
+	local out = {}
+	for _, name in ipairs(SP.SyncList or {}) do
+		local a = ShamanPower_Assignments and ShamanPower_Assignments[name]
+		if a and a[e] == idx then out[#out + 1] = name end
+	end
+	return out
+end
+
+-- the shamans who can cast it (their SELF says so; yourself by the spell)
+local function Knows(name, e, idx)
+	if name == SP.player then return SP:TotemExistsOnClient(e, idx) and SP:KnowsTotem(e, idx) and true or false end
+	local info = SP.AllShamans and SP.AllShamans[name]
+	return info and info[e] and info[e][idx] and info[e][idx].known or false
+end
+
+local function Clashing(e, idx)
+	if not (WF and FT) then return false end
+	if e == WF.element and idx == WF.index then return #Providers(FT.element, FT.index) > 0 end
+	if e == FT.element and idx == FT.index then return #Providers(WF.element, WF.index) > 0 end
+	return false
+end
+
+local function SubgroupOf(name)
+	if demoGroup[name] then return demoGroup[name] end
+	if not IsInRaid() then return nil end
+	for i = 1, GetNumGroupMembers() do
+		local n, _, subgroup = GetRaidRosterInfo(i)
+		if n and (n == name or SP:RemoveRealmName(n) == name) then return subgroup end
+	end
+	return nil
+end
+
+local SPEC_LABEL = { ele = "Ele", enh = "Enh", resto = "Resto" }
+local function SpecOf(name)
+	local spec
+	if name == SP.player and SP.SpecGuess then spec = SP:SpecGuess() end
+	if not spec then
+		local info = SP.AllShamans and SP.AllShamans[name]
+		spec = info and info.spec
+	end
+	return spec and SPEC_LABEL[spec] or nil
 end
 
 local frame
@@ -286,6 +351,13 @@ local function CellTooltip(cell)
 	tip:SetOwner(cell, "ANCHOR_CURSOR")
 	tip:AddLine(title)
 	tip:AddLine(ELEMENTS[cell.element].label .. " totem for " .. row.name, Core:Color("textDim"))
+	if idx > 0 and IsRaidWide(cell.element, idx) then
+		tip:AddLine("Reaches the whole raid", Core:Color("accentHi"))
+		if Clashing(cell.element, idx) then
+			local other = (cell.element == WF.element and idx == WF.index) and SP:GetTotemName(FT.element, FT.index) or SP:GetTotemName(WF.element, WF.index)
+			tip:AddLine("Clashes with " .. other .. ": the raid gets one of the two, not both", Core:Color("warn"))
+		end
+	end
 	if SP:CanControl(row.name) then
 		tip:AddHint("Left-click / wheel down: next totem")
 		if RightClickClears() then
@@ -324,6 +396,21 @@ local function MakeCell(row, e)
 	cell.empty:SetPoint("CENTER")
 	cell.empty:SetText("–")
 	cell.empty:SetTextColor(Core:Color("textMute"))
+
+	if FOREVER then
+		-- RAID / CLASH: a small tag in the cell's top right corner
+		local pip = CreateFrame("Frame", nil, cell)
+		pip:SetSize(34, 12)
+		pip:SetPoint("TOPRIGHT", cell, "TOPRIGHT", -2, -2)
+		pip:SetFrameLevel(cell:GetFrameLevel() + 2)
+		pip.bg = pip:CreateTexture(nil, "BACKGROUND")
+		pip.bg:SetAllPoints(pip)
+		pip.text = pip:CreateFontString(nil, "OVERLAY")
+		pip.text:SetFontObject(Core.fonts.tiny)
+		pip.text:SetPoint("CENTER", pip, "CENTER", 0, 0)
+		pip:Hide()
+		cell.pip = pip
+	end
 
 	cell:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	cell:EnableMouseWheel(true)
@@ -396,6 +483,15 @@ local function MakeRow(parent, index)
 	row.nameFS:SetPoint("TOPLEFT", row, "TOPLEFT", 12, -10)
 	row.nameFS:SetWidth(NAME_W - 20)
 	row.nameFS:SetJustifyH("LEFT")
+	if FOREVER then
+		row.nameFS:SetWordWrap(false)   -- (a name too wide takes the smaller font instead)
+		row.subFS = row:CreateFontString(nil, "OVERLAY")
+		row.subFS:SetFontObject(Core.fonts.tiny)
+		row.subFS:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 12, 9)
+		row.subFS:SetWidth(NAME_W - 20)
+		row.subFS:SetJustifyH("LEFT")
+		row.subFS:SetWordWrap(false)
+	end
 
 	row.twist = MakeCheck(row, "Twist")
 	-- (its middle, and so its label's, where the checkbox's was)
@@ -473,6 +569,18 @@ local function ConfigureRow(row, name, index, inCombat)
 	row.selfBar:SetShown(isSelf)
 
 	row.nameFS:SetText(name)
+	if FOREVER then
+		-- spec and group under the name, one short line; a wide name steps down a font size
+		row.nameFS:SetFontObject(Core.fonts.row)
+		if row.nameFS:GetStringWidth() > NAME_W - 20 then row.nameFS:SetFontObject(Core.fonts.link) end
+		local parts = {}
+		local spec = SpecOf(name)
+		if spec then parts[#parts + 1] = spec end
+		local group = SubgroupOf(name)
+		if group then parts[#parts + 1] = "group " .. group end
+		row.subFS:SetText(table.concat(parts, "  ·  "))
+		row.subFS:SetTextColor(Core:Color("textDim"))
+	end
 	if control then
 		row.nameFS:SetTextColor(Core:Color("text"))
 	elseif leader then
@@ -523,6 +631,17 @@ local function ConfigureRow(row, name, index, inCombat)
 		end
 		cell._control = control and not inCombat
 		cell:SetAlpha(cell._control and 1 or 0.55)
+		if cell.pip then
+			if idx > 0 and IsRaidWide(e, idx) then
+				local clash = Clashing(e, idx)
+				cell.pip.text:SetText(clash and "CLASH" or "RAID")
+				cell.pip.text:SetTextColor(0.06, 0.08, 0.12)
+				if clash then cell.pip.bg:SetColorTexture(Core:Color("warn")) else cell.pip.bg:SetColorTexture(Core:Color("accentHi")) end
+				cell.pip:Show()
+			else
+				cell.pip:Hide()
+			end
+		end
 	end
 	row:Show()
 end
@@ -672,8 +791,6 @@ local function UpdateResistStrip()
 		noteText = "|cffffd200" .. practiceLine .. "|r"
 	elseif SP:ResistPracticeOwner() then
 		noteText = "|cffffd200Practice request from " .. SP:ResistPracticeOwner() .. ".|r"
-	elseif not SP:ResistActive() then
-		noteText = "Works in a raid: on WoW: Forever the resistance totems reach the whole raid. /sp resisttest to practice alone."
 	end
 	local h = 28 + colH + 8
 	if noteText then
@@ -688,6 +805,164 @@ local function UpdateResistStrip()
 	h = math.ceil(h)
 	strip:SetHeight(h)
 	return h
+end
+
+-- ---------------------------------------------------------------------------
+-- Raid Buffs strip (WoW: Forever): who covers the whole raid, one chip per totem;
+-- click a chip to pick the shaman who provides it
+-- ---------------------------------------------------------------------------
+local CHIP_GAP = 8
+
+local function ShowProviderPicker(chip)
+	local c = chip.chip
+	if Assign.demo then return end
+	if CombatBlocked() then return end
+	local items = { { key = false, text = "|cff8A94A6No one|r" } }
+	local inRaid = IsInRaid()
+	for _, name in ipairs(SP.SyncList or {}) do
+		if Knows(name, c.element, c.index) then
+			local g = inRaid and SubgroupOf(name)
+			local prefix = g and ("|cff5A6678G" .. g .. "|r  ") or ""
+			local text = prefix .. name
+			if not SP:CanControl(name) then text = "|cff8A94A6" .. text .. "|r" end
+			items[#items + 1] = { key = name, text = text }
+		end
+	end
+	local providers = Providers(c.element, c.index)
+	Widgets:ShowPopup(chip, items, providers[1] or false, function(key)
+		if CombatBlocked() then return end
+		if key then
+			if not SP:CanControl(key) then
+				if UIErrorsFrame then UIErrorsFrame:AddMessage("Only " .. key .. ", the raid leader or an assistant can change " .. key .. "'s totems", 1, 0.25, 0.25) end
+				return
+			end
+			SP:PerformAssignTotem(key, c.element, c.index)
+		else
+			for _, name in ipairs(Providers(c.element, c.index)) do
+				if SP:CanControl(name) then SP:PerformClearAssignment(name, c.element) end
+			end
+		end
+		MarkDirty()
+	end, { width = 200 })
+end
+
+local function ChipTooltip(chip)
+	if not Tooltips() then return end
+	local c = chip.chip
+	local tip = Core:Tooltip()
+	tip:SetOwner(chip, "ANCHOR_CURSOR")
+	tip:AddLine(SP:GetTotemName(c.element, c.index))
+	tip:AddLine("Reaches the whole raid within 30 yards of the totem.", Core:Color("textDim"))
+	local providers = Providers(c.element, c.index)
+	if #providers == 0 then
+		tip:AddLine("Nobody is assigned it yet.", Core:Color("warn"))
+	elseif #providers > 1 then
+		tip:AddLine("Assigned to " .. #providers .. " shamans: one would do, the others could cover something else.", Core:Color("textDim"))
+	end
+	if (c == WF or c == FT) and Clashing(c.element, c.index) then
+		tip:AddLine("Windfury and Flametongue do not stack: the raid gets one of the two.", Core:Color("warn"))
+	end
+	tip:AddHint("Click: pick the shaman who provides it")
+	tip:Show()
+end
+
+local function BuildRaidStrip(parent)
+	local strip = CreateFrame("Frame", nil, parent)
+	strip:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, -(HEADER_H + 4))
+	strip:SetSize(WIN_W - PAD * 2, RAIDBUFFS_H)
+
+	local title = strip:CreateFontString(nil, "OVERLAY")
+	title:SetFontObject(Core.fonts.section)
+	title:SetPoint("TOPLEFT", strip, "TOPLEFT", 12, -6)
+	title:SetText("RAID BUFFS")
+	local sub = strip:CreateFontString(nil, "OVERLAY")
+	sub:SetFontObject(Core.fonts.tiny)
+	sub:SetPoint("LEFT", title, "RIGHT", 8, 0)
+	sub:SetText("who covers the whole raid")
+
+	local innerW = WIN_W - PAD * 2
+	local chipW = math.floor((innerW - CHIP_GAP * (#RAID_CHIPS - 1)) / #RAID_CHIPS)
+	strip.chips = {}
+	for i, c in ipairs(RAID_CHIPS) do
+		local el = ELEMENTS[c.element]
+		local chip = CreateFrame("Button", nil, strip)
+		chip:SetSize(chipW, 40)
+		chip:SetPoint("TOPLEFT", strip, "TOPLEFT", (i - 1) * (chipW + CHIP_GAP), -26)
+		chip.chip = c
+		Core:RowBg(chip)
+		Core:MakeBorder(chip, "borderSoft")
+		chip.stripe = chip:CreateTexture(nil, "ARTWORK")
+		chip.stripe:SetWidth(3)
+		chip.stripe:SetPoint("TOPLEFT", chip, "TOPLEFT", 0, 0)
+		chip.stripe:SetPoint("BOTTOMLEFT", chip, "BOTTOMLEFT", 0, 0)
+		chip.stripe:SetColorTexture(el.r, el.g, el.b, 1)
+		chip.name = chip:CreateFontString(nil, "OVERLAY")
+		chip.name:SetFontObject(Core.fonts.row)
+		chip.name:SetPoint("TOPLEFT", chip, "TOPLEFT", 10, -5)
+		chip.name:SetWidth(chipW - 14)
+		chip.name:SetJustifyH("LEFT")
+		chip.name:SetWordWrap(false)
+		chip.who = chip:CreateFontString(nil, "OVERLAY")
+		chip.who:SetFontObject(Core.fonts.tiny)
+		chip.who:SetPoint("BOTTOMLEFT", chip, "BOTTOMLEFT", 10, 5)
+		chip.who:SetWidth(chipW - 14)
+		chip.who:SetJustifyH("LEFT")
+		chip.who:SetWordWrap(false)
+		chip:SetScript("OnClick", ShowProviderPicker)
+		chip:SetScript("OnEnter", function(self)
+			if self._control then Core:SetBorderColor(self, "on") end
+			ChipTooltip(self)
+		end)
+		chip:SetScript("OnLeave", function(self)
+			Core:SetBorderColor(self, "borderSoft")
+			Core:Tooltip():Hide()
+		end)
+		strip.chips[i] = chip
+	end
+	return strip
+end
+
+-- The strip only earns its space in a raid (or in the demo); in a party the
+-- grid already says who drops what.
+local function RaidStripH()
+	if frame and frame.raid and (Assign.demo or IsInRaid()) then return RAIDBUFFS_H end
+	return 0
+end
+
+local function UpdateRaidStrip(inCombat)
+	local strip = frame.raid
+	if not strip then return end
+	local h = RaidStripH()
+	if h > 0 then strip:Show() else strip:Hide() end
+	if frame._raidH ~= h then
+		frame._raidH = h
+		frame.colhead:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -(HEADER_H + 4 + h))
+	end
+	if h == 0 then return end
+	for _, chip in ipairs(strip.chips) do
+		local c = chip.chip
+		chip.name:SetText(SP:GetTotemName(c.element, c.index) or "")
+		local providers = Providers(c.element, c.index)
+		local other = (c == WF and FT) or (c == FT and WF) or nil
+		local otherHas = other and #Providers(other.element, other.index) > 0
+		if #providers > 0 then
+			local who = providers[1]
+			if #providers > 1 then who = who .. " +" .. (#providers - 1) end
+			chip.who:SetText(who)
+			chip.who:SetTextColor(Core:Color(otherHas and "warn" or "textDim"))
+			chip.name:SetTextColor(Core:Color("text"))
+		elseif otherHas then
+			chip.who:SetText("not with " .. (SP:GetTotemName(other.element, other.index) or ""))
+			chip.who:SetTextColor(Core:Color("textMute"))
+			chip.name:SetTextColor(Core:Color("textMute"))
+		else
+			chip.who:SetText("no one yet")
+			chip.who:SetTextColor(Core:Color("warn"))
+			chip.name:SetTextColor(Core:Color("text"))
+		end
+		chip._control = not inCombat and not Assign.demo
+		chip:SetAlpha(chip._control and 1 or 0.7)
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -715,7 +990,7 @@ local function BuildFrame()
 
 	frame = CreateFrame("Frame", "ShamanPowerAssignFrame", UIParent)
 	frame.spElement = ELEMENT   -- its menus (the Earth Shield list, Tools) are lit in Water (Widgets:MenuElement)
-	frame:SetSize(WIN_W, HEADER_H + COLHEAD_H + ROW_H + FOOTER_H)
+	frame:SetSize(WIN_W, HEADER_H + RAIDBUFFS_H + COLHEAD_H + ROW_H + FOOTER_H)
 	-- Saved position is in frame units: apply the saved scale before it.
 	frame:SetScale(Opt().configscale or 0.9)
 	frame:SetFrameStrata("HIGH")
@@ -821,9 +1096,13 @@ local function BuildFrame()
 		SHAMANPOWER_FREEASSIGN_DESC or "Let anyone in the group change your assignments.")
 	frame.pill = pill
 
+	if FOREVER then frame.raid = BuildRaidStrip(frame) end
+
 	-- Column headers --------------------------------------------------------
 	local colhead = CreateFrame("Frame", nil, frame)
-	colhead:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -(HEADER_H + 4))
+	frame.colhead = colhead
+	frame._raidH = RAIDBUFFS_H
+	colhead:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -(HEADER_H + 4 + RAIDBUFFS_H))
 	colhead:SetSize(WIN_W - PAD * 2, COLHEAD_H)
 
 	local shamanLbl = colhead:CreateFontString(nil, "OVERLAY")
@@ -1004,6 +1283,7 @@ function Assign:Redraw()
 		rows[i].name = nil
 	end
 
+	UpdateRaidStrip(inCombat)
 	local stripH = UpdateResistStrip()
 	if frame._stripH ~= stripH then
 		frame._stripH = stripH
@@ -1012,7 +1292,7 @@ function Assign:Redraw()
 
 	local visible = math.max(1, math.min(n, MAX_ROWS))
 	frame.body:SetHeight(math.max(n, 1) * ROW_H)
-	frame:SetHeight(HEADER_H + 4 + COLHEAD_H + 4 + visible * ROW_H + FOOTER_H + stripH + 2)
+	frame:SetHeight(HEADER_H + 4 + RaidStripH() + COLHEAD_H + 4 + visible * ROW_H + FOOTER_H + stripH + 2)
 	if n <= MAX_ROWS then frame.scroll:SetVerticalScroll(0) end
 
 	if n == 0 then
@@ -1065,8 +1345,8 @@ end
 -- assignment so the window is seen doing its job. No comms, no clicks.
 -- ---------------------------------------------------------------------------
 local DEMO_OTHERS = {
-	{ name = "Nazgrel",  assign = { 1, 6, 2, 1 }, es = true,  esTarget = "Tank" },
-	{ name = "Drakthul", assign = { 2, 1, 3, 2 }, es = false },
+	{ name = "Nazgrel",  assign = { 1, 6, 2, 1 }, es = true,  esTarget = "Tank", spec = "enh",   group = 1 },
+	{ name = "Drakthul", assign = { 2, 1, 3, 2 }, es = false,                     spec = "resto", group = 3 },
 }
 function Assign:Demo(on)
 	BuildFrame()
@@ -1081,7 +1361,8 @@ function Assign:Demo(on)
 		local list = { SP.player }
 		for _, d in ipairs(DEMO_OTHERS) do
 			list[#list + 1] = d.name
-			SP.AllShamans[d.name] = { hasEarthShield = d.es, freeassign = true, _demo = true }
+			SP.AllShamans[d.name] = { hasEarthShield = d.es, freeassign = true, _demo = true, spec = d.spec }
+			demoGroup[d.name] = d.group
 			ShamanPower_Assignments[d.name] = { d.assign[1], d.assign[2], d.assign[3], d.assign[4] }
 			ShamanPower_TwistAssignments[d.name] = (d.name == "Nazgrel")
 			if d.esTarget then ShamanPower_EarthShieldAssignments[d.name] = d.esTarget end
@@ -1121,6 +1402,7 @@ function Assign:Demo(on)
 			if ShamanPower_Assignments then ShamanPower_Assignments[d.name] = nil end
 			if ShamanPower_TwistAssignments then ShamanPower_TwistAssignments[d.name] = nil end
 			if ShamanPower_EarthShieldAssignments then ShamanPower_EarthShieldAssignments[d.name] = nil end
+			demoGroup[d.name] = nil
 		end
 		SP.SyncList = self._savedSync
 		self._savedSync = nil
@@ -1151,7 +1433,7 @@ if SP and type(SP.UpdateLayout) == "function" then
 	hooksecurefunc(SP, "UpdateLayout", function() MarkDirty() end)
 end
 
--- A theme change (General > Themes): the column headings and the cells take
+-- A theme change (Appearance > Themes): the column headings and the cells take
 -- the new element tints (a hovered cell's hover reads ELEMENTS live)
 if SP and SP.OnThemeChanged then
 	SP:OnThemeChanged(function()

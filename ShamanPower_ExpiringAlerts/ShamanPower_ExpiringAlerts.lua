@@ -108,7 +108,7 @@ local ElementColors = {
 	air = { r = 0.6, g = 0.8, b = 1.0 },
 }
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot mod.alerts. A
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot mod.alerts. A
 -- theme recolours these tables in place and puts today's numbers back on
 -- Standard: totem lines by element; Lightning Shield by the shield colour,
 -- Water and Earth Shield by their element; the centre "destroyed!" warning.
@@ -152,6 +152,8 @@ local defaultSettings = {
 	duration = 2.5,
 	opacity = 100,
 	fontOutline = true,
+	growUp = false,        -- Grow Upward (3.0.9, a user's ask): the second and third alerts stack above the first
+	lineSpacing = 40,      -- Line Spacing: from one alert's middle to the next (px)
 	soundVolume = 100,
 
 	shields = {
@@ -773,8 +775,11 @@ function SP:ProcessAlertQueue()
 		frame.text:SetPoint("CENTER", frame, "CENTER", 0, 0)
 	end
 
-	-- Position based on active alerts (stagger vertically)
-	local yOffset = #self.activeAlerts * -40
+	-- Position based on active alerts (stagger vertically): Line Spacing apart, downward from the
+	-- first, or upward with Grow Upward (3.0.9)
+	local step = tonumber(sv.lineSpacing) or 40
+	if sv.growUp ~= true then step = -step end
+	local yOffset = #self.activeAlerts * step
 	frame:ClearAllPoints()
 	frame:SetPoint("CENTER", self.expiringAlertsFrame, "CENTER", 0, yOffset)
 

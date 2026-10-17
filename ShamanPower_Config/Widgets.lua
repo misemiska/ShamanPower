@@ -493,6 +493,7 @@ local function CreateToggle(parent)
 
 	row.spSetControlEnabled = function(_, enabled)
 		if enabled then track:Enable() else track:Disable() end
+		track:EnableMouse(enabled)   -- disabled: the mouse goes through to the row, whose tooltip shows (a disabled button runs no hover script)
 		if row.opts then TogglePaint(row, row.opts.get()) end
 	end
 
@@ -1125,6 +1126,7 @@ local function CreateDropdown(parent)
 
 	row.spSetControlEnabled = function(_, enabled)
 		if enabled then btn:Enable() else btn:Disable() end
+		btn:EnableMouse(enabled)   -- disabled: the mouse goes through to the row, whose tooltip shows (a disabled button runs no hover script)
 		-- opts.own (optional, the List look): true = a value of the item's own, in accentHi as the menu shows it
 		local key = "text"
 		if enabled and row.opts and row.opts.own and row.opts.own() then key = "accentHi" end
@@ -1219,6 +1221,7 @@ local function CreateColor(parent)
 
 	row.spSetControlEnabled = function(_, enabled)
 		if enabled then btn:Enable() else btn:Disable() end
+		btn:EnableMouse(enabled)   -- disabled: the mouse goes through to the row, whose tooltip shows (a disabled button runs no hover script)
 		swatch:SetAlpha(enabled and 1 or 0.4)
 	end
 
@@ -1278,6 +1281,7 @@ local function CreateButton(parent)
 
 	row.spSetControlEnabled = function(_, enabled)
 		if enabled then btn:Enable() else btn:Disable() end
+		btn:EnableMouse(enabled)   -- disabled: the mouse goes through to the row, whose tooltip shows (a disabled button runs no hover script)
 		txt:SetTextColor(Core:ColorIf(enabled, "white", "textMute"))
 	end
 

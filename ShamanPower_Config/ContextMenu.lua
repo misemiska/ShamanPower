@@ -32,6 +32,7 @@
 --   sub = function() return { item, ... } end, subMaxHeight = px (a long list scrolls)
 --   selected = true / false,                   a choice (true: the current one)
 --   disabled = true,
+--   label = true,                             a heading over the rows under it (its text in caps): no hover, no click
 --   icon = texture,                            a small spell icon before the text
 --   preview = function() end,                  a speaker button on the right (plays; picks nothing)
 --   tip = "text",                              a tooltip beside the menu, level with the row (titled with
@@ -53,6 +54,7 @@ ns.ContextMenu = CM
 -- Layout (px); the D29 mock's measures, in the shared popup's row height
 local ITEM_H        = 22
 local SEP_H         = 8     -- a separator: a 1 px line, inset 8
+local LABEL_H       = 20    -- a label row: a heading over the rows under it (its element's dot, then caps)
 local HEADER_H      = 38    -- the header line, its rule at 32, 4 below it
 local PAD_V         = 4     -- above the first row (no header) and under the last
 local PAD_X         = 12    -- the label's left
@@ -62,7 +64,7 @@ local RIGHT_ARROW   = 26    -- the value's right edge in a level with submenus (
 local RIGHT_PLAIN   = 12
 local RIGHT_SPEAKER = 34    -- a level with speaker buttons
 local MIN_W_ROOT, MIN_W_SUB = 290, 250   -- the mock's menu and submenu (wider when a text needs it)
-local MAX_H         = 420   -- taller: the level scrolls
+local MAX_H         = 500   -- taller: the level scrolls (500: the label rows made the fullest menus taller)
 local WHEEL         = 28    -- the shared popup's wheel step
 local SWITCH_DELAY  = 0.15  -- hovering another row this long moves the submenu to it
 local BASE_LEVEL    = 40    -- catcher 40, Escape catcher 45, levels 50 / 60 / 70
@@ -114,6 +116,15 @@ end
 local function PaintRow(b)
 	local item, lv = b.item, b.lv
 	if not item then return end
+	if item.label then   -- a heading: never lit, never hovered
+		b.lit:Hide(); b.bar:Hide()
+		if b.box then b.box:Hide() end
+		b.bg:SetColorTexture(0, 0, 0, 0)
+		local er, eg, eb = ElementRGB(element)
+		b.dot:SetColorTexture(er, eg, eb, 1)
+		b.text:SetTextColor(Core:Color("textDim"))
+		return
+	end
 	local open = lv.openRow == b   -- its submenu is open: it keeps the hover look
 	local lit = item.selected and true or false
 	if lit then PaintLit(b) end
@@ -187,6 +198,8 @@ end
 
 local function RowEnter(b)
 	local lv = b.lv
+	if not lv then return end   -- (a slider row on its own, outside the menu: no hover look)
+	if b.item and b.item.label then return end   -- a heading: nothing happens under the mouse
 	b.hover = true
 	PaintRow(b)
 	if sliderDrag then return end   -- a thumb is held: the submenus stay as they are
@@ -208,6 +221,8 @@ local function RowEnter(b)
 end
 
 local function RowLeave(b)
+	if not b.lv then return end
+	if b.item and b.item.label then return end
 	b.hover = false
 	PaintRow(b)
 	Core:HideTooltipFor(b)
@@ -216,7 +231,7 @@ end
 
 local function RowClick(b)
 	local item = b.item
-	if not item or item.disabled then return end
+	if not item or item.disabled or item.label then return end   -- (a heading: the menu stays open)
 	if item.sub then b.lv.pending = nil; SetChild(b.lv, b) return end
 	if not item.onClick then return end
 	local ok, keep = xpcall(item.onClick, geterrorhandler())
@@ -298,6 +313,7 @@ local function SliderSet(b, v)
 	local sl = b.item and b.item.slider
 	if not (sl and sl.set) or b.item.disabled then return end
 	xpcall(sl.set, geterrorhandler(), v)
+	if b.onSet then xpcall(b.onSet, geterrorhandler(), v) end
 end
 
 local function SliderFill(b, v)
@@ -440,7 +456,7 @@ local function FillSlider(b, valueRight)
 	if off then
 		s.fill:SetColorTexture(Core:Color("off"))
 	else
-		local r, g, bl = ElementRGB(element)
+		local r, g, bl = ElementRGB(b.element or element)
 		s.fill:SetColorTexture(r, g, bl, 1)
 	end
 	box:SetTextColor(Core:ColorIf(off, "textMute", "text"))
@@ -458,6 +474,31 @@ local function FillSlider(b, valueRight)
 	end
 	s:Show()
 	box:Show()
+end
+
+-- (3.0.9) the slider row as a control of its own, for an icon's screen (IconScreen.lua): the menu's
+-- own slider, unchanged (its thumb, its ten-a-second pace while held, the last value on release),
+-- with the item's name at the left. item = { text, slider, disabled }; onSet(v): after each value
+-- handed to the item.
+CM.SliderRow = {}
+function CM.SliderRow.New(parent)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetHeight(34)
+	b.text = b:CreateFontString(nil, "OVERLAY")
+	b.text:SetFontObject(Core.fonts.row)
+	b.text:SetJustifyH("LEFT")
+	b.text:SetPoint("LEFT", b, "LEFT", 12, 0)
+	b.text:SetPoint("RIGHT", b, "RIGHT", -(SLIDER_RESERVE + 24), 0)
+	NewSliderParts(b)
+	return b
+end
+function CM.SliderRow.Fill(b, item, width, pageElement, onSet)
+	b.item, b.element, b.onSet = item, pageElement, onSet
+	b:SetWidth(width)
+	b.text:SetText(item.text or "")
+	b.text:SetTextColor(Core:ColorIf(item.disabled, "textMute", "text"))
+	FillSlider(b, 12)
+	b:Show()
 end
 
 local function NewRow(lv)
@@ -488,6 +529,9 @@ local function NewRow(lv)
 	b.icon:SetPoint("LEFT", b, "LEFT", PAD_X, 0)
 	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	b.icon:Hide()
+	b.dot = b:CreateTexture(nil, "ARTWORK")   -- a label row's element dot
+	b.dot:SetSize(6, 6)
+	b.dot:Hide()
 	b.text = b:CreateFontString(nil, "OVERLAY")
 	b.text:SetFontObject(Core.fonts.row)
 	b.text:SetJustifyH("LEFT")
@@ -680,9 +724,9 @@ local function FillLevel(lv, items, keepScroll)
 				local ok, vt, own = pcall(item.value)
 				if ok then b.vText, b.vOwn = vt, own else Report(vt) end
 			end
-			measure:SetFontObject(Core.fonts.row)
-			measure:SetText(item.text or "")
-			local w = Width(measure) + (item.icon and (ICON_W + 6) or 0)
+			measure:SetFontObject(item.label and Core.fonts.strip or Core.fonts.row)
+			measure:SetText(item.label and string.upper(item.text or "") or (item.text or ""))
+			local w = Width(measure) + (item.icon and (ICON_W + 6) or 0) + (item.label and 11 or 0)
 			if w > maxText then maxText = w end
 			if item.slider then
 				if maxValue < SLIDER_RESERVE then maxValue = SLIDER_RESERVE end
@@ -695,7 +739,7 @@ local function FillLevel(lv, items, keepScroll)
 			end
 			if item.sub then hasSub = true end
 			if item.preview then hasSpeaker = true end
-			contentH = contentH + ITEM_H
+			contentH = contentH + (item.label and LABEL_H or ITEM_H)
 		end
 	end
 	local right = (hasSub and RIGHT_ARROW) or (hasSpeaker and RIGHT_SPEAKER) or RIGHT_PLAIN
@@ -738,7 +782,15 @@ local function FillLevel(lv, items, keepScroll)
 			b:ClearAllPoints()
 			b:SetPoint("TOPLEFT", lv.content, "TOPLEFT", 0, -y)
 			b:SetWidth(cw)
-			if item.icon then
+			b:SetHeight(item.label and LABEL_H or ITEM_H)
+			b.text:SetFontObject(item.label and Core.fonts.strip or Core.fonts.row)
+			b.dot:SetShown(item.label and true or false)
+			if item.label then
+				b.icon:Hide()
+				b.dot:ClearAllPoints()
+				b.dot:SetPoint("LEFT", b, "LEFT", textLeft, 0)
+				b.text:SetPoint("LEFT", b, "LEFT", textLeft + 11, 0)
+			elseif item.icon then
 				b.icon:SetTexture(item.icon)
 				b.icon:ClearAllPoints()
 				b.icon:SetPoint("LEFT", b, "LEFT", textLeft, 0)
@@ -748,7 +800,7 @@ local function FillLevel(lv, items, keepScroll)
 				b.icon:Hide()
 				b.text:SetPoint("LEFT", b, "LEFT", textLeft, 0)
 			end
-			b.text:SetText(item.text or "")
+			b.text:SetText(item.label and string.upper(item.text or "") or (item.text or ""))
 			local valueRight = hasSub and RIGHT_ARROW or RIGHT_PLAIN
 			b.value:ClearAllPoints()
 			b.value:SetPoint("RIGHT", b, "RIGHT", -valueRight, 0)
@@ -780,7 +832,7 @@ local function FillLevel(lv, items, keepScroll)
 			if not (b.hover and item.tip) then Core:HideTooltipFor(b) end   -- (a pooled row's old tip)
 			b:Show()
 			PaintRow(b)
-			y = y + ITEM_H
+			y = y + (item.label and LABEL_H or ITEM_H)
 		end
 	end
 	for i = ri + 1, #lv.rows do

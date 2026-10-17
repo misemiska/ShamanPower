@@ -2,7 +2,7 @@
 local SP = ShamanPower
 if not SP then return end
 
--- Theme hook (General > Themes, spot mod.minimap): the ring colors a theme carries. The brand
+-- Theme hook (Appearance > Themes, spot mod.minimap): the ring colors a theme carries. The brand
 -- themes paint their palette (Ring Colors "element"); your own colors travel with a saved theme.
 -- Registered before the availability gate below: a client without rings (Anniversary) still
 -- keeps the two settings in a theme it saves or shares, so a round trip through it loses nothing.
@@ -272,7 +272,7 @@ local function expire()
 	refreshModels()
 end
 
--- Theme (General > Themes, spot mod.minimap): a ring in the spot's palette.
+-- Theme (Appearance > Themes, spot mod.minimap): a ring in the spot's palette.
 -- today = true (a theme change) paints the Appearance colour on Standard;
 -- otherwise Standard leaves the colour set by refreshModels exactly as it is.
 -- The ring's color: its element's (today), or one you picked (Totem Range Tracker > Minimap
@@ -445,7 +445,7 @@ hooksecurefunc(SP, "PLAYER_TOTEM_UPDATE", afterTotem)
 hooksecurefunc(SP, "UNIT_SPELLCAST_SUCCEEDED", afterCast)
 hooksecurefunc(SP, "UpdateLayout", SP.RefreshMinimapTotems)
 
--- Theme changed (General > Themes): recolour the rings on the minimap now.
+-- Theme changed (Appearance > Themes): recolour the rings on the minimap now.
 if SP.OnThemeChanged then
 	SP:OnThemeChanged(function()
 		for element = 1, 4 do

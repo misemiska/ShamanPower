@@ -152,7 +152,7 @@ local function cueFrame(host)
 	c.mark = mark
 	-- in, held, out: 5 seconds at most (a re-drop of the element stops it sooner)
 	c.markHold = mark:CreateAnimationGroup()
-	alphaAnim(c.markHold, 1, 0, 1, 0.1); alphaAnim(c.markHold, 2, 1, 1, 4.5); alphaAnim(c.markHold, 3, 1, 0, 0.4)
+	alphaAnim(c.markHold, 1, 0, 1, 0.1); c.markHoldStay = alphaAnim(c.markHold, 2, 1, 1, 4.5); alphaAnim(c.markHold, 3, 1, 0, 0.4)
 
 	host.spCue = c
 	return c
@@ -224,11 +224,14 @@ local function playCue(host, style, kind, icon, look)
 	end
 end
 
-local function showMark(host, look)
-	if ThemeCue and ThemeCue.mark(host, look) then return end
+-- stays (Keep the Red X Until Recast, 3.0.9.1): the held part lasts a day instead of 4.5 s;
+-- the recast stops it as ever
+local function showMark(host, look, stays)
+	if ThemeCue and ThemeCue.mark(host, look, stays) then return end
 	local c = cueFrame(host)
 	local s = host:GetHeight() * 0.75
 	c.mark:SetSize(s, s)
+	c.markHoldStay:SetDuration(stays and 86400 or 4.5)
 	c.markHold:Stop(); c.markHold:Play()
 end
 
@@ -242,8 +245,8 @@ end
 
 -- Red X Until You Imbue Again / Cast a Shield Again (Cooldown Bar > Effects): the
 -- totem bar's mark, in the cooldown bar's own Effects Look
-local function cdbarMark(btn, kind)
-	showMark(btn, ThemeCue and ThemeCue.lookOf and ThemeCue.lookOf(kind) or nil)
+local function cdbarMark(btn, kind, stays)
+	showMark(btn, ThemeCue and ThemeCue.lookOf and ThemeCue.lookOf(kind) or nil, stays)
 end
 
 -- "Turns red" (Running Out, Turns Red While Missing, the totem bar's Expiring
@@ -388,6 +391,12 @@ SP.CueFx = {
 -- The button a totem's cue plays on: the element's own button. The Compact,
 -- Grid and Blizzard's-bar styles draw their totems elsewhere: no cues there.
 local function totemHost(element)
+	-- Dropped Totems (ShamanPowerDropped.lua): the element's picture while its totem is down
+	if SP.DroppedActive and SP:DroppedActive() then
+		local pic = SP:DroppedHost(element)
+		if pic then return pic, pic.icon end
+		return nil
+	end
 	-- Totem Rows with the main bar hidden: the row's totem that is down
 	local rowBtn = SP.RowsCarryButton and SP:RowsCarryButton(element)
 	if rowBtn then
@@ -403,6 +412,7 @@ local function totemHost(element)
 end
 
 local expiringHost = {}   -- [element] = the button its expiring loop plays on
+local markHost = {}       -- [element] = the button its red X went on (a row's or a dropped picture too)
 
 local function stopExpiring(element)
 	local host = expiringHost[element]
@@ -424,11 +434,19 @@ local function clearMark(element)
 	local c = btn and btn.spCue
 	if c and c.markHold:IsPlaying() then c.markHold:Stop() end
 	if c and c.spTheme and ThemeCue then ThemeCue.clear(c) end   -- a theme's mark or flag
+	-- the X may sit on a Totem Rows button or a Dropped Totems picture: that one goes too (with Keep
+	-- the Red X Until Recast it would never fade on its own)
+	local other = markHost[element]
+	if other then
+		markHost[element] = nil
+		if other ~= btn then clearHostMark(other) end
+	end
 end
 
+-- Red X Until Recast alone (Totem Destroyed's animation off) still needs the destroyed totem noticed
 function SP:TotemCuesWanted()
 	local o = self.opt
-	return o and (o.totemCueDestroyed or o.totemCueExpired) and true or false
+	return o and (o.totemCueDestroyed or o.totemCueExpired or o.totemCueDestroyedMark == true) and true or false
 end
 
 -- A totem went (why: destroyed / expired / recalled / dismissed / died / unknown).
@@ -436,11 +454,15 @@ function SP:TotemEndCue(element, why)
 	stopExpiring(element)
 	local o = self.opt
 	if not o or self:IsOff() then return end
-	if why == "destroyed" and o.totemCueDestroyed then
+	if why == "destroyed" and (o.totemCueDestroyed or o.totemCueDestroyedMark == true) then
+		-- Totem Destroyed (the animation) and Red X Until Recast are two switches (3.0.9.1): either alone
 		local host, icon = totemHost(element)
 		if not host then return end
-		playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon)
-		if o.totemCueDestroyedMark ~= false then showMark(host) end
+		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon) end
+		if o.totemCueDestroyedMark == true then
+			showMark(host, nil, o.totemCueDestroyedMarkStays)
+			markHost[element] = host   -- (cleared with the recast, wherever it was drawn)
+		end
 	elseif why == "expired" and o.totemCueExpired then
 		local host, icon = totemHost(element)
 		if not host then return end
@@ -563,18 +585,26 @@ local function ownImbue(has, id, left)
 	if id and SP.EnchantIDToImbue and SP.EnchantIDToImbue[id] then return true end
 	return type(left) == "number" and left > 15000
 end
+-- Weapon Imbue Gone (the animation) and Red X When It's Gone are two switches (3.0.9.1): either alone
+-- watches the imbue; an imbue back on the weapon clears the X whatever the switches say, so an X
+-- never outlives the imbue it marked
 function SP:CueImbueCheck(btn, hasMain, hasOff, mainID, offID, mainLeft, offLeft)
 	local t = btn.cooldownType
-	if not self:CdItemOpt(t, "cueGone") then btn._cueMain, btn._cueOff = nil, nil return end
+	local anim, mark = self:CdItemOpt(t, "cueGone"), self:CdItemOpt(t, "cueMark")
+	if not (anim or mark) then
+		if btn._cueMain ~= nil or btn._cueOff ~= nil then clearHostMark(btn) end   -- (both off: nothing stays on the button)
+		btn._cueMain, btn._cueOff = nil, nil
+		return
+	end
 	if isSecret(hasMain) or isSecret(hasOff) then return end
 	hasMain, hasOff = ownImbue(hasMain, mainID, mainLeft), ownImbue(hasOff, offID, offLeft)
 	local gone = (btn._cueMain and not hasMain) or (btn._cueOff and not hasOff)
-	-- imbued again: the red X and a theme's corner flag go (until recast)
-	if (hasMain and btn._cueMain == false) or (hasOff and btn._cueOff == false) then clearHostMark(btn) end
+	-- imbued again (or first seen up): the red X and a theme's corner flag go
+	if (hasMain and btn._cueMain ~= true) or (hasOff and btn._cueOff ~= true) then clearHostMark(btn) end
 	btn._cueMain, btn._cueOff = hasMain, hasOff
 	if gone then
-		playCue(btn, self:CdItemOpt(t, "cueGoneStyle"), "imbue")
-		if self:CdItemOpt(t, "cueMark") then cdbarMark(btn, "imbue") end   -- Red X Until You Imbue Again
+		if anim then playCue(btn, self:CdItemOpt(t, "cueGoneStyle"), "imbue") end
+		if mark then cdbarMark(btn, "imbue", self:CdItemOpt(t, "cueMarkStays")) end   -- Red X Until You Imbue Again
 	end
 end
 
@@ -586,10 +616,13 @@ local pendingShieldBtn
 local function confirmShield()
 	local btn = pendingShieldBtn
 	pendingShieldBtn = nil
-	if not btn or btn._cueShield or not SP:CdItemOpt(btn.cooldownType, "cueGone") then return end
+	if not btn or btn._cueShield then return end
+	local t = btn.cooldownType
+	local anim, mark = SP:CdItemOpt(t, "cueGone"), SP:CdItemOpt(t, "cueMark")
+	if not (anim or mark) then return end
 	if UnitIsDeadOrGhost("player") then return end   -- dying strips the shield: not "gone"
-	playCue(btn, SP:CdItemOpt(btn.cooldownType, "cueGoneStyle"), "shield")
-	if SP:CdItemOpt(btn.cooldownType, "cueMark") then cdbarMark(btn, "shield") end   -- Red X Until You Cast a Shield Again
+	if anim then playCue(btn, SP:CdItemOpt(t, "cueGoneStyle"), "shield") end
+	if mark then cdbarMark(btn, "shield", SP:CdItemOpt(t, "cueMarkStays")) end   -- Red X Until You Cast a Shield Again
 end
 
 local function missingLayer(btn)
@@ -643,8 +676,10 @@ local function stopMissing(btn)
 end
 
 function SP:CueShieldState(btn, hasShield, engine)
-	if not self:CdItemOpt(btn.cooldownType, "cueGone") then
+	local anim, mark = self:CdItemOpt(btn.cooldownType, "cueGone"), self:CdItemOpt(btn.cooldownType, "cueMark")
+	if not (anim or mark) then
 		stopMissing(btn)
+		if btn._cueShield ~= nil then clearHostMark(btn) end   -- (both off: nothing stays on the button)
 		btn._cueShield = nil
 		return
 	end
@@ -653,8 +688,11 @@ function SP:CueShieldState(btn, hasShield, engine)
 		btn._cueShield = nil   -- the readable state starts fresh after the fight: no late cue
 		if (btn:GetEffectiveAlpha() or 1) >= 0.99 then
 			local m = missingLayer(btn)
-			if not m.loop:IsPlaying() then m.loop:Play() end
-			local xOn = self:CdItemOpt(btn.cooldownType, "cueMark") and true or nil
+			if anim then
+				if not m.loop:IsPlaying() then m.loop:Play() end
+			elseif m.loop:IsPlaying() then m.loop:Stop()
+			end
+			local xOn = mark and true or nil
 			if m.xOn ~= xOn then
 				m.xOn = xOn
 				local size = btn:GetHeight() * 0.75
@@ -669,7 +707,7 @@ function SP:CueShieldState(btn, hasShield, engine)
 	stopMissing(btn)
 	local had = btn._cueShield
 	btn._cueShield = hasShield and true or false
-	if hasShield and had == false then clearHostMark(btn) end   -- recast: the red X and a theme's flag go
+	if hasShield and had ~= true then clearHostMark(btn) end   -- recast (or first seen up): the red X and a theme's flag go
 	if had and not hasShield then
 		pendingShieldBtn = btn
 		C_Timer.After(0.4, confirmShield)
@@ -722,16 +760,31 @@ local function gridKeeps(btn)
 	return (btn.spellType == "shield" or btn.spellType == "weaponImbue") and SP.CooldownBarGridOn and SP:CooldownBarGridOn(btn.cooldownType) or false
 end
 
--- In or out of sight. Out of sight keeps the button's spot, so nothing on the bar
--- moves: its alpha goes to 0 (UpdateCooldownBarOpacity; alpha may change in a
--- fight), and out of a fight its mouse goes too, so it is really gone: no click,
--- tooltip or flyout. In a fight the game locks the mouse: the fight's start
--- gives every button its mouse back (a click on an empty spot still casts there).
+-- In or out of sight. Its alpha goes to 0 (UpdateCooldownBarOpacity; alpha may
+-- change in a fight), and out of a fight its mouse goes too, so it is really gone:
+-- no click, tooltip or flyout. In a fight the game locks the mouse: the fight's
+-- start gives every button its mouse back (a click on its spot still casts there).
+-- Out of sight takes no space: the bar lays itself out again, centered on what is
+-- in sight (UpdateCooldownBarLayout parks the rest past its end). In a fight nothing
+-- can move, so a flip then waits for the fight's end (the watcher below).
+local layoutQueued
+local function relayout()
+	if InCombatLockdown() then SP._roLayoutLater = true return end
+	if layoutQueued then return end
+	layoutQueued = true
+	C_Timer.After(0, function()
+		layoutQueued = nil
+		if InCombatLockdown() then SP._roLayoutLater = true return end
+		SP:UpdateCooldownBarLayout()
+	end)
+end
+
 local function setShown(btn, want)
 	local hide = (not want) or nil
 	if btn._roHidden ~= hide then
 		btn._roHidden = hide
 		SP:UpdateCooldownBarOpacity()
+		relayout()
 	end
 	if not InCombatLockdown() then
 		-- (the tab that opens its flyout, WoW: Forever's arrow layout, goes with it)
@@ -742,8 +795,9 @@ local function setShown(btn, want)
 			if tab then tab:EnableMouse(false) end
 		elseif not hide and btn._roMouseOff then
 			btn._roMouseOff = nil
-			btn:EnableMouse(true)
-			if tab then tab:EnableMouse(true) end
+			local on = SP:ClickThroughMouse("cd")   -- (Click Through The Cooldown Bar: not always)
+			btn:EnableMouse(on)
+			if tab then tab:EnableMouse(on) end
 		end
 	end
 end
@@ -845,7 +899,8 @@ local function timeColor(btn, slot, fields, want)
 	paintTimes(btn, fields, (want == "red" and WOW_RED) or (want == "gold" and WOW_GOLD) or nil)
 end
 local function timeRed(btn, on)
-	return (on and SP:CdItemOpt(btn.cooldownType, "cueTimeColor") and btn._roLook ~= "red" and not SP:IsOff()) and "red" or nil
+	return (on and SP:CdItemOpt(btn.cooldownType, "cueTimeColor") and btn._roLook ~= "red" and not SP:IsOff()
+		and not SP:CountdownOn("cdbar", "buff")) and "red" or nil   -- (Buff Timers own the time's color)
 end
 -- Time Only While Running Out (the shield; out of a fight the time is Lua-drawn): the time
 -- texts out of sight while there is plenty left, back the moment it is running out
@@ -1227,7 +1282,7 @@ function SP:RunOutCooldown(btn, cooling, left)
 		lookOn = state == "almost"
 	end
 	if almostLook(btn, cooling and lookOn, (left and A > 0) and left / A or 1, dur, A) then busy = true end
-	local gold = (state == "almost" and self:CdItemOpt(t, "cueTimeColor") and not self:IsOff()) and "gold" or nil
+	local gold = (state == "almost" and self:CdItemOpt(t, "cueTimeColor") and not self:IsOff() and not self:CountdownOn("cdbar")) and "gold" or nil
 	if btn._ebSpell then
 		engineTimeGold(btn, gold)
 		timeColor(btn, "_roTime0", TIME0, nil)
@@ -1279,9 +1334,10 @@ local function shieldTimeOnly(o) return (o and SP:CdItemOpt(1, "cueTimeOnly") an
 -- EnsureShieldChargeContainer keeps it on the button; a change builds the display again.
 function SP:ShieldTimeTextKey()
 	local o = self.opt
+	local cc = self:CountdownOn("cdbar", "buff") and ("cc" .. self:CountdownVersion()) or ""   -- (Buff Timers)
 	local c, only = shieldTimeColored(o), shieldTimeOnly(o)
-	if not (c or only) then return 0 end
-	return (c and "c" or "-") .. (only and "o" or "-") .. runOutSecs(1)
+	if not (c or only or cc ~= "") then return 0 end
+	return (c and "c" or "-") .. (only and "o" or "-") .. runOutSecs(1) .. cc
 end
 
 -- The game-drawn shield's time (WoW: Forever, in a fight: EnsureShieldChargeContainer):
@@ -1290,6 +1346,12 @@ end
 -- today's white (the switch off, or a shield button that turns red: its time stays white).
 function SP:ShieldTimeTextOptions()
 	local o = self.opt
+	-- Buff Timers on the cooldown bar: the game-drawn shield's time by what is left (ShamanPowerCountdown.lua)
+	if self:CountdownOn("cdbar", "buff") then
+		local curve = self.CountdownCurve and self:CountdownCurve("buff")
+		local P = SP.CountdownCurveProperty and SP:CountdownCurveProperty()   -- the time left in percent
+		if curve and P then return { textColor = { curve = curve, property = P } } end
+	end
 	local colored, only = shieldTimeColored(o), shieldTimeOnly(o)
 	if not (colored or only) then return nil end
 	local CU, P = C_CurveUtil, Enum and Enum.DurationTextBindingProperty
@@ -1323,13 +1385,20 @@ end
 do
 	local watch = CreateFrame("Frame")
 	watch:RegisterEvent("PLAYER_REGEN_DISABLED")
-	watch:SetScript("OnEvent", function()
+	watch:RegisterEvent("PLAYER_REGEN_ENABLED")
+	watch:SetScript("OnEvent", function(_, event)
+		if event == "PLAYER_REGEN_ENABLED" then
+			-- an item came into sight or went out of it during the fight: the bar laid out again
+			if SP._roLayoutLater then SP._roLayoutLater = nil; relayout() end
+			return
+		end
 		if InCombatLockdown() then return end   -- (too late: locked already)
+		local on = SP:ClickThroughMouse("cd")   -- (Click Through The Cooldown Bar: the fight's start takes it)
 		for _, btn in ipairs(SP.cooldownButtons or {}) do
 			if btn._roMouseOff then
 				btn._roMouseOff = nil
-				btn:EnableMouse(true)
-				if btn.spFlyoutOpenArrow then btn.spFlyoutOpenArrow:EnableMouse(true) end
+				btn:EnableMouse(on)
+				if btn.spFlyoutOpenArrow then btn.spFlyoutOpenArrow:EnableMouse(on) end
 			end
 		end
 	end)
@@ -1395,8 +1464,8 @@ function SP:TestTotemCues()
 	local o = self.opt
 	local host, icon = totemHost(1)
 	if host then
-		playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon)
-		if o.totemCueDestroyedMark ~= false then showMark(host) end
+		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon) end
+		if o.totemCueDestroyedMark == true then showMark(host, nil, o.totemCueDestroyedMarkStays) end
 	end
 	host, icon = totemHost(2)
 	if host then playCue(host, o.totemCueExpiredStyle or "pop", "expired", icon) end
@@ -1498,3 +1567,37 @@ loader:SetScript("OnEvent", function(_, event)
 	SP:ApplyCueSettings()
 end)
 if SP.OnOnOff then SP:OnOnOff(function() SP:ApplyCueSettings() end) end
+
+-- (after totemHost and clearHostMark above)
+-- A Red X switch changed (3.0.9.1): an X on a button whose switch is now off goes at once, and a
+-- held one (Keep the Red X Until You Recast) goes when Keep is switched off, instead of sitting
+-- there with no row left to reach it
+function SP:CueMarksRefresh()
+	local o = self.opt
+	if not o then return end
+	for _, btn in ipairs(self.cooldownButtons or {}) do
+		local t = btn.cooldownType
+		local c = btn.spCue
+		if c and (btn.spellType == "shield" or btn.spellType == "weaponImbue") then
+			local mark, stays = self:CdItemOpt(t, "cueMark"), self:CdItemOpt(t, "cueMarkStays")
+			if not mark or (not stays and c.markHoldStay and c.markHoldStay:GetDuration() > 100) then clearHostMark(btn) end
+			local m = btn.spCueMissing
+			if m and m.xOn and not mark then m.xOn = nil; m.x:SetAlpha(0) end
+		end
+	end
+	for element = 1, 4 do
+		local host = totemHost(element)
+		local c = host and host.spCue
+		if c and (o.totemCueDestroyedMark ~= true or (not o.totemCueDestroyedMarkStays and c.markHoldStay and c.markHoldStay:GetDuration() > 100)) then
+			clearHostMark(host)
+		end
+	end
+end
+-- Red X Until Recast used to live under Totem Destroyed: on while that effect was on. Its own
+-- switch now, so the old "on unless set off" reads as on only where the effect was on (once)
+function SP:CueMarkCarryOver()
+	local o = self.opt
+	if not o or o.totemCueDestroyedMarkSet3091 then return end
+	o.totemCueDestroyedMarkSet3091 = true
+	o.totemCueDestroyedMark = (o.totemCueDestroyed and o.totemCueDestroyedMark ~= false) and true or false
+end

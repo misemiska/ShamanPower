@@ -254,16 +254,15 @@ function SP.Wizard.ApplySpecPicks(role)
 	SP.opt.cdbarShowRageOfTheFarseer = enh   -- WoW: Forever Enhancement capstone
 	SP.opt.cdbarShowElementalMastery = ele
 	-- WoW: Forever: Ready Reminders follow the spec's talents (read from the client's
-	-- trait tree). Elemental Mastery is not in Forever's tree, so Elemental's cooldowns
-	-- are Lava Burst and the shocks. Fire Nova and Earthbind stay opt-in (AoE / PvP).
+	-- trait tree). Elemental Mastery is Elemental's 31-point talent again since the 10-15
+	-- patch (build 70425). Fire Nova and Earthbind stay opt-in (AoE / PvP).
 	if SPCompat.FOREVER then
-		SP.opt.cdbarShowElementalMastery = false
 		ShamanPower_ReadyReminders = ShamanPower_ReadyReminders or {}
 		ShamanPower_ReadyReminders.spells = ShamanPower_ReadyReminders.spells or {}
 		local rr = ShamanPower_ReadyReminders.spells
-		rr.riptide, rr.manatide, rr.ns, rr.watershield = resto, resto, resto, resto
+		rr.riptide, rr.manatide, rr.ns = resto, resto, resto
 		rr.stormstrike, rr.farseer = enh, enh
-		rr.lavaburst = ele
+		rr.lavaburst, rr.elemastery = ele, ele
 		rr.earthshock = true                             -- the interrupt, for every spec
 		rr.flameshock, rr.frostshock = not resto, not resto
 		safecall("UpdateReadyReminders")
@@ -293,7 +292,7 @@ local function RaidCDNames(blName, conj)
 end
 
 local STEPS = {
-	-- the look (General > Themes): new installs only; anyone else keeps the look
+	-- the look (Appearance > Themes): new installs only; anyone else keeps the look
 	-- they have and is shown the themes once in the What's New card instead
 	{ id = "look", title = "Pick your look", roles = ALL, build = "BuildLookStep",
 	  -- new installs; "/sp setup look" shows it on any setup (to try it: nothing is reset)
@@ -301,7 +300,7 @@ local STEPS = {
 	  desc = "Choose the colors of ShamanPower's bars, panels and effects. This changes how they look, not what they do.",
 	  bullets = {
 	    "Hover a look to see it in the preview; click one to use it. Standard is how ShamanPower has always looked.",
-	    "Change it any time, or change any single part of it, in |cff3FA9F5Settings > General > Themes|r.",
+	    "Change it any time, or change any single part of it, in |cff3FA9F5Settings > Appearance > Themes|r.",
 	  } },
 	{ id = "forever", title = "WoW: Forever", roles = ALL, build = "BuildForeverStep",   -- shaman-only content; the Raid Cooldowns step covers what a non-shaman needs
 	  when = function() return SPCompat.FOREVER end,
@@ -319,6 +318,7 @@ local STEPS = {
 	    "|cffffd100Dynamic|r: the bar is simply whatever you last dropped. Great for PvP.",
 	    "|cffffd100Single Totem|r: the button shows the totem you dropped, but a click always drops your assigned one, and it goes back to it the moment the dropped totem is gone. Also great for PvP.",
 	    "|cffffd100Compact|r: no icons - each slot is a colored line that drains with the totem and refills with each pulse.",
+	    "|cffffd100Dropped Totems|r: only the totems you have down, centered as a group, each with its bar, time and pulse. No flyouts, no clicks; your keybinds still cast.",
 	    { "|cffffd100Grid|r: all your totems in rows, together or in a separate group for each element.",
 	      when = function() return SP.SetGridStyle ~= nil end },
 	    { "|cffffd100Show every totem in rows|r (under the cards, with any style but Grid): each element's totems also in a row of their own that you place anywhere.",
@@ -343,7 +343,7 @@ local STEPS = {
 	  desc = "Blizzard's totem bar has three sets: Call of the Elements at 20, Ancestors at 30 and Spirits at 40. ShamanPower keeps them in step with what you set here.",
 	  bullets = {
 	    "Call of the Elements always holds your assignments: change one here and the set changes; pick a totem on Blizzard's bar and the assignment follows.",
-	    "Ancestors and Spirits each take a saved loadout (Loadouts tab, Set Page). That loadout's bar button then casts the whole set in one press.",
+	    "Ancestors and Spirits each take a saved loadout (Loadouts > Loadouts: right-click a loadout, then Blizzard Totem Set). That loadout's bar button then casts the whole set in one press.",
 	    "Drop All can cast the set instead of dropping four totems one after another.",
 	  } },
 	{ id = "durationbars", title = "Duration Bars", roles = ALL, build = "BuildDurationBarsStep",
@@ -361,7 +361,7 @@ local STEPS = {
 	  toggles = {
 	    { label = "Progress bars",      bind = "cdprogress" },
 	    { label = "Cooldown sweep",     bind = "cdsweep" },
-	    { label = "Time remaining text", bind = "cdtext" },
+	    { label = "Show Time Left", bind = "cdtext" },
 	  } },
 	{ id = "effects", title = "Effects", roles = ALL, build = "BuildEffectsStep",
 	  desc = "Short animations on your bars when something happens, so you notice it mid-fight. Every one is off until you turn it on.",
@@ -462,9 +462,9 @@ local STEPS = {
 	{ id = "partybuff", title = "Party Buff Tracker", roles = ALL, module = "ShamanPower_PartyRange", flag = "PartyRangeLoaded", build = "BuildPartyBuffStep",
 	  desc = "Shows, right on your totem bar, which party members your totems are actually reaching.",
 	  bullets = {
-	    "A corner dot for each party member: class color when they have your totem buff, red when they are out of range.",
+	    "A corner dot for each party member: class color when they have your totem's buff, red when they don't.",
 	    "Or a number: how many of them the totem reaches. Or both.",
-	    "This is about YOUR totems. Totem Range (later) is about other shamans' totems reaching you.",
+	    "Party Buff Tracker is about YOUR totems. Totem Range Tracker (later) is about other shamans' totems reaching you.",
 	  } },
 	{ id = "coverage", title = "Totem Coverage", roles = ALL, module = "ShamanPower_PartyRange", flag = "PartyRangeLoaded", build = "BuildCoverageStep",
 	  when = function() return SP.CoverageAvailable and SP:CoverageAvailable() or false end,
@@ -542,7 +542,7 @@ end
 -- Water, Alerts & Reminders = Fire, Other = logo blue). Steps with no settings page
 -- of their own (Your Spec, WoW: Forever, Position, Finish) are Air.
 local STEP_GROUP = {
-	look = "General",   -- General > Themes
+	look = "General",   -- Appearance > Themes
 	totembar = "Bars", totemsets = "Bars", durationbars = "Bars", cooldownbar = "Bars",
 	effects = "Bars", twisting = "Bars",
 	assign = "Group Tools",   -- the Totem Assignments window
@@ -984,7 +984,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			arrow:SetPoint("BOTTOM", main, "TOP", 0, 0)
 		end
 		slots[i] = { e = e, main = main, mIcon = mIcon, inset = inset, insetBd = insetBd, dbg = dbg, dbar = dbar, over = over, key = key, ring = ring, arrow = arrow, t = e.off, lastMode = nil }
-		-- General > Themes > Element-Colored Borders, as on the real bar (the preview is rebuilt on a theme change)
+		-- Appearance > Themes > Element-Colored Borders, as on the real bar (the preview is rebuilt on a theme change)
 		local th = SP.opt and SP.opt.theme
 		if type(th) == "table" and th.borders == true and SP.ThemeElement then
 			local br, bgc, bb = SP:ThemeElement("tb.boxes", i)
@@ -1060,13 +1060,14 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 
 	-- A style card under the mouse previews its style without changing anything.
 	local hoverKey
-	local HOVER_MODE = { normal = "normal", totemtimers = "tt", single = "single", dynamic = "dynamic", compact = "compact", grid = "grid", blizzard = "blizzard" }
+	local HOVER_MODE = { normal = "normal", totemtimers = "tt", single = "single", dynamic = "dynamic", compact = "compact", grid = "grid", blizzard = "blizzard", dropped = "dropped" }
 	-- a profile written on Forever can carry the Blizzard-bar flag onto a client without that bar
 	local blizzardStyle = SP.TotemBarStyle and SP:TotemBarStyle("blizzard") ~= nil
 	local function mode()
 		if hoverKey then return HOVER_MODE[hoverKey] or "normal" end
 		if blizzardStyle and OPT().useBlizzardTotemBar then return "blizzard" end
 		if OPT().gridStyle then return "grid" end
+		if OPT().droppedTotems then return "dropped" end
 		if OPT().compactStyle then return "compact" end
 		if OPT().dynamicTotemMode then return "dynamic" end
 		-- Single Totem shows the active totem without the assigned corner
@@ -1087,7 +1088,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 		local side = (lay == "VerticalLeft") and -1 or 1
 		local normal = (m == "normal")
 		-- (Totem Rows' switch, drawn with the four icon styles)
-		local rowsOn = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic")
+		local rowsOn = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic" or m == "dropped")
 		local downRows = rowsOn and OPT().rowsGo == "down"
 		-- vertical with rows: the bar's column on the left (Normal's dropped totem on its side of it), the rows to
 		-- its right, never over it
@@ -1098,7 +1099,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 		local rmH = downRows and (RW + 8) or RM_H
 		rowsMock:SetShown(rowsOn)
 		frameBg:ClearAllPoints()
-		frameBg:SetPoint("TOPLEFT", bar, "TOPLEFT", -8, rowsOn and not vertical and (-rmH + 8) or 8)
+		frameBg:SetPoint("TOPLEFT", bar, "TOPLEFT", -8, 8)   -- (horizontal rows sit under the bar, inside its box)
 		frameBg:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", rowsOn and vertical and (-(rowsW + 14) + 8) or 8, -8)
 		if rowsOn then
 			for i, row in ipairs(rowsUI) do
@@ -1110,14 +1111,16 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				end
 				if downRows then
 					row:SetSize(RS + 28, RW)
-					row:SetPoint("TOPLEFT", bar, "TOPLEFT", (vertical and rowsX or 0) + (i - 1) * (RS + 30), 0)
+					if vertical then row:SetPoint("TOPLEFT", bar, "TOPLEFT", rowsX + (i - 1) * (RS + 30), 0)
+					else row:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", (i - 1) * (RS + 30), 0) end   -- under the bar
 				else
 					row:SetSize(RW, RS + RT)
 					if vertical then
 						row:SetPoint("TOPLEFT", bar, "TOPLEFT", rowsX, -(i - 1) * (RS + RT + 6))
 					else
 						local col, line = (i <= 2) and 0 or 1, (i - 1) % 2
-						row:SetPoint("TOPLEFT", bar, "TOPLEFT", col == 0 and 0 or (4 * STEP - GAP - RW), -line * (RS + RT + 6))
+						-- under the bar: the first line right below it, the second under that
+						row:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", col == 0 and 0 or (4 * STEP - GAP - RW), (1 - line) * (RS + RT + 6))
 					end
 				end
 			end
@@ -1133,7 +1136,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				over:SetPoint(side > 0 and "LEFT" or "RIGHT", main, side > 0 and "RIGHT" or "LEFT", side * 4, 0)
 			else
 				slot:SetSize(SIZE, normal and (SIZE * 2 + 30) or (SIZE + 14))
-				if rowsOn then slot:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", (i - 1) * STEP, 0)
+				if rowsOn then slot:SetPoint("TOPLEFT", bar, "TOPLEFT", (i - 1) * STEP, 0)   -- (the rows below)
 				else slot:SetPoint("LEFT", bar, "LEFT", (i - 1) * STEP, 0) end
 				main:SetPoint("BOTTOM", slot, "BOTTOM", 0, 14)
 				over:SetPoint("BOTTOM", main, "TOP", 0, 4)
@@ -1263,17 +1266,18 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			if s.main.spBorder then for _, t in pairs(s.main.spBorder) do t:SetShown(not blizz) end end
 		end
 	end
+	local droppedSig
 	bar:SetScript("OnUpdate", function(_, el)
 		local m = mode()
 		local lay = OPT().layout or "Horizontal"
-		local rowsMode = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic")
+		local rowsMode = OPT().totemRows == true and (m == "normal" or m == "tt" or m == "single" or m == "dynamic" or m == "dropped")
 		local rg = rowsMode and (OPT().rowsGo == "down" and "down" or "across") or nil
 		if lay ~= lastLay or m ~= lastMode or rg ~= lastRowsGo then lastLay, lastMode, lastRowsGo = lay, m, rg; relayout(lay, m); skin(m) end
 		local sc = OPT().buffscale or 1
 		if SP.Wizard.previewOnly then sc = math.min(sc, (inner:GetHeight() - 6) / math.max(1, bar:GetHeight() + 16)) end
 		bar:SetScale(sc)
 		local opacity, fullActive = OPT().totemBarOpacity or 1, OPT().totemBarFullOpacityWhenActive
-		local frameOn = not OPT().hideTotemBarFrame and m ~= "blizzard"   -- Blizzard's bar has no frame of ours
+		local frameOn = not OPT().hideTotemBarFrame and m ~= "blizzard" and m ~= "dropped"   -- Blizzard's bar has no frame of ours, Dropped Totems none at all
 		frameBg:SetShown(frameOn); frameBd:SetShown(frameOn)
 		for _, s in ipairs(slots) do
 			local e = s.e
@@ -1305,6 +1309,13 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				s.mIcon:SetDesaturated(false); s.mIcon:SetAlpha(1)
 				s.inset:Hide(); s.insetBd:Hide()
 				s.dbg:SetAlpha(SP:DurationTrackAlpha(1)); s.dbg:Show(); s.dbar:SetShown(activeNow); s.dbar:SetWidth(math.max(1, SIZE * frac))
+			elseif m == "dropped" then
+				-- Dropped Totems: the slot is there only while its totem is down, and shows that totem
+				s.over:Hide()
+				s.mIcon:SetTexture(e.active)
+				s.mIcon:SetDesaturated(false); s.mIcon:SetAlpha(1)
+				s.inset:Hide(); s.insetBd:Hide()
+				s.droppedOn = activeNow
 			else -- dynamic: the slot becomes whatever was dropped, and stays that way
 				s.over:Hide()
 				s.mIcon:SetTexture(e.active)
@@ -1320,7 +1331,32 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			for _, sl in ipairs(slots) do sl.main:GetParent():SetShown(barOn) end
 			if not barOn then frameBg:Hide(); frameBd:Hide() end
 		else
-			for _, sl in ipairs(slots) do sl.main:GetParent():Show() end
+			for _, sl in ipairs(slots) do sl.main:GetParent():SetShown(m ~= "dropped" or sl.droppedOn == true) end
+		end
+		-- Dropped Totems: the slots in sight as one group centered in the bar, as the real bar does
+		if m == "dropped" then
+			local vis = {}
+			for _, s in ipairs(slots) do if s.main:GetParent():IsShown() then vis[#vis + 1] = s end end
+			local sig = #vis .. lay
+			for _, s in ipairs(vis) do sig = sig .. s.e.n end
+			if sig ~= droppedSig then
+				droppedSig = sig
+				local n = #vis
+				local vertical = (lay ~= "Horizontal")
+				for i, s in ipairs(vis) do
+					local slot = s.main:GetParent()
+					slot:ClearAllPoints()
+					if vertical then
+						local h = SIZE + 14 + 8
+						slot:SetPoint("TOP", bar, "TOP", 0, -((bar:GetHeight() - (n * h - 8)) / 2 + (i - 1) * h))
+					else
+						slot:SetPoint("TOPLEFT", bar, "TOPLEFT", (bar:GetWidth() - (n * STEP - GAP)) / 2 + (i - 1) * STEP, 0)
+					end
+				end
+			end
+		elseif droppedSig then
+			droppedSig = nil
+			relayout(lay, m)   -- (back on the fixed slots)
 		end
 		if m == "compact" then bar:SetAlpha(0); cm:Show(); paintCompact(el)
 		elseif m == "grid" then bar:SetAlpha(0); cm:Hide()
@@ -1510,7 +1546,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 			if m == "blizzard" then closeB() end
 		end
 		-- (Totem Rows' switch on: no flyout to open, its totems are always out in their rows)
-		if m == "compact" or m == "grid" or OPT().totemRows == true or (m == "blizzard" and not bBtns[1]) then   -- no icon bar to hover
+		if m == "compact" or m == "grid" or m == "dropped" or OPT().totemRows == true or (m == "blizzard" and not bBtns[1]) then   -- no icon bar to hover (Dropped Totems: no flyouts)
 			cur:Hide(); flyCap:SetText("")
 			return
 		end
@@ -1554,7 +1590,7 @@ function SP.Wizard.BuildTotemBarStep(card, inner, y)
 				set = function(v) SetTotemBarLayout(v); notify() end, values = LAYOUT_VALUES, order = LAYOUT_ORDER })
 		end
 		if style ~= "blizzard" and style ~= "grid" then
-			row("Toggle", { label = "Show frame behind the bar", get = function() return not OPT().hideTotemBarFrame end,
+			row("Toggle", { label = "Show Bar Background and Border", get = function() return not OPT().hideTotemBarFrame end,
 				set = function(v) OPT().hideTotemBarFrame = not v; safecall("UpdateTotemBarFrame"); notify() end })
 		end
 		y = y + 6
@@ -1927,7 +1963,7 @@ function SP.Wizard.BuildDurationBarsStep(card, inner, y)
 		local callout = CreateFrame("Frame", nil, card); callout:SetPoint("TOPLEFT", card, "TOPLEFT", 18, -y); callout:SetPoint("TOPRIGHT", card, "TOPRIGHT", -18, -y)
 		Core:SolidTex(callout, "warn", "BACKGROUND", 0.10); Core:MakeBorder(callout, "warn")
 		local body = callout:CreateFontString(nil, "OVERLAY"); body:SetFontObject(Core.fonts.row); body:SetPoint("TOPLEFT", callout, "TOPLEFT", 12, -10); body:SetWidth(calW); body:SetJustifyH("LEFT"); body:SetWordWrap(true)
-		body:SetText("You picked the Compact style, which draws duration and pulse inside its lines. The options below only apply to the icon styles (Normal, TotemTimers, Dynamic, Single Totem).")
+		body:SetText("You picked the Compact style, which draws duration and pulse inside its lines. The options below only apply to the icon styles (Normal, TotemTimers Style, Dynamic, Single Totem).")
 		callout:SetHeight(20 + body:GetStringHeight())
 		y = y + callout:GetHeight() + 14
 	end
@@ -2475,7 +2511,7 @@ function SP.Wizard.BuildPartyBuffStep(card, inner, y)
 	local legend = inner:CreateFontString(nil, "OVERLAY"); legend:SetFontObject(Core.fonts.rowDim)
 	legend:SetPoint("BOTTOMLEFT", inner, "BOTTOMLEFT", 12, 14); legend:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", -12, 14)
 	legend:SetJustifyH("CENTER"); legend:SetWordWrap(true)
-	legend:SetText("Every totem has its own bubble, so someone can be inside Strength of Earth's range and outside Windfury's at the same time. A dot per member: class color = getting that totem, red = out of its range. The number = how many it reaches."
+	legend:SetText("Every totem has its own bubble, so someone can be inside Strength of Earth's range and outside Windfury's at the same time. A dot per member: class color = has that totem's buff, red = doesn't. The number = how many it reaches."
 		.. (not SPCompat.FOREVER and " Windfury (Air) only knows about melee running the companion aura - next step." or ""))
 	-- who is inside which totem's bubble right now (each totem has its own range)
 	local ENAME = { "Earth", "Fire", "Water", "Air" }
@@ -2949,8 +2985,8 @@ function SP.Wizard.BuildReadyRemindersStep(card, inner, y)
 	local legend = inner:CreateFontString(nil, "OVERLAY"); legend:SetFontObject(Core.fonts.rowDim)
 	legend:SetPoint("BOTTOMLEFT", inner, "BOTTOMLEFT", 12, 14); legend:SetPoint("BOTTOMRIGHT", inner, "BOTTOMRIGHT", -12, 14)
 	legend:SetJustifyH("CENTER"); legend:SetWordWrap(true)
-	legend:SetText("Each icon is running a pretend cooldown. In play they sit wherever you drag them:"
-		.. " turn on Unlock Position in Settings > Alerts & Reminders > Ready Reminders.")
+	legend:SetText("Each icon is running a pretend cooldown. In play they sit wherever you put them:"
+		.. " Move the Icons on Settings > Alerts & Reminders > Ready Reminders > Icons.")
 	inner:SetScript("OnUpdate", function() story:SetText(SP.readyDemoStatus or "") end)
 
 	local W = card:GetWidth() - 36
@@ -3300,7 +3336,7 @@ function SP.Wizard.BuildExpiringStep(card, inner, y)
 	local function toOff() return off() or not sget("totems", "enabled", true) end
 	row("Toggle", { label = "Totems", disabled = off, get = function() return sget("totems", "enabled", true) end, set = function(v) sub("totems").enabled = v; upd() end })
 	row("Toggle", { label = "    Destroyed by a mob", disabled = toOff, get = function() return sget("totems", "destroyed", true) end, set = function(v) sub("totems").destroyed = v; upd() end })
-	row("Toggle", { label = "    Timed out", desc = "Off by default - can be spammy.", disabled = toOff, get = function() return sget("totems", "expired", false) end, set = function(v) sub("totems").expired = v; upd() end })
+	row("Toggle", { label = "    Expired", desc = "Off by default: it can show a lot of alerts.", disabled = toOff, get = function() return sget("totems", "expired", false) end, set = function(v) sub("totems").expired = v; upd() end })
 	row("Toggle", { label = "    Sound", disabled = toOff, get = function() return sget("totems", "sound", false) end, set = function(v) sub("totems").sound = v; upd() end })
 	local function imOff() return off() or not sget("weaponImbues", "enabled", true) end
 	row("Toggle", { label = "Weapon imbues", disabled = off, get = function() return sget("weaponImbues", "enabled", true) end, set = function(v) sub("weaponImbues").enabled = v; upd() end })
@@ -3943,7 +3979,7 @@ function SP.Wizard.BuildCooldownBarStep(card, inner, y)
 		values = LAYOUT_VALUES, order = LAYOUT_ORDER })
 	wrow("Slider", { label = "Size", min = 0.4, max = 3.0, step = 0.05, get = function() return OPT().cooldownBarScale or 0.9 end,
 		set = function(v) OPT().cooldownBarScale = v; safecall("UpdateCooldownBarScale"); notify() end })
-	wrow("Toggle", { label = "Show frame behind the bar", get = function() return not OPT().hideCooldownBarFrame end,
+	wrow("Toggle", { label = "Show Bar Background and Border", get = function() return not OPT().hideCooldownBarFrame end,
 		set = function(v) OPT().hideCooldownBarFrame = not v; safecall("UpdateCooldownBarFrame"); notify() end })
 	y = y + 12
 	-- ---- spell chips in the card: which spells appear on the bar ----
@@ -4588,9 +4624,9 @@ function SP.Wizard:RenderRole()
 		{ key = "enhancement", name = "Enhancement", role = "Melee", items = {
 			{ 17364, "Stormstrike" }, { 425336, "Rage of the Farseer" },
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" },
-			{ 8512, "Totem twisting" } } },
+			(not (SPCompat and SPCompat.FOREVER)) and { 8512, "Totem twisting" } or nil } },
 		{ key = "elemental",   name = "Elemental",   role = "Caster", items = {
-			{ 408490, "Lava Burst" },
+			{ 408490, "Lava Burst" }, { 16166, "Elemental Mastery" },
 			{ 8042, "Earth Shock" }, { 8050, "Flame Shock" }, { 8056, "Frost Shock" } } },
 	} or {
 		{ key = "restoration", name = "Restoration", role = "Healer", items = {
@@ -4769,9 +4805,12 @@ function SP.Wizard:RenderFinish()
 		below = share
 	end
 
-	-- the release highlights, for anyone curious (never shown automatically after the tour)
+	-- the release highlights, for anyone curious (never shown automatically after the tour);
+	-- named after the installed version so the button never goes stale
 	if SP.ShowWhatsNew then
-		local wn = track(Core:MakeButton(c, "What's new in ShamanPower 3.0", 240, false))
+		local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+		local ver = getMeta and getMeta("ShamanPower", "Version")
+		local wn = track(Core:MakeButton(c, ver and ("What's New in ShamanPower " .. ver) or "What's New in ShamanPower", 240, false))
 		wn:SetPoint("TOP", below, "BOTTOM", 0, -18)
 		wn:SetScript("OnClick", function() SP:ShowWhatsNew(true) end)
 	end
@@ -5134,10 +5173,10 @@ function SP.Wizard.BuildTotemSetsStep(card, inner, y)
 end
 
 -- ===========================================================================
--- Pick your look (the themes of General > Themes), for new installs only.
+-- Pick your look (the themes of Appearance > Themes), for new installs only.
 -- Three cards, each with a mini totem bar drawn in that look; the look under
 -- the mouse, or the one picked, runs large in the preview. A card calls
--- SP:SetThemeGlobal, exactly like the theme cards on General > Themes, and
+-- SP:SetThemeGlobal, exactly like the theme cards on Appearance > Themes, and
 -- nothing else. The mini bar is also the What's New card's (WhatsNew.lua).
 -- ===========================================================================
 local LOOK = {

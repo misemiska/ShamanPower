@@ -103,7 +103,7 @@ local function styleVisual(v, button, element, size)
 	SP:SetSPBarColor(bar, "duration", color[1], color[2], color[3], 1)
 	local tint = SP.ElementColors[element]
 	v.assigned:SetVertexColor(tint.r, tint.g, tint.b, 1)
-	-- General > Themes: the ring's colour (st.grid) and the time text's (tb.duration-text,
+	-- Appearance > Themes: the ring's colour (st.grid) and the time text's (tb.duration-text,
 	-- white above); nil = as above
 	local tr, tg, tb = SP:ThemeColor("st.grid", element)
 	if tr then v.assigned:SetVertexColor(tr, tg, tb, 1) end
@@ -409,7 +409,7 @@ local function layoutRow(element, offset, visible)
 		host:SetBackdrop(SP.PANEL_BACKDROP)
 		host:SetBackdropColor(0.086, 0.098, 0.122, 0.92)
 		host:SetBackdropBorderColor(color.r, color.g, color.b, 1)
-		-- General > Themes (st.grid): the split border's colour; nil = as above
+		-- Appearance > Themes (st.grid): the split border's colour; nil = as above
 		local tr, tg, tb = SP:ThemeColor("st.grid", element)
 		if tr then host:SetBackdropBorderColor(tr, tg, tb, 1) end
 		host:SetShown(visible)
@@ -616,7 +616,7 @@ events:SetScript("OnEvent", function()
 	if pending or SP:GridOwnsElementPopouts() then queueRefresh() end
 end)
 
--- General > Themes (st.grid, tb.duration, tb.duration-text): the rings, split
+-- Appearance > Themes (st.grid, tb.duration, tb.duration-text): the rings, split
 -- borders, bars and time texts take their colours in the layout pass, so a theme
 -- change runs it once more, out of combat (ThemeRepaintSoon waits for a fight's end).
 -- Only when those colours really moved (a colour drag changes others many times a second).

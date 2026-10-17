@@ -1,6 +1,6 @@
 -- ShamanPowerTheme.lua
 -- The theme engine. A theme changes how ShamanPower LOOKS and nothing else.
--- Every theme control lives on General > Themes (ShamanPower_Config/Themes.lua);
+-- Every theme control lives on Appearance > Themes (ShamanPower_Config/Themes.lua);
 -- this file is the shared engine every painter and that page code against.
 --
 -- Two kinds of parts:
@@ -77,23 +77,23 @@ local WOW_FALLBACK = {
 
 -- What the Themes tab's dropdowns and cards offer (labels as the player reads them).
 SP.THEME_LISTS = {
-	theme   = { { key = nil, label = "Use General Theme" }, { key = "standard", label = "Standard" },
+	theme   = { { key = nil, label = "Use Selected Theme" }, { key = "standard", label = "Standard" },
 	            { key = "shamanpower", label = "ShamanPower" }, { key = "minimal", label = "ShamanPower Minimal" } },
 	themes  = { { key = "standard", label = "Standard" }, { key = "shamanpower", label = "ShamanPower" },
 	            { key = "minimal", label = "ShamanPower Minimal" } },
-	palette = { { key = nil, label = "Use Theme's" }, { key = "classic", label = "Classic" }, { key = "blizzard", label = "Blizzard" },
+	palette = { { key = nil, label = "Use Theme Setting" }, { key = "classic", label = "Classic" }, { key = "blizzard", label = "Blizzard" },
 	            { key = "shamanpower", label = "ShamanPower" }, { key = "custom", label = "Custom" } },
-	shield  = { { key = nil, label = "Use Theme's" }, { key = "today", label = "Today" },
-	            { key = "palette", label = "Follow Palette" }, { key = "magic", label = "WoW Magic Blue" } },
-	showAs  = { { key = nil, label = "Use Theme's" }, { key = "both", label = "Letters + faint icon" }, { key = "letters", label = "Letters" },
+	shield  = { { key = nil, label = "Use Theme Setting" }, { key = "today", label = "Original Colors" },
+	            { key = "palette", label = "Use Element Colors" }, { key = "magic", label = "WoW Magic Blue" } },
+	showAs  = { { key = nil, label = "Use Theme Setting" }, { key = "both", label = "Letters + faint icon" }, { key = "letters", label = "Letters" },
 	            { key = "tint", label = "One-color icon" }, { key = "mini", label = "Small icon" } },
 	effects = { { key = nil, label = "Use Theme's" }, { key = "standard", label = "Standard" },
 	            { key = "elemental", label = "Elemental" }, { key = "signal", label = "Signal" } },
-	classColors = { { key = nil, label = "Use Theme's" }, { key = "wow", label = "WoW's" }, { key = "subtle", label = "Subtle" },
+	classColors = { { key = nil, label = "Use Theme's" }, { key = "wow", label = "WoW Colors" }, { key = "subtle", label = "Subtle" },
 	            { key = "stronger", label = "Stronger" }, { key = "vibrant", label = "Vibrant" }, { key = "muted", label = "Muted" } },
 }
 
--- Class Colors (General > Themes, the cards under Element Colors; a part's own
+-- Class Colors (Appearance > Themes, the cards under Element Colors; a part's own
 -- dropdown on Party Dots / Coverage Dots: Class Colors). The same hue for every
 -- class in every set; WoW's = RAID_CLASS_COLORS exactly (what Standard shows).
 -- The ShamanPower themes pick Subtle.
@@ -259,15 +259,15 @@ SP.THEME_MODULES = {
 	{ key = "totembar", label = "Totem Bar", spots = {
 		{ id = "tb.boxes", label = "Totem Icons", box = true, palette = true, roles = E4(),
 		  note = "The totem buttons. ShamanPower Minimal draws them as flat element boxes." },
-		{ id = "tb.flyout-boxes", label = "Totem Flyout Entries", box = true, palette = true, roles = E4(),
+		{ id = "tb.flyout-boxes", label = "Totems in Flyouts", box = true, palette = true, roles = E4(),
 		  note = "The totems in each flyout. ShamanPower Minimal draws them as flat element boxes." },
 		{ id = "tb.flyout-empty", label = "Flyout Empty Choice", roles = {},
 		  note = "The Empty choice in a flyout. ShamanPower Minimal shows a dark box with a dash." },
 		{ id = "tb.flyout-art", label = "Flyout Arrow Tabs and Panel", palette = true, roles = E4(),
 		  note = "The flyout arrow tabs and panel. The ShamanPower themes draw flat tabs in the element colors." },
-		{ id = "tb.overlay-boxes", label = "Dropped-Totem Overlay", box = true, palette = true, roles = E4(),
+		{ id = "tb.overlay-boxes", label = "Dropped Totem Indicator", box = true, palette = true, roles = E4(),
 		  note = "The icon of the totem you have down. ShamanPower Minimal draws it as a flat box." },
-		{ id = "tb.overlay-border", label = "Dropped-Totem Overlay Border", palette = true, roles = E4(),
+		{ id = "tb.overlay-border", label = "Dropped Totem Indicator Border", palette = true, roles = E4(),
 		  note = "The element-colored border around a dropped totem." },
 		{ id = "tb.dropall", label = "Drop All Button", box = true, roles = E4(),
 		  note = "The Drop All button. ShamanPower Minimal draws it as a box in the color of the totem it shows." },
@@ -294,7 +294,7 @@ SP.THEME_MODULES = {
 		  note = "The party dots in class colors. Class Colors picks the set: Use Theme's follows the Class Colors cards at the top." },
 		{ id = "tb.range", label = "Range Counter Numbers", palette = true, roles = E4({ "33E633", "E63333", "3399FF", "FFFFFF" }),
 		  note = "The numbers that count who is in range of each totem." },
-		{ id = "tb.frame", label = "Frame Background and Border", roles = Panel("000000", "4D4D4D"),
+		{ id = "tb.frame", label = "Background and Border", roles = Panel("000000", "4D4D4D"),
 		  note = "The totem bar's background and border. The ShamanPower themes use navy." },
 		{ id = "tb.effects", label = "Effects Look", effects = true, hidden = true, lookOpt = "totemCueLook", signatureSpot = "tb.signature", roles = {},
 		  note = "How Totem Destroyed, Totem Expired and Totem Expiring Soon look: Standard, Elemental or Signal." },
@@ -339,7 +339,7 @@ SP.THEME_MODULES = {
 			Role("mid", "Low", "wow", "YELLOW_FONT_COLOR", "FFFF00"),
 			Role("low", "Critical", "wow", "RED_FONT_COLOR", "FF0000") },
 		  note = "The charge count on the shield button. The ShamanPower themes use WoW's green, yellow and red." },
-		{ id = "cd.strip", label = "Shield Charge Strip", shield = true, roles = { Role("strip", "Strip", "shield", "lightning", "3399FF") },
+		{ id = "cd.strip", label = "Shield Charge Bar", shield = true, roles = { Role("strip", "Strip", "shield", "lightning", "3399FF") },
 		  note = "The strip of charges under the shield button." },
 		{ id = "cd.shieldbar", label = "Shield Bar", shield = true, roles = {
 			Role("lightning", "Lightning Shield", "shield", "lightning"),
@@ -352,7 +352,7 @@ SP.THEME_MODULES = {
 			Role("low", "Low", "wow", "YELLOW_FONT_COLOR", "E6B333"),
 			Role("bad", "Critical", "wow", "RED_FONT_COLOR", "E63333") },
 		  note = "The timer bars as they run low. The ShamanPower themes use WoW's green, yellow and red." },
-		{ id = "cd.frame", label = "Frame Background and Border", roles = Panel("000000", "4D4D4D"),
+		{ id = "cd.frame", label = "Background and Border", roles = Panel("000000", "4D4D4D"),
 		  note = "The cooldown bar's background and border. The ShamanPower themes use navy." },
 		{ id = "cd.sweep", label = "Cooldown Sweep", roles = {},
 		  note = "The cooldown sweep and gray overlay. ShamanPower Minimal draws a dark band on the box." },
@@ -389,7 +389,7 @@ SP.THEME_MODULES = {
 		  note = "The icon beside the alert text. ShamanPower Minimal draws it as a flat box." },
 	} },
 	{ key = "partybuff", label = "Party Buff Tracker", spots = {
-		{ id = "mod.partybuff-frame", label = "Counter Frames", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
+		{ id = "mod.partybuff-frame", label = "Counter Backgrounds and Borders", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The party buff counters' background and border. The ShamanPower themes use navy." },
 		{ id = "mod.coverage-colors", label = "Coverage Panel", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The coverage panel's background and border." },
@@ -419,7 +419,7 @@ SP.THEME_MODULES = {
 		  note = "The range tracker's background and border. The ShamanPower themes use navy." },
 		{ id = "mod.range-boxes", label = "Totem Icons", box = true, palette = true, roles = E4(),
 		  note = "The tracked totems. ShamanPower Minimal draws them as flat boxes." },
-		{ id = "win.rangecfg", label = "Config Window Element Tints", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
+		{ id = "win.rangecfg", label = "Totem Picker Colors", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
 		  note = "The element tints in the range tracker's totem picker." },
 	} },
 	{ key = "raidcd", label = "Raid Cooldowns", spots = {
@@ -468,7 +468,7 @@ SP.THEME_MODULES = {
 		  note = "The Tremor Totem icon. ShamanPower Minimal draws it as a flat Earth box." },
 	} },
 	{ key = "readycheck", label = "Ready Check", spots = {
-		{ id = "mod.readycheck", label = "Ready Check Sweep Panel", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
+		{ id = "mod.readycheck", label = "Ready Check List", roles = Panel(PANEL_STD_BG, PANEL_STD_EDGE),
 		  note = "The ready check panel's background and border." },
 	} },
 	{ key = "plates", label = "Totem Plates", spots = {
@@ -486,7 +486,7 @@ SP.THEME_MODULES = {
 		  note = "The totem pins on the minimap. ShamanPower Minimal draws them as flat boxes (too small for letters: the one-color icon)." },
 	} },
 	{ key = "assign", label = "Totem Assignments", spots = {
-		{ id = "win.assign", label = "Window Element Tints", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
+		{ id = "win.assign", label = "Totem Assignments Colors", palette = true, roles = E4({ "B88552", "FF5C38", "6B94FF", "DBE0FA" }),
 		  note = "The element tints in the Totem Assignments window." },
 	} },
 }
@@ -1343,7 +1343,9 @@ local LOOK = {
 		"borderSizeCooldown", "borderSizeCooldownFlyouts", "classColors", "showAs" },
 	opt = { "barTexture", "dotShape", "dotGem", "glowShape", "procGlowOut", "frameEdge", "iconShape", "iconShapeCooldown",
 		"iconShapeReady", "iconShapeSplit", "iconBordersSquare", "durationBarBackground",
-		"barGradientDirection", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection" },
+		"barGradientDirection", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection",
+		"totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors" },
 	shield = { "lookLS", "lookWS", "lookES", "barLook", "orbLook", "chargeColorLS", "chargeColorWS", "chargeColorES",
 		"goneGlowColorLS", "goneGlowColorWS", "goneGlowColorES", "goneGlowShapeLS", "goneGlowShapeWS", "goneGlowShapeES",
 		"goneGlowThickLS", "goneGlowThickWS", "goneGlowThickES" },
@@ -1441,7 +1443,7 @@ end
 
 
 -- (no effects fields: effects are not part of the themes, see ResolveLook)
--- borders / bordersFlyouts: General > Themes, Element-Colored Borders on the totem bar
+-- borders / bordersFlyouts: Appearance > Themes, Element-Colored Borders on the totem bar
 -- and its flyouts (ShamanPower.lua ThemePaintTotemBorders)
 -- Border Size (px) under each of the three toggles; 2 = nil (the default)
 local BORDER_SIZE = { [1] = true, [3] = true, [4] = true, [5] = true, [6] = true }
@@ -1585,14 +1587,15 @@ function SP:ResetThemeColors()
 	if SP.RefreshGradients then SP:RefreshGradients() end   -- the bars, outlines and charges repaint
 end
 
--- Reset All Colors and Theme (General > Themes, the emergency button): the Themes tab back
+-- Reset All Colors and Theme (Appearance > Themes, the emergency button): the Themes tab back
 -- to Standard with nothing overridden (a Custom look is kept on the Custom card
 -- first, as a theme card does), then every colour setting in ShamanPower back to
 -- how it comes, the modules' own included. The caller reloads the interface.
 local RESET_COLOR_KEYS = { "elementColorPalette", "elementColorsCustom", "cBuffGood", "cBuffNeedSome",
 	"cBuffNeedAll", "compactOutlineColorMode", "compactOutlineColor", "compactIdleColor",
 	"totemCooldownTextColor", "pulseBarColor", "pulseFlashColor", "manaTintColor",
-	"shieldChargeColors", "cdbarSpellColors" }
+	"shieldChargeColors", "cdbarSpellColors", "countdownPreset", "countdownColorMid", "countdownColorEnd",
+	"buffTimerPreset", "buffTimerColorStart", "buffTimerColorMid", "buffTimerColorEnd" }
 -- the colors every page has, kept by a reset (read after the theme has put the
 -- player's own back) and put back by the Custom card
 function LOOK.CaptureColors(o)
@@ -1769,7 +1772,7 @@ function SP:ResetAllColorsToDefault(everything)
 	end
 end
 
--- Reset Everything (General > Themes): every setting on the Themes tab back to how
+-- Reset Everything (Appearance > Themes): every setting on the Themes tab back to how
 -- it comes. All of Reset All Colors and Theme (a Custom look stays on the Custom
 -- card), then every look: the bar textures, shapes, gradients, Duration Bar
 -- Background, Gem Dot Finish and each shield's charge look. The caller reloads.
@@ -1780,7 +1783,9 @@ function SP:ResetEverythingToDefault()
 	local defaults = SP.db and SP.db.defaults and SP.db.defaults.profile or {}
 	for _, k in ipairs({ "barTexture", "dotShape", "dotGem", "glowShape", "procGlowOut", "frameEdge",
 		"iconShape", "iconShapeCooldown", "iconShapeReady", "iconShapeSplit", "iconBordersSquare",
-		"durationBarBackground", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection" }) do
+		"durationBarBackground", "barGradientDirections", "totemCooldownSweepDirection", "cdbarSweepDirection",
+		"totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors", "countdownPreset",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors", "buffTimerPreset" }) do
 		o[k] = Copy(defaults[k])
 	end
 	for _, field in ipairs({ "barGradient", "outlineGradient", "chargeGradient" }) do
@@ -2203,6 +2208,10 @@ function Cards.LooksChanged()
 end
 function Cards.Migrate()
 	if not ready then return end
+	-- an import in progress (ShamanPowerShare.lua): the profile is empty between its creation
+	-- and its fill, with the modules' tables still the old ones; migrating that would save a
+	-- stray "My Look" theme nobody asked for. The real data migrates once it is in.
+	if SP.shareImporting then return end
 	-- The optional module loads after this file. Register its per-icon defaults
 	-- once the spell catalog exists, so old theme baselines keep their card.
 	if SP.ReadyReminderSpells and not Cards.addedReadyDirections then
@@ -2345,7 +2354,12 @@ function Cards.Kinds()
 	for _, k in ipairs({ "dotGem", "iconShapeSplit", "iconBordersSquare", "durationBarBackground", "shieldChargeColors",
 		"cdbarSpellColors", "rangeElementColors" }) do K["o." .. k] = { "b" } end
 	for _, k in ipairs({ "cBuffGood", "cBuffNeedSome", "cBuffNeedAll", "compactOutlineColor", "totemCooldownTextColor",
-		"pulseBarColor", "pulseFlashColor", "manaTintColor" }) do K["o." .. k] = { "c" } end
+		"pulseBarColor", "pulseFlashColor", "manaTintColor", "countdownColorMid", "countdownColorEnd",
+		"buffTimerColorStart", "buffTimerColorMid", "buffTimerColorEnd" }) do K["o." .. k] = { "c" } end
+	K["o.countdownPreset"] = s({ shamanpower = true, wyr = true, solid = true, custom = true })   -- Cooldown Numbers
+	K["o.buffTimerPreset"] = s({ shamanpower = true, wyr = true, solid = true, custom = true })   -- Buff Timers
+	for _, k in ipairs({ "totemBarCountdownColors", "cdbarCountdownColors", "readyCountdownColors",
+		"totemBarBuffTimerColors", "cdbarBuffTimerColors", "readyBuffTimerColors" }) do K["o." .. k] = { "b" } end
 	K["o.elementColorsCustom"], K["t.custom"] = { "cs" }, { "cs" }
 	for _, field in ipairs({ "barGradient", "outlineGradient", "chargeGradient" }) do
 		local dirs = SP.GradientDirectionValues and (SP:GradientDirectionValues(field)) or nil
@@ -2515,7 +2529,7 @@ function Cards.Decode(text)
 	return p
 end
 
--- ---- the public side (General > Themes) --------------------------------------------
+-- ---- the public side (Appearance > Themes) --------------------------------------------
 function SP:ThemeIsCustom()
 	local t = T()
 	if not t then return false end
@@ -2567,6 +2581,12 @@ Cards.LABEL = {
 	["o.rangeElementColors"] = "Range Counter Colors", ["o.elementColorPalette"] = "Element Colors",
 	["o.elementColorsCustom"] = "Custom Element Colors", ["o.cBuffGood"] = "Status Colors", ["o.cBuffNeedSome"] = "Status Colors",
 	["o.cBuffNeedAll"] = "Status Colors", ["o.totemCooldownTextColor"] = "Cooldown Text Color", ["o.pulseBarColor"] = "Pulse Bar Color",
+	["o.countdownPreset"] = "Cooldown Numbers", ["o.countdownColorMid"] = "Cooldown Numbers", ["o.countdownColorEnd"] = "Cooldown Numbers",
+	["o.totemBarCountdownColors"] = "Color the Cooldown Numbers (Totem Bar)", ["o.cdbarCountdownColors"] = "Color the Cooldown Numbers (Cooldown Bar)",
+	["o.readyCountdownColors"] = "Color the Cooldown Numbers (Ready Reminders)",
+	["o.buffTimerPreset"] = "Buff Timers", ["o.buffTimerColorStart"] = "Buff Timers", ["o.buffTimerColorMid"] = "Buff Timers", ["o.buffTimerColorEnd"] = "Buff Timers",
+	["o.totemBarBuffTimerColors"] = "Color the Time Left (Totem Bar)", ["o.cdbarBuffTimerColors"] = "Color the Shield and Imbue Timers (Cooldown Bar)",
+	["o.readyBuffTimerColors"] = "Color the Buff Timers (Ready Reminders)",
 	["o.pulseFlashColor"] = "Pulse Flash Color", ["o.manaTintColor"] = "Mana Tint Color", ["o.shieldChargeColors"] = "Color Shield Charges by Count",
 	["o.cdbarSpellColors"] = "Spell-Colored Progress Bars", ["sc.lookLS"] = "Lightning Shield Look", ["sc.lookWS"] = "Water Shield Look",
 	["sc.lookES"] = "Earth Shield Look", ["sc.barLook"] = "Shield Charges Look", ["sc.orbLook"] = "Shield Charges Look",
@@ -2630,7 +2650,7 @@ function SP:ThemeCustomOf()
 end
 
 -- /sp themecheck (the developer's tripwire, account-wide switch): every change on
--- General > Themes must change what a theme holds; one that does not is a look not
+-- Appearance > Themes must change what a theme holds; one that does not is a look not
 -- hooked into Cards.Flat (presets, Your Themes and share codes would miss it)
 function SP:ThemeCheckOn()
 	local g = SP.db and SP.db.global
@@ -2643,7 +2663,7 @@ function SP:ThemeCheckChange()
 	if not SP:ThemeCheckOn() then return end
 	local f = Cards.Flat()
 	if Cards.lastFlat and Cards.Same(f, Cards.lastFlat) then
-		print("|cffff8040ShamanPower theme check|r: that change on General > Themes is NOT part of a theme:"
+		print("|cffff8040ShamanPower theme check|r: that change on Appearance > Themes is NOT part of a theme:"
 			.. " presets, Your Themes and share codes would not carry it. Hook it into Cards.Flat"
 			.. " (LOOK / RESET_COLOR_KEYS lists or ThemeSpotSettings).")
 	end
@@ -2784,6 +2804,33 @@ function SP:ThemeImport(text)
 	if name == "" then name = "Shared Theme" end
 	local id = Cards.Add(Cards.Unique(name), p.base, flat)
 	return Cards.Find(id), nil, skipped
+end
+
+-- A full setup code (ShamanPowerShare.lua) carries the account's saved themes: each one
+-- comes in as a theme of this account, a same-named theme replaced in place (its number
+-- kept), the rest added with new numbers. Returns the code's theme numbers -> the numbers
+-- here, so the imported profile's card refs ("mine:<n>") can follow them.
+function SP:ThemeTakeShared(list)
+	local map = {}
+	if type(list) ~= "table" or not (SP.db and SP.db.global) then return map end
+	for _, th in ipairs(list) do
+		if type(th) == "table" then
+			local flat = Cards.Clean(type(th.flat) == "table" and th.flat or {})
+			local name = Cards.CleanName(th.name)
+			if name == "" then name = "Shared Theme" end
+			local base = THEMES[th.base] and th.base or "standard"
+			local mine = Cards.ByName(name)
+			local id
+			if mine then
+				mine.flat, mine.base, mine.updated = Copy(flat), base, time()
+				id = mine.id
+			else
+				id = Cards.Add(name, base, flat)
+			end
+			if tonumber(th.id) then map[tonumber(th.id)] = id end
+		end
+	end
+	return map
 end
 
 -- profile change (and anyone who needs a full re-resolve): reconcile every

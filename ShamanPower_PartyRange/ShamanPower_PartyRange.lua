@@ -32,7 +32,7 @@ SP.partyRangeDots = {}  -- [element][partyIndex] = dot texture
 local engineDotsReady = false -- SetupPartyRangeDots has run (buttons exist)
 
 -- ============================================================================
--- Theme looks (General > Themes, ShamanPowerTheme.lua). Looks only: on Standard
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua). Looks only: on Standard
 -- every read below is nil and each paint site runs today's code as it was.
 -- tb.dots-missing / mod.coverage-dots-missing: the red "no buff" dot.
 -- tb.dots-class / mod.coverage-dots-class: the engine is asked, and every theme
@@ -70,7 +70,7 @@ local function PaintMissingCov(dot)
 end
 local classSetsSeen = {}   -- the Class Colors set each dot kind was last built with
 -- a class-coloured dot: the theme's colour for that class if it has one, else
--- the Class Colors set it uses (General > Themes; WoW's = `color`, RAID_CLASS_COLORS
+-- the Class Colors set it uses (Appearance > Themes; WoW's = `color`, RAID_CLASS_COLORS
 -- exactly as today). One table per class, made once.
 local themeClassColors = {}
 local function ThemeClassColor(spot, class, color)
@@ -165,7 +165,7 @@ SP.TotemBuffRanks = {
 	[8182]  = { 8182, 10476, 10477 },                       -- Frost Resistance
 	[5677]  = { 5677, 10491, 10493, 10494 },                -- Mana Spring
 	[5672]  = { 5672, 6371, 6372, 10460, 10461 },           -- Healing Stream
-	[16191] = { 16191, 17355, 17360 },                      -- Mana Tide
+	[16191] = { 16191, 17355, 17360, 1325257 },             -- Mana Tide (1325257: rank 4, WoW: Forever)
 	[8185]  = { 8185, 10534, 10535 },                       -- Fire Resistance
 	[8836]  = { 8836, 10626, 25360 },                       -- Grace of Air
 	[2895]  = { 2895 },                                     -- Wrath of Air
@@ -561,6 +561,8 @@ local function NewPartyAuraSlot(parent, unit, key, ids, init, levelUp)
 	pcall(container.UpdateAllAuras, container)
 	return container
 end
+
+SP.NewPartyAuraSlot = NewPartyAuraSlot   -- (ShamanPower_RaidCoverage.lua draws its in-fight names the same way)
 
 -- The dot look inside a slot's button (from its initializeFrame): no mouse, an
 -- optional dark rim and the dot in its color. tex nil = the Dot Shape, with Gem Dot
@@ -1858,11 +1860,20 @@ do
 	local function Learned(e)
 		return SP.KnowsTotem and SP:KnowsTotem(e.element, e.index) and true or false
 	end
-	-- the totems the strip shows: picked and learned, in the Totems row's order (the elements')
+	-- Only While The Totem Is Down (3.0.9, a user's ask): a totem's line only while you have that
+	-- totem down. Out of a fight the strip is rebuilt without the lines of totems not down; in a
+	-- fight they fade out by alpha, and the strip with them when none of its totems is down.
+	local function OnlyDown() return Opts().onlyDown == true end
+	local function Down(e)
+		return (SP.GetActiveTotemIndex and SP:GetActiveTotemIndex(e.element) == e.index) and true or false
+	end
+	-- the totems the strip shows: picked and learned, in the Totems row's order (the elements');
+	-- with Only While The Totem Is Down, the ones down now
 	local function Picks(out)
 		wipe(out)
+		local only = OnlyDown()
 		for _, e in ipairs(Catalog()) do
-			if Picked(e.key) and Learned(e) then out[#out + 1] = e end
+			if Picked(e.key) and Learned(e) and (not only or Down(e)) then out[#out + 1] = e end
 		end
 		return out
 	end
@@ -1937,7 +1948,7 @@ do
 	end
 
 	-- -------------------------------------------------------------------------
-	-- Colors: WoW's own, or the theme's (General > Themes, Party Buff Tracker)
+	-- Colors: WoW's own, or the theme's (Appearance > Themes, Party Buff Tracker)
 	-- -------------------------------------------------------------------------
 	local RED, GRAY = { 1, 0.125, 0.125 }, { 0.5, 0.5, 0.5 }
 	local function WoWColor(name, t, r, g, b)
@@ -2384,8 +2395,9 @@ do
 		end
 		for j = count + 1, #segs do segs[j]:Hide() end
 		f.segCount = count
-		-- a totem change has to reach it: its icons gray, or Windfury's report spots
-		local wake = f.iconsOn
+		-- a totem change has to reach it: its icons gray, Windfury's report spots, or its lines
+		-- coming and going (Only While The Totem Is Down)
+		local wake = f.iconsOn or OnlyDown()
 		for _, line in ipairs(lines) do if line.w.reports then wake = true end end
 		f.wakeOnTotems = wake
 		f.spots, f.slots = first and first.spots or EMPTY, first and first.slots or EMPTY
@@ -2658,12 +2670,26 @@ do
 	-- a strip on screen for real (not a preview's)
 	local function Live(f) return f:IsShown() and not f.demo end
 
+	-- Only While The Totem Is Down: each line's alpha from its totem, and whether any of the
+	-- strip's totems is down (the strip fades out with its last one; alpha: a fight too)
+	local function ApplyOnlyDown(f, shown)
+		if not OnlyDown() then return shown end
+		local anyDown = false
+		for _, line in ipairs(f.lines) do
+			local vis = Down(line.w)
+			if vis then anyDown = true end
+			line.host:SetAlpha(vis and 1 or 0)
+		end
+		return shown and anyDown
+	end
+
 	function SP:UpdatePartyStrip()
 		for _, f in ipairs(frames) do
 			if Live(f) then
 				local shown = Wanted(f)
-				local a = shown and 1 or 0
-				if shown and SP.TownHides and SP:TownHides("pb") then a = SP:TownFades() and SP:TownFadeAlpha() or 0 end   -- (A27) Hide In Town
+				local vis = ApplyOnlyDown(f, shown)
+				local a = vis and 1 or 0
+				if vis and SP.TownHides and SP:TownHides("pb") then a = SP:TownFades() and SP:TownFadeAlpha() or 0 end   -- (A27) Hide In Town
 				f:SetAlpha(a)   -- by alpha: the frame holds the game's containers
 				for _, line in ipairs(f.lines) do
 					for i = 1, 4 do UpdateSpot(line, i, shown) end
@@ -2715,6 +2741,7 @@ do
 					host:ClearAllPoints()
 					host:SetAllPoints(f)
 				end
+				host:SetAlpha(1)   -- (Only While The Totem Is Down may have faded it)
 				host:Show()
 			end
 		end
@@ -2784,7 +2811,7 @@ do
 	end
 
 	function SP:PartyStripAfterCombat()
-		if pending then self:RebuildPartyStrip() end
+		if pending or (OnlyDown() and PicksSig(Picks(picksNow)) ~= builtSig) then self:RebuildPartyStrip() end
 	end
 
 	-- the strips in use, in order (Unlock UI's boxes)
@@ -3068,6 +3095,11 @@ do
 		local iconQueued = false
 		local function IconNow()
 			iconQueued = false
+			if OnlyDown() and not InCombatLockdown() and frames[1] and not frames[1].demo
+				and PicksSig(Picks(picksNow)) ~= builtSig then
+				SP:RebuildPartyStrip()   -- (a totem of yours came down or went: its line in or out)
+				return
+			end
 			local want, noted
 			for _, f in ipairs(frames) do
 				if Live(f) then
@@ -3088,6 +3120,7 @@ do
 			hooksecurefunc(SP, "InvalidateTotemInfo", function()
 				if iconQueued then return end
 				local any = false
+				if OnlyDown() and On() then any = true end   -- (a strip faded or put away comes back with its totem)
 				for _, f in ipairs(frames) do
 					-- (out of sight: the next update sets it; #2: report spots follow your totem)
 					if Live(f) and f:GetAlpha() > 0 and f.wakeOnTotems then any = true end
@@ -3814,7 +3847,7 @@ if ShamanPower.RegisterPreview then
 	})
 end
 
--- A theme change (General > Themes): the red dots, the Coverage panel and the
+-- A theme change (Appearance > Themes): the red dots, the Coverage panel and the
 -- counter frames take the new look now (nothing here is protected, so combat
 -- does not matter); the totem bar's dots repaint on their next range pass.
 if SP.OnThemeChanged then

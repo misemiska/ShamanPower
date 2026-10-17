@@ -169,7 +169,7 @@ function SP:CreateShieldChargeDisplays()
 	self:UpdateShieldChargeDisplays()
 end
 
--- Theme looks (General > Themes, ShamanPowerTheme.lua), spot
+-- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot
 -- mod.shieldcharges-colors: full (your shield), esfull (Earth Shield), low,
 -- last. On Standard every read is nil and today's colours below are used.
 local THEME_SPOT = "mod.shieldcharges-colors"
@@ -246,7 +246,7 @@ local shieldView   -- below: one shield's own settings (Lightning 1, Water 2, Ea
 -- The bar keeps the display's own color at every count: in combat the game
 -- fills it and cannot recolor it by count, so out of combat does the same.
 local SHIELD_COLOR = { player = { 0.2, 0.6, 1.0 }, earth = { 0.2, 0.8, 0.2 } }
--- Charge Colors (Shield Charges page and General > Themes): each shield's own
+-- Charge Colors (Shield Charges page and Appearance > Themes): each shield's own
 -- color for its charge bar and the orbs that take a tint; nil = today's color.
 local CHARGE_COLOR_KEY = { "chargeColorLS", "chargeColorWS", "chargeColorES" }
 local function customChargeColor(settings, which)
@@ -271,8 +271,13 @@ local ORB_H = 14
 local ORB_ICON = { "Orbs_Icon_Lightning_3", "Orbs_Icon_Water_3", "Orbs_Icon_Earth_6" }
 -- Orb Color: By Shield (Lightning / Water / Earth Shield)
 local ORB_SHIELD_COLOR = { { 0.55, 0.55, 1.0 }, { 0.25, 0.66, 0.96 }, { 0.36, 0.72, 0.21 } }
+-- the orbs' own color of a shield (1 Lightning, 2 Water, 3 Earth), as plain numbers (the settings pages draw it)
+function SP:ShieldOrbOwnColor(which)
+	local c = ORB_SHIELD_COLOR[which] or ORB_SHIELD_COLOR[1]
+	return c[1], c[2], c[3]
+end
 -- Each shield has its own look (Lightning / Water / Earth Shield Look, also on
--- General > Themes): "bar" (today's segmented bar) or an orb look. which: 1
+-- Appearance > Themes): "bar" (today's segmented bar) or an orb look. which: 1
 -- Lightning Shield, 2 Water Shield, 3 Earth Shield (Anniversary only).
 local LOOK_KEY = { "lookLS", "lookWS", "lookES" }
 -- The Storm family: Miska's Shield Orbs aura, its additive PowerAuras layers baked
@@ -322,7 +327,7 @@ local function orbSig(settings, which)
 end
 local function animOn(settings, which) return settings[ANIM_KEY[which]] == true and isStorm(orbLookOf(settings, which)) end
 
--- Shared with the options and General > Themes: one shield's look, and setting it
+-- Shared with the options and Appearance > Themes: one shield's look, and setting it
 function SP:GetShieldLook(which)
 	local s = self.opt and self.opt.shieldChargeDisplay or NO_SETTINGS
 	local v = s[LOOK_KEY[which]]
@@ -381,7 +386,7 @@ local OPT = {
 	-- When It's Gone (3.0.8, a shaman tank's ask): the icon's effect at 0 charges / no shield
 	goneEffect = { suffix = "goneEffect", def = "none", nilIs = "none" },
 	goneGlowColor = { suffix = "goneGlowColor", color = true },
-	goneGlowShape = { suffix = "goneGlowShape" },   -- (nil: General > Themes' Glow Shape; "default" is a real choice, Square)
+	goneGlowShape = { suffix = "goneGlowShape" },   -- (nil: Appearance > Themes' Glow Shape; "default" is a real choice, Square)
 	goneGlowThick = { suffix = "goneGlowThick", def = 0.2 },
 	sound = { sound = true },        -- (ShamanPowerShieldSound.lua keeps these two: shared with Expiring Alerts)
 	soundName = { sound = true },
@@ -404,7 +409,7 @@ for name, spec in pairs(OPT) do
 		for w = 1, 3 do KEY[w][name] = spec.key and spec.key[w] or (spec.suffix .. SFX[w]) end
 	end
 end
-SP.SHIELD_KEYS = KEY   -- (General > Themes and the tests read the key names)
+SP.SHIELD_KEYS = KEY   -- (Appearance > Themes and the tests read the key names)
 local function startOf(name, which)
 	local d = OPT[name].def
 	if type(d) == "table" and not OPT[name].color then return d[which] end
@@ -1148,7 +1153,7 @@ end
 -- sample: the Shield Charges page's own copy (SP:PaintShieldChargeSample), which plays its effects on both clients
 -- When It's Gone: the icon's effect at 0 charges / no shield (each shield its own): a glow in
 -- its Glow Shape (Proc Glow too) round the icon, a pulse of the icon, or both, until a shield
--- is up again. In a fight on WoW: Forever the game hides whether the shield is up: the Cooldown
+-- is up again. With the icon off, the charge bar plays it (3.0.9, barGoneEffect below). In a fight on WoW: Forever the game hides whether the shield is up: the Cooldown
 -- Manager's own shield item tells the moment (ShieldGoneHooks, below); until it has spoken,
 -- nothing plays there.
 local goneHook = { bound = false, anyUp = nil, up = {}, have = {} }   -- anyUp: a Lightning / Water Shield is up (seeded out of a fight); up: each shield as the hook last saw it; have: the shields with an item
@@ -1161,6 +1166,11 @@ local function goneSettings(which)
 	if type(c) == "table" then r, g, b = c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1
 	else local sc = SHIELD_COLOR[(which == 3) and "earth" or "player"]; r, g, b = sc[1], sc[2], sc[3] end
 	return fx, r, g, b, sv[k.goneGlowShape] or (SP.opt and SP.opt.glowShape) or "default", tonumber(sv[k.goneGlowThick]) or 0.2
+end
+-- the glow's color as When It's Gone draws it, plain numbers (the settings' pictures)
+function SP:ShieldGoneGlowColor(which)
+	local _, r, g, b = goneSettings(which or 1)
+	return r, g, b
 end
 local function goneHost(frame, s)
 	local h = frame.goneHost
@@ -1228,11 +1238,111 @@ local function goneEffect(frame, which, s, on)
 		elseif icon.spPulse and icon.spPulse:IsPlaying() then icon.spPulse:Stop() end
 	end
 end
+-- When It's Gone on the charge bar (3.0.9, the owner's ask: a glow for bar mode, where an empty
+-- bar is a dark box you lose on dark ground): with the icon off and the charge bar on, the bar
+-- plays the effect. Glow: the bar's edges lit in the Glow Color with a soft halo round them (rings
+-- of light stepping out from the edge, each a step fainter: a glow that fits any box, corners
+-- included); Pulse: the bar's track lit, an orb look's own orbs, and fading. Both breathe 0.2 -> 1 -> 0.2, half a second each way, the icon's own timing, on alpha
+-- alone (a fight too, both clients). Glow Shape and Proc Glow Thickness stay the icon's. With both
+-- the icon and the bar on, the icon plays it alone, as before.
+local BAR_GONE_RINGS = { 0.5, 0.32, 0.18, 0.08 }   -- the halo's rings out from the edge, each one ring wide (1 px at 100%)
+local function barGoneHost(cb)
+	local h = cb.goneHost
+	if h then return h end
+	h = CreateFrame("Frame", nil, cb)
+	h:SetFrameLevel(cb:GetFrameLevel() + 2)
+	h:SetPoint("TOPLEFT", cb, "TOPLEFT", -1, 1)       -- (the bar's dark rim)
+	h:SetPoint("BOTTOMRIGHT", cb, "BOTTOMRIGHT", 1, -1)
+	cb.goneHost = h
+	h.rings = {}
+	for k = 1, #BAR_GONE_RINGS do
+		local ring = {}
+		for i = 1, 4 do
+			local t = h:CreateTexture(nil, "OVERLAY", nil, 1)
+			t:SetTexture("Interface\\Buttons\\WHITE8X8")
+			t:SetBlendMode("ADD")
+			ring[i] = t
+		end
+		h.rings[k] = ring
+	end
+	h.edges = {}
+	for i = 1, 4 do
+		local t = h:CreateTexture(nil, "OVERLAY", nil, 2)
+		t:SetTexture("Interface\\Buttons\\WHITE8X8")
+		t:SetBlendMode("ADD")
+		h.edges[i] = t
+	end
+	local E = h.edges
+	E[1]:SetPoint("TOPLEFT"); E[1]:SetPoint("TOPRIGHT")         -- top
+	E[2]:SetPoint("BOTTOMLEFT"); E[2]:SetPoint("BOTTOMRIGHT")   -- bottom
+	E[3]:SetPoint("TOPLEFT"); E[3]:SetPoint("BOTTOMLEFT")       -- left
+	E[4]:SetPoint("TOPRIGHT"); E[4]:SetPoint("BOTTOMRIGHT")     -- right
+	local lit = h:CreateTexture(nil, "OVERLAY", nil, 0)
+	lit:SetAllPoints(cb)
+	lit:SetBlendMode("ADD")
+	h.lit = lit
+	local ag = h:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+	local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.2); a1:SetToAlpha(1); a1:SetDuration(0.5); a1:SetOrder(1)
+	local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(1); a2:SetToAlpha(0.2); a2:SetDuration(0.5); a2:SetOrder(2)
+	h.anim = ag
+	h:Hide()
+	return h
+end
+-- cb: one of the display's bars; on: it is the bar shown, at 0 charges / no shield, with the icon off
+local function barGoneEffect(cb, which, s, on)
+	if not cb then return end
+	local fx, r, g, b = goneSettings(which)
+	local wantGlow = on and (fx == "glow" or fx == "both")
+	local wantLit = on and (fx == "pulse" or fx == "both")
+	local h = cb.goneHost
+	if not (wantGlow or wantLit) then
+		if h and h.on then h.on, h.sig = nil, nil; h.anim:Stop(); h:Hide() end
+		return
+	end
+	h = h or barGoneHost(cb)
+	local w, ht = cb:GetWidth() or 0, cb:GetHeight() or 0
+	local vertical = cb:GetOrientation() == "VERTICAL"
+	local sig = fx .. "|" .. r .. "," .. g .. "," .. b .. "|" .. w .. "x" .. ht .. "|" .. tostring(cb.spOrbFile) .. "|" .. tostring(vertical)
+	if h.on and h.sig == sig then return end
+	h.sig = sig
+	-- the edges: a hair on a thin bar, thicker as the bar grows (its thinner side rules: a bar stood up too)
+	local thin = math.max(1, math.floor(math.min(w, ht) * 0.1 + 0.5))
+	local E = h.edges
+	E[1]:SetHeight(thin); E[2]:SetHeight(thin); E[3]:SetWidth(thin); E[4]:SetWidth(thin)
+	for i = 1, 4 do E[i]:SetVertexColor(r, g, b, 0.9); E[i]:SetShown(wantGlow) end
+	-- the halo: each ring one step further out (a ring is as wide as the scale, 1 px at 100%); the top and
+	-- bottom strips span the corners, the sides fill between them: no gap, no overlap
+	local hw = math.max(1, math.floor((tonumber(s) or 1) + 0.5))
+	for k, ring in ipairs(h.rings) do
+		local inner = (k - 1) * hw
+		local o = inner + hw
+		ring[1]:ClearAllPoints(); ring[1]:SetPoint("TOPLEFT", h, "TOPLEFT", -o, o); ring[1]:SetPoint("TOPRIGHT", h, "TOPRIGHT", o, o); ring[1]:SetHeight(hw)
+		ring[2]:ClearAllPoints(); ring[2]:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", -o, -o); ring[2]:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", o, -o); ring[2]:SetHeight(hw)
+		ring[3]:ClearAllPoints(); ring[3]:SetPoint("TOPLEFT", h, "TOPLEFT", -o, inner); ring[3]:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", -o, -inner); ring[3]:SetWidth(hw)
+		ring[4]:ClearAllPoints(); ring[4]:SetPoint("TOPRIGHT", h, "TOPRIGHT", o, inner); ring[4]:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", o, -inner); ring[4]:SetWidth(hw)
+		for j = 1, 4 do ring[j]:SetVertexColor(r, g, b, BAR_GONE_RINGS[k]); ring[j]:SetShown(wantGlow) end
+	end
+	-- the track lit: an orb look lights its own orbs (stood up with them)
+	if cb.spOrbs and cb.spOrbFile then
+		h.lit:SetTexture(cb.spOrbFile)
+		if vertical then h.lit:SetTexCoord(1, 0, 0, 0, 1, 1, 0, 1) else h.lit:SetTexCoord(0, 1, 0, 1) end
+		h.lit:SetVertexColor(r, g, b, 0.8)
+	else
+		h.lit:SetTexture("Interface\\Buttons\\WHITE8X8")
+		h.lit:SetTexCoord(0, 1, 0, 1)
+		h.lit:SetVertexColor(r, g, b, 0.55)
+	end
+	h.lit:SetShown(wantLit)
+	if not h.on then h.on = true; h:Show(); h.anim:Play() end
+end
 -- every display's effect off (the module off, a profile change)
 function SP:ShieldGoneEffectsOff()
 	local frames = self.shieldChargeFrames
 	if not frames then return end
-	for _, f in pairs(frames) do if f.goneHost or (f.icon and f.icon.spPulse) then goneEffect(f, f.spWhich or 1, 1, false) end end
+	for _, f in pairs(frames) do
+		if f.goneHost or (f.icon and f.icon.spPulse) then goneEffect(f, f.spWhich or 1, 1, false) end
+		for _, b in pairs(f.chargeBars or {}) do if b.goneHost then barGoneEffect(b, b.spWhich or 1, 1, false) end end
+	end
 end
 
 local function paintDisplay(frame, kind, settings, s, charges, present, restricted, iconWhich, noGray, sample)
@@ -1330,6 +1440,12 @@ local function paintDisplay(frame, kind, settings, s, charges, present, restrict
 		if iconWhich ~= 3 and not sample then goneHook.anyUp = present and true or false end
 	end
 	goneEffect(frame, iconWhich or 1, s, (icon and own and gone) and true or false)
+	-- with the icon off, the charge bar shown plays it (3.0.9); a display's other bars rest
+	if bars then
+		for _, other in pairs(bars) do
+			barGoneEffect(other, other.spWhich or iconWhich or 1, s, (other == cb and not icon and bar and own and gone) and true or false)
+		end
+	end
 end
 
 -- The engine draws the count and never shows us the number, but it applies a
@@ -1650,16 +1766,16 @@ function SP:ShieldGoneAsk()
 	if not avail then
 		self:ShowSPDialog({
 			key = "cdmShield",
-			title = "The Cooldown Manager is off here",
-			text = "To see your shield go in a fight on WoW: Forever, ShamanPower listens to the game's own Cooldown Manager, and the game has it turned off for this character or realm. That part cannot work here; everything else does.",
+			title = "Cooldown Manager Is Unavailable",
+			text = "WoW's Cooldown Manager is unavailable for this character or realm, so ShamanPower cannot use it to see your shield end in a fight. Every other shield feature still works.",
 			buttons = { { text = "Got It" } },
 		})
 		return
 	end
 	self:ShowSPDialog({
 		key = "cdmShield",
-		title = "One reload for your shield in fights",
-		text = "To see your shield go in a fight on WoW: Forever, ShamanPower listens to the game's own Cooldown Manager. It can set that up for you now: turn the Cooldown Manager on if it is off, switch it to a layout of ShamanPower's own that tracks only your shield and shows nothing else on screen (ShamanPower draws the shield), and reload the UI once. Your other Cooldown Manager layouts stay as they are.",
+		title = "Set Up Shield Tracking for Combat",
+		text = "ShamanPower can set up WoW's Cooldown Manager to see your shield end in a fight. It turns the Cooldown Manager on if it is off, switches it to a ShamanPower layout that tracks only your shield, hides WoW's own shield display, and reloads once. Your other Cooldown Manager layouts stay saved.",
 		buttons = {
 			{ text = "Set It Up And Reload", onClick = function()
 				local ok, why = SP:ShieldGoneSetup()
@@ -2459,7 +2575,7 @@ if ShamanPower.RegisterPreview then
 	})
 end
 
--- A theme change (General > Themes): the numbers take the new colours on the
+-- A theme change (Appearance > Themes): the numbers take the new colours on the
 -- next paint (woken now), the charge bars at once; the game-drawn displays
 -- (WoW: Forever) are rebuilt with them, never in combat.
 local THEME_ROLES = { "full", "esfull", "low", "last" }
@@ -2521,6 +2637,42 @@ function SP:ShieldChargeColorOf(which)
 	if r then return r, g, b end
 	local c = SHIELD_COLOR[(which == 3) and "earth" or "player"]
 	return c[1], c[2], c[3]
+end
+-- the orbs' tint as the bar draws them (styleChargeBar), plain numbers: which 1 Lightning, 2 Water, 3 Earth;
+-- look: an orb look; orbColor: a forced Orb Color choice (nil: the saved one). The settings' pictures.
+function SP:ShieldOrbColorOf(which, look, orbColor)
+	local settings = SP.opt and SP.opt.shieldChargeDisplay or NO_SETTINGS
+	which = which or 1
+	if look == "icon" then return 1, 1, 1 end
+	local cr, cg, cb = customChargeColor(settings, which)
+	if cr then return cr, cg, cb end
+	if isStorm(look) then return 1, 1, 1 end
+	if (orbColor or settings[KEY[which].orbColor]) == "shield" then
+		local sc = ORB_SHIELD_COLOR[which] or ORB_SHIELD_COLOR[1]
+		return sc[1], sc[2], sc[3]
+	end
+	local c = SHIELD_COLOR[(which == 3) and "earth" or "player"]
+	return c[1], c[2], c[3]
+end
+-- an orb look's strip art (the settings' pictures): the fill strip, the empty strip, the strip's height over
+-- its length, whether it adds (the Storm family), and the empty strip's own tint when it has one
+function SP:ShieldOrbArt(which, look)
+	which = which or 1
+	local kind = (which == 3) and "earth" or "player"
+	local n = MAX_CHARGES[kind]
+	if STORM_LOOK[look] and not STORM_LOOK[look][which] then look = "storm" end
+	local file
+	if look == "icon" then file = ORB_DIR .. ORB_ICON[which]
+	elseif isStorm(look) then file = ORB_DIR .. STORM_LOOK[look][which]
+	elseif look == "flat" then file = ORB_DIR .. "Orbs_Flat_" .. n
+	else file = ORB_DIR .. "Orbs_Glow_" .. n end
+	local back = ORB_DIR .. (isStorm(look) and "Orbs_StormEmpty_" or "Orbs_Empty_") .. n
+	local add = isStorm(look) and not (look == "storm" and which == 2)
+	local br, bg, bb, ba
+	if isStorm(look) then
+		if which == 3 then br, bg, bb, ba = 0.25, 0.55, 0.3, 0.8 else br, bg, bb, ba = 0.3, 0.4, 0.75, 0.8 end
+	elseif look == "icon" then br, bg, bb, ba = 0.55, 0.6, 0.7, 0.9 end
+	return file, back, orbThickness(look) / orbLength(kind, look), add, br, bg, bb, ba
 end
 -- which: 1 Lightning, 2 Water, 3 Earth Shield; no color = back to today's
 function SP:SetShieldChargeColor(which, r, g, b)

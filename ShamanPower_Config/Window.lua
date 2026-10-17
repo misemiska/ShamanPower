@@ -54,7 +54,7 @@ local MOCK_CDBAR    = { mocks = { { label = "Cooldown bar",  build = "BuildCoold
 local MOCK_BARS     = { mocks = { MOCK_TOTEM.mocks[1], MOCK_CDBAR.mocks[1] } }
 -- the Totem Bar's Effects tab: its preview with its effects playing on it
 local MOCK_TOTEM_EFFECTS = { mocks = MOCK_TOTEM.mocks, effects = true }
-local MOCK_THEMES   = { mocks = MOCK_BARS.mocks }   -- General > Themes: the split bar preview, rebuilt on every theme change (no Effects: themes are not effects)
+local MOCK_THEMES   = { mocks = MOCK_BARS.mocks }   -- Appearance > Themes: the split bar preview, rebuilt on every theme change (no Effects: themes are not effects)
 -- which bar a mock is, for a theme's flat boxes on it (SP:ThemeSkinPreview)
 local MOCK_SKIN_FAMILY = {
 	BuildTotemBarPane = "totembar", BuildDurationBarsPane = "totembar", BuildPartyBuffStep = "totembar",
@@ -70,7 +70,7 @@ local MOCK_LOADOUT  = { mocks = {
 local MOCK_PARTY    = { mocks = {
 	{ label = "Party Buff Tracker", build = "BuildPartyBuffStep", weight = 2.3, shiftY = 85 },
 } }
--- General > Themes: the preview each module section shows while it is in view
+-- Appearance > Themes: the preview each module section shows while it is in view
 -- (the same one as that module's own settings page). Sections not listed, and the
 -- top of the tab, show MOCK_THEMES: both bars.
 local THEMES_SECTION_PREVIEW = {
@@ -256,15 +256,33 @@ local function P(...) return { ... } end
 local PLAYER_IS_SHAMAN = select(2, UnitClass("player")) == "SHAMAN"
 local NAV = {
 	{ group = "General", entries = {
-		{ label = "General", lock = true, desc = "Choose how ShamanPower looks and works.", tabs = {
+		{ label = "General", lock = true, desc = "Choose how ShamanPower works.", tabs = {
 			-- the Totem Bar Style dropdown is on Main: a shaman sees the bar change as they hover its list
 			{ label = "Main",      preview = PLAYER_IS_SHAMAN and MOCK_TOTEM or nil, paths = { P("settings", "settings_show") } },
-			-- every theme setting, and nothing else (drawn by Themes.lua)
-			{ label = "Themes",    preview = PLAYER_IS_SHAMAN and MOCK_THEMES or nil, custom = "themes", paths = { P("settings", "settings_themes") } },
-			{ label = "Fonts & Textures", preview = PLAYER_IS_SHAMAN and MOCK_BARS or nil, paths = { P("settings", "settings_fonts") } },
-			{ label = "Interface", paths = { P("settings", "settings_newui") } },
 			{ label = "Keybinds",  paths = { P("settings", "settings_keybinds") } },
 			{ label = "Reset",     paths = { P("settings", "settings_frames") } },
+		}},
+		-- Appearance (3.0.9.1, from G's review): everything about how ShamanPower looks, beside General, not under
+		-- BARS (there, with a first tab called Totem Bar, players took it for the totem bar's own page). Themes and
+		-- Fonts & Textures lead (they were General's second and third tabs, where nobody looking to customize found
+		-- them); the window sliders (General's Interface tab) ride on Fonts & Textures as a Windows band. The bar
+		-- tabs are composed from the groups ShamanPowerAppearancePage.lua lays out: the totem bar and the cooldown
+		-- bar alike, the flyouts, Colors & Borders, Visibility.
+		{ label = "Appearance", preview = MOCK_BARS, shamanOnly = true, lock = true, power = false,
+			desc = "Everything about how ShamanPower looks: themes, fonts, the bars, their flyouts, colors and visibility.", tabs = {
+			-- every theme setting, and nothing else (drawn by Themes.lua)
+			{ label = "Themes",    preview = MOCK_THEMES, custom = "themes", paths = { P("settings", "settings_themes") } },
+			{ label = "Fonts & Textures", preview = MOCK_BARS, paths = { P("settings", "settings_fonts"), { "settings", "settings_newui", label = "Windows" } } },
+			{ label = "Totem Bar", preview = MOCK_TOTEM, paths = {
+				P("fluffy", "totembar_appearance"), P("fluffy", "appearance_resets"),
+			} },
+			{ label = "Cooldown Bar", preview = MOCK_CDBAR, paths = { P("fluffy", "cdbar_appearance") } },
+			{ label = "Flyouts", paths = { P("fluffy", "flyout_appearance") } },
+			{ label = "Colors & Borders", paths = {
+				P("fluffy", "element_colors_section"), P("fluffy", "button_tints_section"), P("fluffy", "borders_appearance"),
+			} },
+			{ label = "Visibility",        paths = { { "settings", "settings_visibility", label = "Auto-Hide" },
+				{ "settings", "settings_town", label = "Out Of The Way" }, P("fluffy", "visibility_section") } },
 		}},
 		{ label = "Profiles", path = P("profiles"), lock = true },
 		-- every version's notes (PatchNotesPage.lua draws the page); NEW until opened
@@ -284,30 +302,18 @@ local NAV = {
 			{ label = "Duration Bars", preview = MOCK_DURATION, paths = { P("fluffy", "totembar_duration_section") } },
 			{ label = "Effects",       preview = MOCK_TOTEM_EFFECTS, paths = { P("fluffy", "totembar_effects_section") } },
 			{ label = "Macros",        paths = { P("buttons", "macros_section") } },
-			{ label = "Twisting",      paths = { P("settings", "settings_totemTwisting") } },   -- no rows (so no tab) on WoW: Forever
+			{ label = "Twisting",      paths = { P("settings", "settings_totemTwisting") }, power = true },   -- no rows (so no tab) on WoW: Forever
 		}},
 		-- one page (A13): the Items row (click, right-click, drag) and what is about the whole bar
 		{ label = "Cooldown Bar", preview = MOCK_CDBAR, shamanOnly = true, lock = true, power = POWER_CDBAR,
 			desc = "Click an item to show or hide it, right-click it for its settings, drag it to move it.",
 			onReset = function() local sp = SP() if sp and sp.CooldownBarResetPage then sp:CooldownBarResetPage() end end,
 			path = P("fluffy", "cdbar_page") },
-		{ label = "Appearance", preview = MOCK_BARS, shamanOnly = true, lock = true, power = false, desc = "Layout, size, opacity, textures and visibility of the bars.", tabs = {
-			{ label = "Totem Bar", preview = MOCK_TOTEM, paths = {
-				P("fluffy", "totembar_appearance"), P("fluffy", "appearance_resets"),
-			} },
-			{ label = "Flyouts", paths = { P("fluffy", "flyout_appearance") } },
-			{ label = "Textures & Colors", paths = {
-				P("fluffy", "texture_section"), P("fluffy", "color_section"),
-				P("fluffy", "element_colors_section"), P("fluffy", "button_tints_section"),
-			} },
-			{ label = "Visibility",        paths = { P("fluffy", "visibility_section"), { "settings", "settings_visibility", label = "Auto-Hide" },
-				{ "settings", "settings_town", label = "Out Of The Way" } } },
-		}},
 		{ label = "Loadouts", preview = MOCK_LOADOUT, shamanOnly = true, lock = true, power = false,
 			desc = "Save totem loadouts, set up their bar and choose when to switch automatically.", tabs = {
 			{ label = "Loadouts", preview = MOCK_LOADOUT, paths = { P("buttons", "loadouts_section") } },
-			{ label = "Loadout Bar", preview = MOCK_LOADOUT, paths = { P("fluffy", "loadoutbar_section") } },
-			{ label = "Auto-Switch", paths = { P("buttons", "loadoutrules_section") } },
+			{ label = "Loadout Bar", preview = MOCK_LOADOUT, paths = { P("fluffy", "loadoutbar_section") }, power = true },
+			{ label = "Auto-Switch", paths = { P("buttons", "loadoutrules_section") }, power = true },
 		}},
 		-- WoW: Forever only (the page exists only there): the controller bar (ShamanPowerController.lua)
 		{ label = "Controller", shamanOnly = true, lock = true, power = POWER_CONTROLLER,
@@ -322,10 +328,16 @@ local NAV = {
 		{ label = "Totem Range Tracker", preview = "sprange",  path = P("fluffy", "sprange_section"), power = POWER_SPRANGE,
 			onReset = function() local sp = SP() if sp and sp.RangeTrackerResetPage then sp:RangeTrackerResetPage() end end },
 		{ label = "Party Buff Tracker", preview = MOCK_PARTY, shamanOnly = true, power = POWER_PARTYBUFF,
-			onReset = function() local sp = SP() if sp and sp.CoverageResetPage then sp:CoverageResetPage() end end, tabs = {
+			onReset = function()
+				local sp = SP()
+				if sp and sp.CoverageResetPage then sp:CoverageResetPage() end
+				if sp and sp.RaidCoverageResetPage then sp:RaidCoverageResetPage() end
+			end, tabs = {
 			{ label = "Dots & Counters", paths = { P("fluffy", "partybuff_section") } },
-			{ label = "Coverage", preview = "coverage", paths = { P("fluffy", "coverage_section") } },
-			{ label = "Party Strip", preview = "partystrip", paths = { P("fluffy", "partystrip_section") } },
+			{ label = "Party Coverage", preview = "coverage", paths = { P("fluffy", "coverage_section") }, power = true },
+			-- WoW: Forever only (the section exists only there): ShamanPower_RaidCoverage.lua
+			{ label = "Raid Coverage", paths = { P("fluffy", "raidcoverage_section") }, power = true },
+			{ label = "Party Strip", preview = "partystrip", paths = { P("fluffy", "partystrip_section") }, power = true },
 		}},
 		{ label = "Earth Shield Tracker", preview = "estracker", path = P("fluffy", "estrack_section") },
 		{ label = "Ready Check", preview = "readycheck", shamanOnly = true, path = P("fluffy", "readycheck_section") },
@@ -749,6 +761,16 @@ local function PaneAnimated()
 	return not (sp and sp.UIAnimationsOn) or sp:UIAnimationsOn() ~= false
 end
 
+-- The window may slide past any edge of the screen (the owner, 3.0.9: it is big, and sometimes it
+-- covers the very thing a setting changes), as long as a strip of it stays on screen to drag it
+-- back by. The frame drags by any part of itself, so that strip is enough.
+local KEEP_ON_SCREEN = 120
+local function ApplyClamp(f)
+	local offX, offY = WIN_W - KEEP_ON_SCREEN, WIN_H - KEEP_ON_SCREEN
+	-- (a clamp rectangle smaller than the frame: left in, right in, top down, bottom up)
+	f:SetClampRectInsets(offX, -offX, -offY, offY)
+end
+
 function SPConfig:SetPreviewPaneOpen(on, silent)
 	if not frame then return end
 	self:BuildPreviewPane()
@@ -760,11 +782,9 @@ function SPConfig:SetPreviewPaneOpen(on, silent)
 		local st = PreviewStore()
 		if st then st.configPreviewOpen = on end
 	end
-	-- keep the whole assembly on screen when the window is dragged (wide while it slides)
-	if on then frame:SetClampRectInsets(0, PREVIEW_W + 4, 0, 0) end
+	ApplyClamp(frame)
 	local function closed()
 		pane:Hide()
-		frame:SetClampRectInsets(0, 0, 0, 0)
 		SPConfig:ReleasePreview()
 	end
 	if silent or not PaneAnimated() then
@@ -868,7 +888,7 @@ end
 
 -- Show the current page's preview (or say why there is none). Re-running it
 -- for the same key re-feeds the sample data, which is how setters reach it.
--- General > Themes: the module section in the top third of the page right now
+-- Appearance > Themes: the module section in the top third of the page right now
 -- (key, label), or nil at the top of the tab / on any other page
 -- (key, label, style: the totem bar style of the Totem Bar Styles rows in view)
 local STYLE_OF_SPOT = {
@@ -1189,6 +1209,7 @@ local function BuildWindow()
 	-- window's child frames can sit above this one's base and eat the drag.
 	frame:SetToplevel(true)
 	frame:SetClampedToScreen(true)
+	ApplyClamp(frame)
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
 	frame:RegisterForDrag("LeftButton")
@@ -1445,7 +1466,7 @@ local function BuildWindow()
 	frame.previewBtn = preview
 
 	-- Reset This Page (D30 Q11): a small secondary button beside the page search
-	local reset = Core:MakeButton(content, "Reset This Page", 0, false)
+	local reset = Core:MakeButton(content, "Reset Page Settings", 0, false)
 	reset:SetHeight(22)
 	reset:SetFrameLevel(level + 6)
 	reset:SetScript("OnClick", function() ConfirmResetPage() end)
@@ -1480,7 +1501,7 @@ local function BuildWindow()
 		local maxS = math.max(0, body:GetHeight() - self:GetHeight())
 		self:SetVerticalScroll(math.max(0, math.min(maxS, self:GetVerticalScroll() - delta * 40)))
 	end)
-	-- General > Themes: once the scrolling settles, the preview switches to the
+	-- Appearance > Themes: once the scrolling settles, the preview switches to the
 	-- module section now in view (only when that section changed). Nothing runs
 	-- on any other page or while the page sits still.
 	do
@@ -1599,6 +1620,7 @@ local function BuildWindow()
 	-- clip; it must not outlive the window.
 	frame:SetScript("OnHide", function(self)
 		Core:MonoClear()   -- (D42) a gray page's regions are pooled: their colors back
+		if ns.IconScreen then ns.IconScreen:Close(true) end   -- (3.0.9) an icon's screen goes with the window
 		Widgets:HidePopup()
 		SPConfig:HoverStyle(nil)
 		SPConfig:ReleasePreview()
@@ -1956,12 +1978,13 @@ local function ClearPage()
 	if ns.ThemesPage then ns.ThemesPage:Release() end
 	if ns.PatchNotesPage then ns.PatchNotesPage:Release() end
 	if ns.ListLook then ns.ListLook:Release() end
+	if ns.IconScreen then ns.IconScreen:Release() end
 	for _, row in pairs(ns.CustomRows) do
 		if row.Release then row:Release() end
 	end
 end
 
--- General > Themes draws its own page (Themes.lua) in place of its group's
+-- Appearance > Themes draws its own page (Themes.lua) in place of its group's
 -- rows; a search appends its matching blocks after the ordinary settings rows.
 local function CustomTabActive(entry, query)
 	if (query and query ~= "") or not (entry and entry.tabs) then return nil end
@@ -2113,6 +2136,7 @@ local function ResolvePageList(entry, query, drawTabs)
 end
 
 -- Fingerprint of what is visible: tab keys plus every row's path/label.
+local TabPowerOff   -- defined above RenderPage; onChanged below reads it
 local function PageSignature(list, groups)
 	local parts = {}
 	for _, g in ipairs(groups or {}) do parts[#parts + 1] = "T:" .. tostring(g.key) end
@@ -2320,9 +2344,12 @@ local function RenderPageInner(self, entry, query, keepScroll)
 		end
 		if cur then
 			local newList, newGroups = ResolvePageList(cur, frame._query, false)
+			-- the active tab's own switch flipped: the tab's gray goes on or off (the row set is the same)
+			local tabOff = TabPowerOff(cur, frame._query) and true or false
+			local tabFlip = tabOff ~= (frame._tabOffState and true or false)
 			-- A theme choice can change both its search text and conditional rows,
 			-- including a search that previously had no Themes matches.
-			if newList and (searchThemes or PageSignature(newList, newGroups) ~= frame._pageSig) then
+			if newList and (searchThemes or tabFlip or PageSignature(newList, newGroups) ~= frame._pageSig) then
 				SPConfig:RenderPage(cur, frame._query, frame.bodyScroll:GetVerticalScroll())
 				if LibStub then
 					local reg = LibStub("AceConfigRegistry-3.0", true)
@@ -2355,6 +2382,26 @@ local function RenderPageInner(self, entry, query, keepScroll)
 	local buttonTones = spNow and spNow.OptionButtonTone   -- [option] = "help": a gold button
 	local actionThrough = 0
 	SPConfig:HoverStyle(nil)   -- a rebuild under the mouse gets no OnLeave
+
+	-- 3.0.9: an icon's own screen (IconScreen.lua) in place of the page's rows; an item that left its
+	-- row (placed onto another), or an error: the screen is dropped and the page's rows draw as usual
+	if ns.IconScreen and ns.IconScreen:Takes(entry, query, frame._activeTab) then
+		local ok, cf, ch = pcall(ns.IconScreen.Render, ns.IconScreen, body, fullW, element, onChanged)
+		if ok and cf then
+			pageWidgets[#pageWidgets + 1] = cf
+			y = ch or 0
+			Widgets:SetElement(nil)
+			self:UpdateCombatLock()
+			body:SetHeight(math.max(y + 20, 1))
+			local maxScroll = math.max(0, body:GetHeight() - frame.bodyScroll:GetHeight())
+			frame.bodyScroll:SetVerticalScroll(math.max(0, math.min(keepScroll or 0, maxScroll)))
+			frame.emptyText:Hide()
+			return
+		end
+		if not ok then geterrorhandler()(cf) end
+		ns.IconScreen:Close(true)
+		ClearPage()   -- (whatever the screen took before it gave up)
+	end
 
 	for index, e in ipairs(list) do
 		-- Skip actions already drawn together on the preceding row.
@@ -2626,7 +2673,7 @@ local function RenderPageInner(self, entry, query, keepScroll)
 	if #pageWidgets == 0 then
 		frame.emptyText:SetText(
 			(query and query ~= "") and "No settings match that search."
-			or "Nothing to configure here.")
+			or "No settings on this page.")
 		frame.emptyText:Show()
 	else
 		frame.emptyText:Hide()
@@ -2640,6 +2687,30 @@ end
 -- footer and Turn On keep their colors. A note under the title says it is off; every
 -- setting still works. Turning the module on (Turn On or the sidebar switch) draws
 -- the page again in color. Nothing of this runs on a page whose module is on.
+-- A tab that is one switch (NAV: power = true on the tab; its first "Enable ..." toggle): off, the
+-- tab goes gray like a module that is off, the switch itself still usable. Returns true, the tab's
+-- label and the switch's setter when the active tab is such a tab and it is off; false when it is
+-- on; nil when the active tab has no switch of its own (or a search shows every tab).
+function TabPowerOff(entry, query)
+	if not (entry and entry.tabs and frame._activeTab) or (query and query ~= "") then return nil end
+	for _, t in ipairs(entry.tabs) do
+		if t.label == frame._activeTab then
+			if not t.power then return nil end
+			local pth = t.paths and t.paths[1]
+			if not pth then return nil end
+			local n, c = VisiblePath(pth)
+			if not n then return nil end
+			local e = Tree:FindEnableToggle(n, pth, c)
+			if not e then return nil end
+			local ok, on = pcall(Tree:MakeGetter(e.node, e.chain, e.info))
+			if ok and not on then return true, t.label, Tree:MakeSetter(e.node, e.chain, e.info) end
+			return false
+		end
+	end
+	return nil
+end
+SPConfig.TabPowerOff = function(_, entry, query) return TabPowerOff(entry, query) end   -- (the Tester reads it)
+
 function SPConfig:RenderPage(entry, query, keepScroll)
 	Core:MonoClear()
 	local turnOn = frame.turnOnBtn
@@ -2652,6 +2723,11 @@ function SPConfig:RenderPage(entry, query, keepScroll)
 		local ok, on = pcall(get)
 		off = ok and not on
 	end
+	-- a tab with a switch of its own, off: the same gray as a module that is off
+	local offLabel, offSet = entry and entry.label, entry and entry._powerSet
+	local tabOff, tabLabel, tabSet = TabPowerOff(entry, query)
+	frame._tabOffState = tabOff and true or false
+	if not off and tabOff then off, offLabel, offSet = true, tabLabel, tabSet end
 	if not off then return RenderPageInner(self, entry, query, keepScroll) end
 
 	RenderPageInner(self, entry, query, keepScroll)
@@ -2664,14 +2740,14 @@ function SPConfig:RenderPage(entry, query, keepScroll)
 	end
 	RenderPageInner(self, entry, query, frame.bodyScroll:GetVerticalScroll())
 
-	frame.subtitle:SetText("|cffE6EAF0" .. Tree:StripColor(entry.label) .. " is turned off.|r You can still change its settings.")
+	frame.subtitle:SetText("|cffE6EAF0" .. Tree:StripColor(offLabel or entry.label) .. " is turned off.|r You can still change its settings.")
 	if turnOn then
 		turnOn:ClearAllPoints()
 		local preview, reset = frame.previewBtn, frame.resetBtn
 		local left = (preview and preview:IsShown() and preview) or (reset and reset:IsShown() and reset) or nil
 		if left then turnOn:SetPoint("RIGHT", left, "LEFT", -8, 0) else turnOn:SetPoint("RIGHT", head, "TOPRIGHT", -10, -67) end
 		turnOn:SetScript("OnClick", function()
-			local set = entry._powerSet
+			local set = offSet or entry._powerSet
 			if not set then return end
 			set(true)
 			for _, r in ipairs(navRows) do
@@ -2679,7 +2755,7 @@ function SPConfig:RenderPage(entry, query, keepScroll)
 			end
 			SPConfig:RenderPage(entry, frame._query, frame.bodyScroll:GetVerticalScroll())
 		end)
-		turnOn:Show()
+		-- (the Turn On button stays hidden: every page has its Enable switch at the top now)
 		frame.subtitle:SetPoint("RIGHT", turnOn, "LEFT", -12, 0)
 	end
 	Core:MonoSet(content)
@@ -3186,7 +3262,7 @@ do
 	end
 end
 
--- A theme changed (General > Themes, a colour picker drag, a profile switch)
+-- A theme changed (Appearance > Themes, a colour picker drag, a profile switch)
 -- while the window is open: the Themes page repaints on the next frame, the
 -- live preview is rebuilt, and the page's rows re-read their values once the
 -- changes settle. Nothing runs while the window is shut.
@@ -3319,7 +3395,7 @@ do
 		"ShamanPowerTremorReminderDB", "ShamanPower_RangeTracker" }
 	-- where things sit and how they are laid out on screen: never reset (a key or a
 	-- name with one of these words, and every row under a heading with LAYOUT_WORDS)
-	local RESET_POSITION_WORDS = { "position", "anchor", "offset", "point", "placement", "arrange", "grow", "align" }
+	local RESET_POSITION_WORDS = { "position", "anchor", "offset", "point", "placement", "arrange", "grow", "align", "lock", "drag" }   -- (lock and drag: the renamed Prevent Dragging switches)
 	local RESET_LAYOUT_WORDS = { "position", "placement", "layout" }
 
 	local function PositionLike(key, name)
@@ -3512,9 +3588,9 @@ do
 		if not (entry and sp and sp.ShowSPDialog) then return end
 		if InCombatLockdown() then print(RESET_COMBAT) return end
 		sp:ShowSPDialog({
-			key = "resetPage", title = "Reset This Page",
-			text = "Reset every " .. Tree:StripColor(entry.label) .. " setting to how it came?"
-				.. " Where things sit on screen and your theme stay.",
+			key = "resetPage", title = "Reset Page Settings",
+			text = "Reset all " .. Tree:StripColor(entry.label) .. " settings to their defaults?"
+				.. " Your positions and your theme stay.",
 			buttons = {
 				{ text = "Reset", onClick = function()
 					-- combat began while it was open: say so, and keep the question up for after the fight
@@ -3628,13 +3704,13 @@ local function InjectOptions()
 
 	settings.args.settings_newui = {
 		order = baseOrder + 0.5,
-		name = "New UI",
+		name = "Windows",
 		type = "group",
 		inline = true,
 		args = {
 			uiOpacity = {
 				order = 1,
-				name = "Background Opacity",
+				name = "Window Background Opacity",
 				desc = "How solid the panels of the options and assignment windows are. Text, icons and borders always stay fully visible.",
 				type = "range",
 				min = 0.2, max = 1, step = 0.05, isPercent = true,
@@ -3675,14 +3751,16 @@ do
 	local root = sp and sp.options and sp.options.args
 	local main = root and root.settings.args.settings_show
 	if main then
+		-- (A36) the everyday switches first, the help card short, the two codes named by purpose
 		sp.OrderSettingsBands(main, {
-			{ keys = { "globally", "totemBarStyle", "oldSettingsLook", "hide_blizzard_totem_bar", "hide_player_totems" } },
-			{ keys = { "showparty", "showsingle", "showminimapicon", "showtooltips" } },
-			{ keys = { "master_unlock", "keybind_mode", "open_assignments" }, names = {
+			{ header = "sp_header", name = "ShamanPower", keys = { "globally", "totemBarStyle", "hide_blizzard_totem_bar", "hide_player_totems", "windfuryOnly" } },
+			{ header = "shows_header", name = "When the Totem Bar Shows", keys = { "showparty", "showsingle" } },
+			{ header = "actions_header", name = "Quick Actions", keys = { "master_unlock", "keybind_mode", "open_assignments" }, names = {
 				master_unlock = "Unlock UI", keybind_mode = "Keybind Mode", open_assignments = "Open Totem Assignments",
 			} },
-			{ keys = { "windfuryOnly" } },
-			{ keys = { "community", "share_setup", "support_code" } },
+			{ header = "window_header", name = "The Settings Window", keys = { "oldSettingsLook", "showminimapicon", "showtooltips" } },
+			{ header = "help_header", name = "Help", keys = { "community" } },
+			{ header = "codes_header", name = "Codes for the Developer", keys = { "support_code", "codes_support_desc", "share_setup", "codes_use_desc" } },
 		})
 		sp.SettingsActionRow = {}
 		for _, key in ipairs({ "master_unlock", "keybind_mode", "open_assignments" }) do

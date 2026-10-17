@@ -512,7 +512,7 @@ do
 			{ 8184, 10537, 10538 },   -- Fire Resistance Totem
 			{ 5394, 6375, 6377, 10462, 10463 },   -- Healing Stream Totem
 			{ 5675, 10495, 10496, 10497 },   -- Mana Spring Totem
-			{ 16190, 17354, 17359 },   -- Mana Tide Totem
+			{ 16190, 17354, 17359, 1325256 },   -- Mana Tide Totem (rank 4 at 58 since the 10-15 patch; rank 2 moved to 38)
 			{ 8835, 10627, 25359 },   -- Grace of Air Totem
 			{ 10595, 10600, 10601 },   -- Nature Resistance Totem
 			{ 8512, 10613, 10614 },   -- Windfury Totem
@@ -530,7 +530,7 @@ do
 			{ 29189, 29191 },   -- Healing Grace
 			{ 331, 332, 547, 913, 939, 959, 8005, 10395, 10396, 25357 },   -- Healing Wave
 			{ 29192, 29193 },   -- Improved Weapon Totems
-			{ 408490, 1238299, 1238300 },   -- Lava Burst
+			{ 408490, 1238299, 1238300, 1326047 },   -- Lava Burst (rank 4 at 60 since the 10-15 patch; ranks 2-3 moved to 40 and 50)
 			{ 8004, 8008, 8010, 10466, 10467, 10468 },   -- Lesser Healing Wave
 			{ 403, 529, 548, 915, 943, 6041, 10391, 10392, 15207, 15208 },   -- Lightning Bolt
 			{ 16579, 16580, 16581, 16582 },   -- Lightning Mastery
@@ -907,15 +907,15 @@ if SPCompat.FOREVER then
 	UNOBTAINABLE[32594] = true
 	UNOBTAINABLE[408514] = true
 
-	-- Elemental Mastery: NOT on this client. It was allow-listed here on the strength
-	-- of Talent.db2 (record 573, "Elemental capstone"), but that table is the
-	-- untouched vanilla leftover. The real talents live in the trait tables: tree
-	-- 1082 holds all three specs in one 50-node tree (measured in game 2026-09-22); its Elemental branch ends in Lava Burst - the same
-	-- list Wowhead's Forever calculator shows. Nothing grants 16166.
-	UNOBTAINABLE[16166] = true
+	-- Elemental Mastery 16166: back since the 10-15 patch (build 70425) as Elemental's
+	-- 31-point talent (before that nothing granted it, and it sat on this list). Its name
+	-- resolves in that build; the by-ID spellbook check below covers it either way.
 
-	-- Present in SkillLineAbility, name encrypted in SpellName.
-	REAL_UNNAMED[25908] = true   -- Tranquil Air Totem, SkillLine 374 (not on the trainer list by level; verify at the trainer)
+	-- Tranquil Air Totem 25908: gone from WoW: Forever. Build 70425 still lists it under
+	-- SkillLine 374, but with AcquireMethod 3 and no trait definition, i.e. granted by
+	-- nothing (Earth Shield 408514's signature above), and its name stays encrypted.
+	-- Hidden here: cycles and flyouts skip Air index 4, and saved assignments keep it.
+	UNOBTAINABLE[25908] = true
 end
 
 SPCompat.spellDenyList = UNOBTAINABLE
@@ -949,14 +949,79 @@ function SPCompat.SpellExists(id)
 	return found
 end
 
+-- WoW: Forever: a talent's rank in your tree, by the spell the talent grants. The trait
+-- tables' node IDs can move between builds; the spell ID does not, so a node is looked
+-- up by the spell its definition names (a seed per spell from build 70425 is tried first
+-- and checked). Cached per spell until the talents or the spellbook change. Anniversary:
+-- nil (talents are plain known spells there, SPCompat.KnowsSpellID).
+local talentNodeBySpell = {}   -- [spellID] = node ID, or false: not in the tree
+local talentRankCache = {}     -- [spellID] = rank, or false: none
+local TALENT_NODE_SEED = { [16038] = 104770, [1223031] = 104742, [16166] = 104758 }   -- Call of Flame, Improved Stormstrike, Elemental Mastery
+local function secretValue(v) return issecretvalue and issecretvalue(v) or false end
+local function TalentNodeSpell(cfg, nodeID)   -- the spell a node's active (else first) entry grants, and the node info
+	local T = C_Traits
+	local ok, info = pcall(T.GetNodeInfo, cfg, nodeID)
+	if not ok or type(info) ~= "table" then return nil, nil end
+	local entryID = (type(info.activeEntry) == "table" and info.activeEntry.entryID)
+		or (type(info.entryIDs) == "table" and info.entryIDs[1]) or nil
+	if secretValue(entryID) or type(entryID) ~= "number" then return nil, info end
+	local ok2, entry = pcall(T.GetEntryInfo, cfg, entryID)
+	local defID = ok2 and type(entry) == "table" and entry.definitionID or nil
+	if secretValue(defID) or type(defID) ~= "number" then return nil, info end
+	local ok3, def = pcall(T.GetDefinitionInfo, defID)
+	local sid = ok3 and type(def) == "table" and def.spellID or nil
+	if secretValue(sid) or type(sid) ~= "number" then return nil, info end
+	return sid, info
+end
+function SPCompat.TalentRankBySpellID(spellID)
+	if not SPCompat.FOREVER or type(spellID) ~= "number" then return nil end
+	local hit = talentRankCache[spellID]
+	if hit ~= nil then return hit or nil end
+	local CT, T = C_ClassTalents, C_Traits
+	if not (CT and CT.GetActiveConfigID and T and T.GetNodeInfo and T.GetEntryInfo and T.GetDefinitionInfo) then return nil end
+	local ok, cfg = pcall(CT.GetActiveConfigID)
+	if not ok or secretValue(cfg) or type(cfg) ~= "number" then return nil end   -- (not cached: the config can come later)
+	local node = talentNodeBySpell[spellID]
+	if node == nil then
+		node = TALENT_NODE_SEED[spellID] or false
+		if node and TalentNodeSpell(cfg, node) ~= spellID then node = false end   -- the seed moved: look it up
+		if not node and T.GetTreeNodes and T.GetConfigInfo then
+			local okc, cinfo = pcall(T.GetConfigInfo, cfg)
+			local trees = okc and type(cinfo) == "table" and type(cinfo.treeIDs) == "table" and cinfo.treeIDs or {}
+			for _, treeID in ipairs(trees) do
+				local okn, nodes = pcall(T.GetTreeNodes, treeID)
+				for _, n in ipairs(okn and type(nodes) == "table" and nodes or {}) do
+					if TalentNodeSpell(cfg, n) == spellID then node = n; break end
+				end
+				if node then break end
+			end
+		end
+		talentNodeBySpell[spellID] = node
+	end
+	local rank
+	if node then
+		local sid, info = TalentNodeSpell(cfg, node)
+		if sid == spellID and info then
+			rank = info.activeRank
+			if secretValue(rank) or type(rank) ~= "number" then rank = info.ranksPurchased end
+			if secretValue(rank) or type(rank) ~= "number" then rank = nil end
+		end
+	end
+	talentRankCache[spellID] = rank or false
+	return rank
+end
+
 function SPCompat.WipeSpellExistsCache()
 	spellExistsCache = {}
+	talentNodeBySpell, talentRankCache = {}, {}
 end
 
 do
 	local f = CreateFrame("Frame")
 	f:RegisterEvent("SPELLS_CHANGED")
 	f:RegisterEvent("PLAYER_ENTERING_WORLD")
+	pcall(f.RegisterEvent, f, "TRAIT_CONFIG_UPDATED")   -- (WoW: Forever: a talent changed)
+	pcall(f.RegisterEvent, f, "PLAYER_TALENT_UPDATE")
 	f:SetScript("OnEvent", SPCompat.WipeSpellExistsCache)
 end
 

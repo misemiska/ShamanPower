@@ -18,6 +18,7 @@ ns.StyleCaptions = {
 	totemtimers = "The dropped totem becomes the big icon. Your assigned totem stays in the bottom-right corner until the dropped totem is gone.",
 	dynamic = "The bar simply becomes whatever you last dropped - one totem per slot, nothing else. Great for PvP.",
 	single = "Each button shows the totem that is down. Clicking drops your assigned totem. The button shows your assigned totem again when the dropped one is gone. Great for PvP.",
+	dropped = "Only the totems you have down, nothing else, centered as a group: a totem appears the moment it lands and goes the moment it ends, with its bar, time and pulse. No flyouts, no clicks; your keybinds still cast.",
 	compact = "No icons: each slot is a colored line. The outline drains with the totem's duration and the pulse refills inside the line. Tiny icon squares are optional. Clicks and flyouts are unchanged.",
 	grid = "Every totem of every element stays visible in rows. Click one to drop it; the assigned one is highlighted"
 		.. " and the dropped one carries the timer. Split by Element (Totem Bar > Style)"

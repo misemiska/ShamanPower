@@ -579,7 +579,7 @@ local function WhoList(place)
 		end
 	end
 	list[#list + 1] = { key = "anyone", text = "Anyone" }
-	list[#list + 1] = { key = "name", text = "A Target You Name..." }
+	list[#list + 1] = { key = "name", text = "Named Enemy..." }
 	p.who[key] = list
 	return list
 end
@@ -755,6 +755,17 @@ local OnPlate = { want = {}, warnWant = {}, lay = {}, entryOf = {}, waiting = {}
 -- rank and every Flame Shock aura ID, on WoW: Forever 1.60.1 and TBC Anniversary 2.5.6: read 2026-10-04).
 local NS = { recs = {}, learned = {}, last = { id = nil, t = 0 }, BASE = 12, plain = { border = "thin", size = 36 },
 	lk = { border = "thin" }, EARTH = "Interface\\Icons\\Spell_Nature_EarthShock" }
+-- The fallback before an aura has been read: the base 12 s, and on WoW: Forever Call of Flame's
+-- 3/6/9 s on top (the 10-15 patch), by the talent's rank in your tree. The aura's own duration,
+-- once seen, still wins (NS.learned).
+function NS.Base()
+	local d = NS.BASE
+	if SPCompat.FOREVER and SPCompat.TalentRankBySpellID then
+		local rank = SPCompat.TalentRankBySpellID(16038)   -- Call of Flame
+		if type(rank) == "number" and rank > 0 then d = d + 3 * math.min(rank, 3) end
+	end
+	return d
+end
 
 local function ModuleOn()
 	return built and SV().enabled == true and not SP:IsOff()
@@ -1250,7 +1261,7 @@ local function PurgeParts(host, look, blend)
 	p.glow = host:CreateTexture(nil, "BACKGROUND", nil, -1)
 	p.glow:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
 	p.glow:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
-	if SP.ShapeGlow then SP:ShapeGlow(p.glow, "alert") end   -- (General > Themes: Glow Shape)
+	if SP.ShapeGlow then SP:ShapeGlow(p.glow, "alert") end   -- (Appearance > Themes: Glow Shape)
 	p.glow:SetBlendMode(blend or "ADD")
 	p.glow:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
 	p.glow:SetAlpha(0.6)
@@ -4057,7 +4068,7 @@ function NS.Cast(id)
 	local now = GetTime()
 	NS.last.id, NS.last.t = id, now
 	if not TargetAttackable() then return end   -- (it went to another unit: a mouseover or focus macro)
-	local rec = { start = now, duration = NS.learned[id] or NS.BASE }
+	local rec = { start = now, duration = NS.learned[id] or NS.Base() }
 	local g = NS.Guid()
 	if g then
 		for k, r in pairs(NS.recs) do
@@ -4694,6 +4705,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2)
 	elseif event == "SPELLS_CHANGED" then
 		for _, s in ipairs(SPELLS) do wasKnown[s.key] = knownCache[s.key] end
 		wipe(knownCache)
+		wipe(NS.learned)   -- (a talent change can change Flame Shock's length: learn it again)
 		local changed = false
 		for _, s in ipairs(SPELLS) do
 			if wasKnown[s.key] ~= nil and wasKnown[s.key] ~= Known(s.key) then changed = true end
@@ -4770,14 +4782,14 @@ function SP:TT_SetEnabled(on)
 	if stageOn and LayoutStage then LayoutStage() end
 end
 
--- The two looks on General > Themes (Shapes & Textures): their choices, and a sample drawn
+-- The two looks on Appearance > Themes (Shapes & Textures): their choices, and a sample drawn
 -- with the parts above, so a card shows exactly what the spell looks like
 SP.TT_MISS_LOOKS = { { key = "edge", label = "Red Edge (default)" }, { key = "dotted", label = "Dotted Red Edge" },
 	{ key = "faded", label = "Just Faded" }, { key = "glow", label = "Red Glow" }, { key = "tint", label = "Red Tint" },
 	{ key = "slash", label = "Red Slash" }, { key = "outline", label = "Empty Outline" }, { key = "pulse", label = "Pulsing Edge" } }
 SP.TT_ICON_EDGES = { { key = "thin", label = "Thin Black (default)" }, { key = "none", label = "None" },
 	{ key = "thick", label = "Thick Black" }, { key = "dotted", label = "Dotted" }, { key = "spell", label = "Spell Color" } }
--- Next Shock's Look When It's Time to Cast: its choices (General > Themes cards; "cast" samples)
+-- Next Shock's Look When It's Time to Cast: its choices (Appearance > Themes cards; "cast" samples)
 SP.TT_CAST_LOOKS = { { key = "gold", label = "Gold Dotted Edge (default)" }, { key = "edge", label = "Red Edge" },
 	{ key = "dotted", label = "Dotted Red Edge" }, { key = "faded", label = "Just Faded" }, { key = "glow", label = "Red Glow" },
 	{ key = "tint", label = "Red Tint" }, { key = "slash", label = "Red Slash" }, { key = "outline", label = "Empty Outline" },
@@ -4798,7 +4810,7 @@ function SP:TT_LookSample(parent, kind, value)
 	return host
 end
 
--- General > Themes > Reset Everything: every spell's visual choices back to their defaults
+-- Appearance > Themes > Reset Everything: every spell's visual choices back to their defaults
 function SP:TT_ResetLooks()
 	for _, s in ipairs(SPELLS) do
 		if OPT[s.key].missLook ~= nil then SP:TT_Set(s.key, "missLook", nil) end
@@ -5771,7 +5783,7 @@ do
 	boot:SetScript("OnEvent", function(self)
 		self:UnregisterEvent("PLAYER_LOGIN")
 		SV()
-		-- General > Themes: each spell's looks, so presets, Your Themes and share codes carry them
+		-- Appearance > Themes: each spell's looks, so presets, Your Themes and share codes carry them
 		if SP.ThemeSpotSettings then
 			local entries = {}
 			for _, s in ipairs(SPELLS) do
@@ -5793,7 +5805,7 @@ do
 					set = function(v) SP:TT_Set(key, "border", v) end }
 			end
 			-- Next Shock's Look When It's Time to Cast (its Size is not a look: as each spell's Icon Size)
-			entries[#entries + 1] = { key = "castLook.ns", label = "Next Shock Look When It's Time to Cast",
+			entries[#entries + 1] = { key = "castLook.ns", label = "Next Shock Recast Warning Style",
 				get = function() return Get("ns", "castLook") end,
 				set = function(v) SP:TT_Set("ns", "castLook", v) end }
 			SP:ThemeSpotSettings("mod.targettracker", entries)

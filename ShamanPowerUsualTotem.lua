@@ -870,7 +870,7 @@ do
 			disabled = off,
 			get = function() return SP.opt.usualTotemStyle == "pulse" and "pulse" or "glow" end,
 			set = function(_, v) SP.opt.usualTotemStyle = (v == "pulse") and "pulse" or nil; apply() end }
-		args.usualTotemLabel = { order = 3.04, type = "toggle", width = "full", name = "Write BACK on the Button",
+		args.usualTotemLabel = { order = 3.04, type = "toggle", width = "full", name = "Show BACK on the Button",
 			desc = "BACK along the bottom of the button. A Compact line says Put Windfury back, with your own totem's"
 				.. " name. With Dynamic Mode the button shows the totem you dropped, so your usual totem sits in its"
 				.. " corner instead.",
@@ -900,7 +900,7 @@ do
 		args.usual_where = { order = 3.07, type = "description",
 			name = "|cffa0a0a0Shows on ShamanPower's own totem buttons and Compact lines, and on your usual totem in its"
 				.. " flyout, Totem Row or Grid row. Not on Blizzard's Totem Bar.|r" }
-		args.usual_test = { order = 3.08, type = "execute", name = "Test the Reminder",
+		args.usual_test = { order = 3.08, type = "execute", name = "Test Usual Totem Reminder",
 			desc = "Shows the reminder for 5 seconds on your Air button, or on the next element with an assigned totem"
 				.. " (Water, Earth, Fire), with the text alert if it is on.",
 			disabled = off,
