@@ -12146,7 +12146,12 @@ do
 			get = function() return SP.opt.totemCueDestroyedMark == true end,
 			set = function(_, v) SP.opt.totemCueDestroyedMark = v and true or false; if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },
 		totemCueDestroyedMarkStays = { order = 1.35, type = "toggle", width = "full", name = "Keep the Red X Until Recast",
-			desc = "The X stays on the button until you drop that element again, instead of fading after 5 seconds. Off: an X held now fades.",
+			desc = function()
+				if SP.DroppedActive and SP:DroppedActive() then
+					return "The X stays on the totem until the fight ends, then for a few seconds more (or until you drop that element again), instead of fading after 5 seconds. Out of a fight it fades after 5 seconds. Off: an X held now fades."
+				end
+				return "The X stays on the button until you drop that element again, instead of fading after 5 seconds. Off: an X held now fades."
+			end,
 			disabled = function() return SP.opt.totemCueDestroyedMark ~= true end,
 			get = function() return SP.opt.totemCueDestroyedMarkStays and true or false end,
 			set = function(_, v) SP.opt.totemCueDestroyedMarkStays = v and true or false; if SP.CueMarksRefresh then SP:CueMarksRefresh() end end },

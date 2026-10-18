@@ -31,6 +31,11 @@ local isSecret = issecretvalue or function() return false end
 local TEXTS = { "insideTextTop", "insideTextBottom", "aboveBarText", "belowBarText", "iconText" }
 local TEXT_OF = { inside_top = "insideTextTop", inside_bottom = "insideTextBottom", above = "aboveBarText", below = "belowBarText", icon = "iconText" }
 local NONE = "nil"             -- a saved setting that was unset
+-- A totem that went stays on screen this long while its end is worked out (a destroyed or expired verdict
+-- comes half a second after the slot empties: ShamanPowerCues.lua), so the Effects tab's cues have a picture
+-- to play on. Only while an end cue is switched on.
+local LINGER_WAIT = 0.8
+local AFTER_FIGHT = 4.5   -- a picture held through a fight for its Red X: how long it stays once the fight is over
 
 function SP:DroppedActive()
 	return self.opt and self.opt.droppedTotems == true and not self:IsOff() or false
@@ -40,8 +45,20 @@ end
 function SP:DroppedHost(element)
 	if not self:DroppedActive() then return nil end
 	local p = pics[element]
-	if p and p.spDown and p:IsShown() then return p end
+	if p and (p.spDown or p.spLinger) and p:IsShown() then return p end
 	return nil
+end
+
+-- ShamanPowerCues.lua: a cue played on this element's picture after its totem went: keep the picture up
+-- for it (seconds; "combat" = until the fight ends or a totem of that element is down again: Keep the Red X)
+function SP:DroppedKeep(element, seconds)
+local p = pics[element]
+if not (p and p.spLinger) then return end
+if seconds == "combat" then
+	p.spLinger, p.spLingerCombat = math.huge, true
+else
+	p.spLinger = math.max(p.spLinger, GetTime() + seconds)
+end
 end
 
 -- the time as the Normal bar's duration texts show it (FormatDuration in ShamanPower.lua)
@@ -228,9 +245,9 @@ local function Layout()
 	for i = 1, 4 do
 		local e = order[i]
 		local p = pics[e]
-		if p and (p.spDown or unlocked) and SP:IsElementShown(e) then
+		if p and (p.spDown or p.spLinger or unlocked) and SP:IsElementShown(e) then
 			list[#list + 1] = p
-			sig = sig .. e .. (p.spDown and "d" or "u")
+			sig = sig .. e .. (p.spDown and "d" or (p.spLinger and "l" or "u"))
 		end
 	end
 	sig = sig .. (horizontal and "h" or "v") .. ":" .. spacing
@@ -238,7 +255,7 @@ local function Layout()
 	shownSig = sig
 	for e = 1, 4 do
 		local p = pics[e]
-		if p and not p.spDown and not unlocked then p:Hide() end
+		if p and not p.spDown and not p.spLinger and not unlocked then p:Hide() end
 	end
 	local n = #list
 	local total = n * SLOT + math.max(0, n - 1) * spacing
@@ -246,7 +263,7 @@ local function Layout()
 		p:ClearAllPoints()
 		local off = -total / 2 + (i - 1) * (SLOT + spacing) + SLOT / 2
 		if horizontal then p:SetPoint("CENTER", c, "CENTER", off, 0) else p:SetPoint("CENTER", c, "CENTER", 0, -off) end
-		if not p.spDown then
+		if not p.spDown and not p.spLinger then
 			-- Unlock UI, nothing down: the assigned totem, faint, so the bar has a shape to drag
 			local btn = SP.totemButtons and SP.totemButtons[p.element]
 			local tex = btn and btn.icon and btn.icon:GetTexture()
@@ -267,13 +284,18 @@ local function Pass()
 	local now = GetTime()
 	local changed = false
 	local any = false
+	local cues = SP.TotemCuesWanted and SP:TotemCuesWanted()   -- an end cue is on: a totem that went lingers
 	for e = 1, 4 do
 		local p = Pic(e)
 		if not p then return end
 		local have, _, start, duration, icon = SP:GetElementTotemInfo(e)
 		local down = have and not isSecret(have) and not isSecret(start) and not isSecret(duration)
 			and type(start) == "number" and type(duration) == "number" and duration > 0 and (start + duration) > now
-		if down ~= (p.spDown or false) then p.spDown = down or nil; changed = true end
+		if down ~= (p.spDown or false) then
+			p.spDown = down or nil; changed = true
+			if down then p.spLinger, p.spLingerCombat, p.spMarkClearAt = nil, nil, nil
+			elseif cues and p.spIcon then p.spLinger = now + LINGER_WAIT end
+		end
 		if down then
 			any = true
 			if icon and not isSecret(icon) and p.spIcon ~= icon then
@@ -295,6 +317,12 @@ local function Pass()
 		elseif p.spTextKey ~= nil or p.bars.bg:IsShown() then
 			HideDuration(p)
 			SP:PulseVisualStop(p.pulse)
+		end
+		if p.spLinger and not down then
+			if now >= p.spLinger then
+				p.spLinger = nil; changed = true
+				if p.spMarkClearAt then p.spMarkClearAt = nil; if SP.TotemMarkClear then SP:TotemMarkClear(e) end end   -- (the held X goes with it)
+			else any = true end   -- (the loop stays awake meanwhile)
 		end
 	end
 	if changed then Layout() end
@@ -375,7 +403,7 @@ function SP:ApplyDroppedTotems()
 		if container then container:Hide() end
 		for e = 1, 4 do
 			local p = pics[e]
-			if p then p.spDown = nil; HideDuration(p); self:PulseVisualStop(p.pulse); p:Hide() end
+			if p then p.spDown = nil; p.spLinger, p.spLingerCombat, p.spMarkClearAt = nil, nil, nil; HideDuration(p); self:PulseVisualStop(p.pulse); p:Hide() end
 		end
 		shownSig = nil
 		self:DisableUpdateSubsystem("dropped")
@@ -406,6 +434,16 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_TOTEM_UPDATE")
 events:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_REGEN_ENABLED" then
+		-- the fight ended: a picture held for its Red X lets go after the usual few seconds (the X with it)
+		for e = 1, 4 do
+			local p = pics[e]
+			if p and p.spLingerCombat then
+				p.spLingerCombat, p.spLinger = nil, GetTime() + AFTER_FIGHT
+				p.spMarkClearAt = p.spLinger
+				idle = 0
+				SP:WakeUpdateSubsystem("dropped")
+			end
+		end
 		if SP._droppedApplyLater then SP._droppedApplyLater = nil; Queue() end
 	elseif SP.opt and SP:DroppedActive() and container and container:IsShown() then
 		-- a totem landed or went: at once, not on the next tick (and the loop awake again)
