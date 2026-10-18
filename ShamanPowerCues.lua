@@ -443,6 +443,9 @@ local function clearMark(element)
 	end
 end
 
+-- the red X on an element goes (Dropped Totems: the fight ended)
+function SP:TotemMarkClear(element) clearMark(element) end
+
 -- Red X Until Recast alone (Totem Destroyed's animation off) still needs the destroyed totem noticed
 function SP:TotemCuesWanted()
 	local o = self.opt
@@ -459,14 +462,24 @@ function SP:TotemEndCue(element, why)
 		local host, icon = totemHost(element)
 		if not host then return end
 		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon) end
+		-- Keep the Red X: until the recast; on the Dropped Totems style (its picture goes with the totem) until
+		-- the fight ends instead, and out of a fight there is nothing to wait for: the usual 5 seconds
+		local stays = o.totemCueDestroyedMarkStays and true or false
+		local dropped = SP.DroppedActive and SP:DroppedActive()
+		if dropped and stays and not InCombatLockdown() then stays = false end
 		if o.totemCueDestroyedMark == true then
-			showMark(host, nil, o.totemCueDestroyedMarkStays)
+			showMark(host, nil, stays)
 			markHost[element] = host   -- (cleared with the recast, wherever it was drawn)
+		end
+		-- Dropped Totems: the picture stays up while the cue plays (the red X: its 4.5 s, or until the fight ends)
+		if SP.DroppedKeep then
+			SP:DroppedKeep(element, (o.totemCueDestroyedMark == true and (stays and "combat" or 4.5)) or 2)
 		end
 	elseif why == "expired" and o.totemCueExpired then
 		local host, icon = totemHost(element)
 		if not host then return end
 		playCue(host, o.totemCueExpiredStyle or "pop", "expired", icon)
+		if SP.DroppedKeep then SP:DroppedKeep(element, 2) end   -- Dropped Totems: the picture stays up for the cue
 	end
 end
 
