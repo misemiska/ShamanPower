@@ -219,6 +219,15 @@ local function InjectProfileButtons()
 		if not (opt and opt.set) then return end
 		local pending
 		local set = opt.set
+		-- AceDBOptions names its handlers by string ("CopyProfile"); the settings tree resolves that
+		-- through the page's handler, so the button has to as well
+		if type(set) == "string" then
+			local name = set
+			set = function(info, v)
+				local h = profiles.handler
+				if h and type(h[name]) == "function" then return h[name](h, info, v) end
+			end
+		end
 		opt.get = function() return pending end
 		opt.set = function(_, v) pending = v end
 		opt.confirm, opt.confirmText = nil, nil
