@@ -50,15 +50,17 @@ function SP:DroppedHost(element)
 end
 
 -- ShamanPowerCues.lua: a cue played on this element's picture after its totem went: keep the picture up
--- for it (seconds; "combat" = until the fight ends or a totem of that element is down again: Keep the Red X)
+-- for it (seconds; "combat" = until the fight ends or a totem of that element is down again: Keep the Red X).
+-- A readable expiry plays its cue in the same PLAYER_TOTEM_UPDATE, which can come before this file's own
+-- Pass has seen the totem go (spDown still set): the keep is noted now and Pass keeps the longer of the two.
 function SP:DroppedKeep(element, seconds)
-local p = pics[element]
-if not (p and p.spLinger) then return end
-if seconds == "combat" then
-	p.spLinger, p.spLingerCombat = math.huge, true
-else
-	p.spLinger = math.max(p.spLinger, GetTime() + seconds)
-end
+	local p = pics[element]
+	if not (p and (p.spLinger or p.spDown)) then return end
+	if seconds == "combat" then
+		p.spLinger, p.spLingerCombat = math.huge, true
+	else
+		p.spLinger = math.max(p.spLinger or 0, GetTime() + seconds)
+	end
 end
 
 -- the time as the Normal bar's duration texts show it (FormatDuration in ShamanPower.lua)
@@ -294,7 +296,7 @@ local function Pass()
 		if down ~= (p.spDown or false) then
 			p.spDown = down or nil; changed = true
 			if down then p.spLinger, p.spLingerCombat, p.spMarkClearAt = nil, nil, nil
-			elseif cues and p.spIcon then p.spLinger = now + LINGER_WAIT end
+			elseif cues and p.spIcon then p.spLinger = math.max(p.spLinger or 0, now + LINGER_WAIT) end
 		end
 		if down then
 			any = true
