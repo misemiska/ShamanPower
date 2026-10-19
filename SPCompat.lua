@@ -185,6 +185,23 @@ if not GetSpellCooldown and C_Spell and C_Spell.GetSpellCooldown then
 		if g then return false, "gcd" end
 		return true
 	end
+	-- Your own cast of a spell may start its own cooldown, and only the displays read at
+	-- that SPELL_UPDATE_COOLDOWN would learn it: a totem's closed flyout and the Totem
+	-- Rows' copies are not read there, so a totem cast from them kept "only the global
+	-- cooldown" (seen inactive before) and showed no cooldown in a fight (interslice,
+	-- 3.0.9.2). So a cast forgets what was kept for that spell, every rank (until it is
+	-- read again the displays take the estimate from the cast, the shadow model), and the
+	-- next SPELL_UPDATE_COOLDOWN reads it, whichever display is on screen.
+	local castRead = {}
+	function SPCompat.CooldownCastSeen(spell)
+		if spell == nil or (issecretvalue and issecretvalue(spell)) then return end
+		gcdLatch[spell], castRead[spell] = nil, true
+		local name = GetSpellInfo(spell)
+		if not name then return end
+		for k in pairs(gcdLatch) do
+			if GetSpellInfo(k) == name then gcdLatch[k], castRead[k] = nil, true end
+		end
+	end
 	-- The spell the SPELL_UPDATE_COOLDOWN being handled names (nil = all cooldowns),
 	-- and its base spell; for the hooks below.
 	function SPCompat.CooldownEventSpell() return SPCompat._cdEventID, SPCompat._cdEventBase end
@@ -208,6 +225,10 @@ if not GetSpellCooldown and C_Spell and C_Spell.GetSpellCooldown then
 				-- a hidden or missing spell ID: all cooldowns
 				local id = plainID(spellID)
 				SPCompat._cdEventID, SPCompat._cdEventBase = id, id and plainID(baseSpellID)
+				for spell in pairs(castRead) do   -- (your own casts since the last one: see CooldownCastSeen)
+					castRead[spell] = nil
+					SPCompat.CooldownRunning(spell, "event")
+				end
 				local report = geterrorhandler and geterrorhandler()   -- an error is reported, the others still run
 				for i = 1, #cdEventHooks do
 					if report then xpcall(cdEventHooks[i], report) else pcall(cdEventHooks[i]) end
@@ -1381,6 +1402,7 @@ if SPCompat.secretsRegime then
 	end
 
 	function SPCompat.ShadowCooldownCast(spellID)
+		if SPCompat.CooldownCastSeen then SPCompat.CooldownCastSeen(spellID) end   -- (the flags: read it at the next cooldown event)
 		local key = cdKey(spellID)
 		if not key then return end
 		local e = shadowCD[key] or {}

@@ -9,8 +9,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 RELEASE = False
 LUAC = "luac5.1" if subprocess.run(["which", "luac5.1"], capture_output=True).returncode == 0 else "luac"   # WoW is Lua 5.1: a 5.4+ luac rejects assignments to loop variables
 
-def run(cmd, timeout=900):
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+def run(cmd, timeout=900, env=None):
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 def lua_files(tree):
@@ -193,10 +193,10 @@ def step_changelog(tree):
     return (not bad), bad + ["warn: " + w for w in warn]
 
 SIM_ERR = re.compile(r"^\s*\[\d+x\]\s*(.*)$")
-def sim(client, tree, lua, timeout=900):
+def sim(client, tree, lua, timeout=900, env=None):
     """run Lua in the sim; return (spci summary or None, real errors, raw)"""
     cmd = ["sp-uipreview", "run", "--client", client, "--tree", tree, "--lua", lua, "--out", "/tmp/sp-ci-%s.png" % client]
-    rc, out = run(cmd, timeout=timeout)
+    rc, out = run(cmd, timeout=timeout, env=env)
     summary, errors, inblock = None, [], False
     for line in out.splitlines():
         if line.startswith("sim errors"):
@@ -297,7 +297,9 @@ def step_tests(tree, client, only=None):
         want = m.group(1) if m else "both"
         if want not in ("both", client):
             continue
-        summary, errors, raw = sim(client, tree, harness + "\n" + src)
+        # "-- regime: secrets": the sim's client says it has WoW: Forever's secret regime from load on
+        env = dict(os.environ, SP_SIM_SECRETS="1") if re.search(r"--\s*regime:\s*secrets", src) else None
+        summary, errors, raw = sim(client, tree, harness + "\n" + src, env=env)
         if summary and summary.startswith("SPCI|skip|"):
             results.append("  skip  %-18s %s" % (name, summary.split("|", 2)[2]))
             continue
