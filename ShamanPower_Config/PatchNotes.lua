@@ -8,6 +8,18 @@ local _, ns = ...
 -- line at the bottom of the version's Patch Notes (never on the card).
 ns.PATCH_NOTES = {
 	{
+		v = "3.0.9.2",
+		date = "in progress",
+		headline = "Profile copy and delete work again, and Dropped Totems plays its Effects",
+		new = {},
+		fixes = {
+			"Profiles: Copy Settings to This Profile and Delete Selected Profile showed an error and did nothing. Both work again.",
+			"Duration Bars: a pulse bar on the icon no longer covers the pulse time or the totem's time left.",
+			"Dropped Totems: Totem Destroyed, Totem Expired and the Red X play now. With Keep the Red X Until Recast, the X stays until the fight ends (Totem Bar > Effects).",
+		},
+		thanks = "Thanks to Mishka for all three fixes in this release.",
+	},
+	{
 		v = "3.0.9.1",
 		date = "2026-10-17",
 		headline = "Raid Coverage, colored cooldown numbers, keybinds that keep working, and Dropped Totems",
