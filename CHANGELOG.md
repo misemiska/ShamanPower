@@ -4,7 +4,7 @@
 
 ### Changes
 - **Minimap menu:** the eight Totem Bar Style rows are gone, so the menu is short again: Open Settings, your loadouts, Totem Assignments, Unlock UI, Keybind Mode and What's New. Pick your style in Settings > Bars > Totem Bar > Style.
-- **Totemic Recall (Settings > Bars):** with its Bar setting on Totem Bar, its icon and all of its settings are on Totem Bar > Bar now, after Drop All, where the button actually sits, instead of on the Cooldown Bar page. Switching its Bar takes you to the other page with its settings still open. The settings search follows it too.
+- **Totemic Recall (Settings > Bars):** its icon and all of its settings are on the page of the bar it sits on: Totem Bar > Bar (after Drop All) when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar. Switching its Bar takes you to the other page with its settings still open. The settings search follows it too.
 
 ### Fixes
 - **Profiles (Settings > Profiles):** Copy Settings to This Profile and Delete Selected Profile showed a Lua error and did nothing. Both work again.

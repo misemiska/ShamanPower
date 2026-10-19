@@ -14,7 +14,7 @@ ns.PATCH_NOTES = {
 		new = {},
 		changes = {
 			"Minimap menu: the Totem Bar Style rows are gone. Pick your style in Totem Bar > Style.",
-			"Totemic Recall: on the totem bar (its Bar setting), its icon and settings are on Totem Bar > Bar now, where the button sits, not on the Cooldown Bar page.",
+			"Totemic Recall: its icon and settings are on the page of the bar it sits on: Totem Bar > Bar when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar.",
 		},
 		fixes = {
 			"Profiles: Copy Settings to This Profile and Delete Selected Profile showed an error and did nothing. Both work again.",
