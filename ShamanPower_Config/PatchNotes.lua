@@ -22,7 +22,7 @@ ns.PATCH_NOTES = {
 			"Dropped Totems: Totem Destroyed, Totem Expired and the Red X play now. With Keep the Red X Until Recast, the X stays until the fight ends (Totem Bar > Effects).",
 			"Totem cooldowns (WoW: Forever): in a fight, a totem that wasn't the one on your bar showed no cooldown on its flyout or Totem Rows. Every totem shows it now.",
 		},
-		thanks = "Thanks to Mishka for three fixes in this release, and to interslice for the totem cooldown report and the Totemic Recall question.",
+		thanks = "Thanks to Miska for three fixes in this release, and to interslice for the totem cooldown report and the Totemic Recall question.",
 	},
 	{
 		v = "3.0.9.1",

@@ -13,7 +13,7 @@
 - **Totem cooldowns (WoW: Forever):** in a fight, a totem you cast that wasn't the one on your bar showed no cooldown on its flyout or on Totem Rows; only the totem on the bar did. Every totem shows its cooldown now, wherever you cast it from.
 
 ### Thanks
-- Thanks to Mishka for three fixes in this release, and to interslice for the totem cooldown report and the Totemic Recall question.
+- Thanks to Miska for three fixes in this release, and to interslice for the totem cooldown report and the Totemic Recall question.
 
 ## v3.0.9.1 (2026-10-17)
 
