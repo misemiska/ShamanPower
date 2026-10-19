@@ -10,14 +10,19 @@ ns.PATCH_NOTES = {
 	{
 		v = "3.0.9.2",
 		date = "in progress",
-		headline = "Profile copy and delete work again, and Dropped Totems plays its Effects",
+		headline = "Profile copy and delete work again, Dropped Totems plays its Effects, and every totem shows its cooldown in a fight",
 		new = {},
+		changes = {
+			"Minimap menu: the Totem Bar Style rows are gone. Pick your style in Totem Bar > Style.",
+			"Totemic Recall: on the totem bar (its Bar setting), its icon and settings are on Totem Bar > Bar now, where the button sits, not on the Cooldown Bar page.",
+		},
 		fixes = {
 			"Profiles: Copy Settings to This Profile and Delete Selected Profile showed an error and did nothing. Both work again.",
 			"Duration Bars: a pulse bar on the icon no longer covers the pulse time or the totem's time left.",
 			"Dropped Totems: Totem Destroyed, Totem Expired and the Red X play now. With Keep the Red X Until Recast, the X stays until the fight ends (Totem Bar > Effects).",
+			"Totem cooldowns (WoW: Forever): in a fight, a totem that wasn't the one on your bar showed no cooldown on its flyout or Totem Rows. Every totem shows it now.",
 		},
-		thanks = "Thanks to Mishka for all three fixes in this release.",
+		thanks = "Thanks to Mishka for three fixes in this release, and to interslice for the totem cooldown report.",
 	},
 	{
 		v = "3.0.9.1",

@@ -2,13 +2,18 @@
 
 ## v3.0.9.2 (in progress)
 
+### Changes
+- **Minimap menu:** the eight Totem Bar Style rows are gone, so the menu is short again: Open Settings, your loadouts, Totem Assignments, Unlock UI, Keybind Mode and What's New. Pick your style in Settings > Bars > Totem Bar > Style.
+- **Totemic Recall (Settings > Bars):** with its Bar setting on Totem Bar, its icon and all of its settings are on Totem Bar > Bar now, after Drop All, where the button actually sits, instead of on the Cooldown Bar page. Switching its Bar takes you to the other page with its settings still open. The settings search follows it too.
+
 ### Fixes
 - **Profiles (Settings > Profiles):** Copy Settings to This Profile and Delete Selected Profile showed a Lua error and did nothing. Both work again.
 - **Duration Bars (Settings > Bars > Totem Bar > Duration Bars):** with the pulse bar on the icon, it was drawn over the pulse time and the totem's time left. Both times now show on top of it, on the Normal bar, the Pop-Out Trackers and Dropped Totems.
 - **Dropped Totems (Settings > Bars > Totem Bar > Effects):** Totem Destroyed, Totem Expired and the Red X never showed with the Dropped Totems style, because the totem's picture left the bar with the totem. The picture now stays up for its effect. With Keep the Red X Until Recast on, the X and its picture stay until the fight ends, then a few seconds more, or until you drop that element again; out of a fight the X fades after 5 seconds as usual.
+- **Totem cooldowns (WoW: Forever):** in a fight, a totem you cast that wasn't the one on your bar showed no cooldown on its flyout or on Totem Rows; only the totem on the bar did. Every totem shows its cooldown now, wherever you cast it from.
 
 ### Thanks
-- Thanks to Mishka for all three fixes in this release.
+- Thanks to Mishka for three fixes in this release, and to interslice for the totem cooldown report.
 
 ## v3.0.9.1 (2026-10-17)
 
