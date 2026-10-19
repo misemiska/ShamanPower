@@ -1,8 +1,9 @@
 -- ============================================================================
 -- Minimap icon right-click menu: the everyday switches without the settings
--- window (totem bar style, loadouts, assignments, Unlock UI, keybind mode,
--- What's New, setup, settings). Built on first use and only then; nothing runs
--- while it is closed.
+-- window (loadouts, assignments, Unlock UI, keybind mode, What's New,
+-- settings). Built on first use and only then; nothing runs while it is closed.
+-- The totem bar styles left it in 3.0.9.2 (the owner: a style is picked once,
+-- in the setup tour or Totem Bar > Style, and eight rows of it crowded the menu).
 --
 -- The look (D33 "Branded", menus_glowup_mock.py style C): the settings window's
 -- family. Its soft 1.5 px edge with a thin stripe of the four elements on top,
@@ -226,18 +227,10 @@ local function items()
 		local win = _G["ShamanPowerConfigUIFrame"]
 		if win and win:IsShown() then win:Raise() else SP:OpenConfigWindow() end
 	end })
-	-- the elements (D33): both totem bar sections Earth, ShamanPower Air (General's)
+	-- the elements (D33): Loadouts Earth (the totem bar's), ShamanPower Air (General's)
 	if isShaman() then
-		if SP.TotemBarStyleList and SP.GetTotemBarStyle then
-			add({ text = "Totem Bar Style", header = true, element = "earth", gap = 10 })   -- (room under Open Settings: the eye finds it)
-			local cur = SP:GetTotemBarStyle()
-			for _, st in ipairs(SP:TotemBarStyleList()) do
-				local key = st.key
-				add({ text = st.label, checked = (cur == key), disabled = combat, fn = function() SP:SetTotemBarStyle(key) end })
-			end
-		end
 		local loadouts = ShamanPower_TotemLoadouts
-		add({ text = "Loadouts", header = true, element = "earth" })
+		add({ text = "Loadouts", header = true, element = "earth", gap = 10 })   -- (room under Open Settings: the eye finds it)
 		if type(loadouts) == "table" and #loadouts > 0 then
 			for i, lo in ipairs(loadouts) do
 				local idx = i
