@@ -36,7 +36,10 @@ local EXCLUDE_KEY = { "excludeEarthFromDropAll", "excludeFireFromDropAll", "excl
 local ORD = { "1st", "2nd", "3rd", "4th" }
 local BIND_BUTTON = { "SHAMANPOWER_EARTH_TOTEM", "SHAMANPOWER_FIRE_TOTEM", "SHAMANPOWER_WATER_TOTEM", "SHAMANPOWER_AIR_TOTEM" }
 local BIND_FLYOUT = { "SHAMANPOWER_FLYOUT_EARTH", "SHAMANPOWER_FLYOUT_FIRE", "SHAMANPOWER_FLYOUT_WATER", "SHAMANPOWER_FLYOUT_AIR" }
-local DROPALL, ES = "dropall", "es"
+local DROPALL, ES, RECALL = "dropall", "es", "recall"
+-- Totemic Recall (its Bar choice: Totem Bar): its icon sits after Drop All here, with the Cooldown Bar
+-- page's own menu for it (CdbarIcons.lua ns.CdbarRecall); on the Cooldown Bar it is on that page instead
+local function RecallHere() return ns.CdbarRecall ~= nil and SP.RecallOnTotemBarPage ~= nil and SP:RecallOnTotemBarPage() end
 local ES_SLOT = 12          -- Earth Shield's own Running Out settings (ShamanPowerCdItems.lua)
 local COTE = 66842          -- Call of the Elements: the Drop All button's icon with Blizzard's totem sets
 local GENERIC_DROPALL = 136024
@@ -1009,12 +1012,14 @@ local function BtnLearned(item)
 	local k = item.key
 	if k == DROPALL then return DropAllLearned() end
 	if k == ES then return ESLearned() end
+	if k == RECALL then return ns.CdbarRecall.learned() end
 	return ElementLearned(k)
 end
 local function BtnShown(item)
 	local k = item.key
 	if k == DROPALL then return O().showDropAllButton ~= false end
 	if k == ES then return O().totemBarShowEarthShield ~= false end
+	if k == RECALL then return ns.CdbarRecall.shown() end
 	return ElementShown(k)
 end
 
@@ -1026,12 +1031,14 @@ BtnRow = ns.IconRow.New({
 			for _, e in ipairs(BarOrder()) do out[#out + 1] = { key = e, name = ELEM[e] } end
 		end
 		out[#out + 1] = { key = DROPALL, name = "Drop All" }
+		if RecallHere() then out[#out + 1] = { key = RECALL, name = ns.CdbarRecall.name() } end
 		if HasESButton() and not Native() then out[#out + 1] = { key = ES, name = ESName() } end
 	end,
 	textures = function(item, out)
 		local k = item.key
 		if k == DROPALL then out[1] = DropAllIcon()
 		elseif k == ES then out[1] = SpellTexture(SP.EarthShield and SP.EarthShield.rank1 or 974) or 136089
+		elseif k == RECALL then out[1] = ns.CdbarRecall.icon() or 134400
 		else out[1] = AssignedIcon(k) end
 		return 1
 	end,
@@ -1041,6 +1048,7 @@ BtnRow = ns.IconRow.New({
 		local k = item.key
 		if k == DROPALL then return DropAllOwn() end
 		if k == ES then return ESOwn() end
+		if k == RECALL then return ns.CdbarRecall.hasOwn() end
 		return ElementOwn(k)
 	end,
 	tooltip = function(item)
@@ -1056,6 +1064,10 @@ BtnRow = ns.IconRow.New({
 		elseif k == ES then
 			t = ESName() .. ": casts it on your assigned target."
 			if not ESLearned() then t = t .. " You haven't learned it yet. You can still set it up." end
+		elseif k == RECALL then
+			t = item.name .. ": at the end of your totem bar (its Bar setting). Right-click it for its settings, the same"
+				.. " ones it has on the Cooldown Bar page; Bar: Cooldown Bar puts it back there."
+			if not BtnLearned(item) then t = t .. " You haven't learned it yet. You can still set it up." end
 		else
 			local idx = SP.AssignedIndex and SP:AssignedIndex(k) or 0
 			t = "Your " .. ELEM[k] .. " button: " .. ((idx and idx > 0 and SP.GetTotemName) and SP:GetTotemName(k, idx)
@@ -1080,6 +1092,8 @@ BtnRow = ns.IconRow.New({
 		elseif k == ES then
 			O().totemBarShowEarthShield = not BtnShown(item)
 			Run("UpdateEarthShieldButton")
+		elseif k == RECALL then
+			ns.CdbarRecall.toggle()   -- (the Cooldown Bar page's own switch: both bars follow)
 		else
 			O()[SHOW_KEY[k]] = not ElementShown(k)
 			Run("UpdateMiniTotemBar")
@@ -1090,6 +1104,7 @@ BtnRow = ns.IconRow.New({
 		local k = item.key
 		if k == DROPALL then return DropAllMenu() end
 		if k == ES then return EarthShieldMenu() end
+		if k == RECALL then return ns.CdbarRecall.menu(BtnRow, item) end
 		return ElementMenu(k)
 	end,
 	move = function(item, index)
@@ -1107,7 +1122,7 @@ BtnRow = ns.IconRow.New({
 	gapBefore = function(item) if item.key == DROPALL then return 14 end return 0 end,
 	under = function(item, out)
 		local k = item.key
-		if k == ES then return 0 end
+		if k == ES or k == RECALL then return 0 end
 		if k == DROPALL then
 			for e = 1, 4 do out[e] = FillUnder(e, e) end
 			return 4

@@ -538,6 +538,13 @@ end
 local function NativeTotemBarSelected()
 	return HasLoadoutSetControls() and ShamanPower.opt and ShamanPower.opt.useBlizzardTotemBar == true
 end
+-- Totemic Recall set to sit on the totem bar (its Bar choice): its icon and settings are on Totem Bar > Bar
+-- then (the Buttons row), and the settings search finds it there; with Blizzard's Totem Bar in use
+-- ShamanPower's own bar isn't on screen, so it stays on the Cooldown Bar page
+function ShamanPower:RecallOnTotemBarPage()
+	if NativeTotemBarSelected() then return false end
+	return self.CdItemOpt and self:CdItemOpt(2, "onTotemBar") and true or false
+end
 local function CompactOn()
 	if NativeTotemBarSelected() then return false end
 	return ShamanPower.CompactActive and ShamanPower:CompactActive() or false
@@ -11687,7 +11694,11 @@ do
 			.. " Stoneclaw, Earth Elemental, Totem of Wrath, Searing, Magma, Fire Nova, Flametongue, Frost Resistance, Fire"
 			.. " Elemental, Mana Spring, Healing Stream, Mana Tide, Poison Cleansing, Disease Cleansing, Fire Resistance,"
 			.. " Windfury, Grace of Air, Wrath of Air, Tranquil Air, Grounding, Nature Resistance, Windwall, Sentry."
-		bar.args.tb_buttons = { type = "description", width = "full", name = " ", desc = BUTTONS_SEARCH }
+		local BUTTONS_SEARCH_RECALL = BUTTONS_SEARCH .. " Totemic Call, Totemic Recall: Bar (Cooldown Bar or Totem Bar), its"
+			.. " settings, the same as on the Cooldown Bar page."
+		bar.args.tb_buttons = { type = "description", width = "full", name = " ", desc = function()
+			return SP:RecallOnTotemBarPage() and BUTTONS_SEARCH_RECALL or BUTTONS_SEARCH
+		end }
 		bar.args.tb_totems = { type = "description", width = "full", name = " ", desc = TOTEMS_SEARCH }
 		bar.args.tb_flyouts_note = { type = "description", width = "full",
 			name = "|cffffa040Totem flyouts are turned off (Show Totem Flyouts), so a click on a totem has no effect until you"
@@ -12858,8 +12869,13 @@ do
 		.. " Missing, Running Out, Time Turns Red While Running Out, Test This Item's Effects. Clicks: Right-Click Casts"
 		.. " Your Other Shield. Flyout: Cooldown Flyout Direction, Icon Size, Opacity. Keybind: Set Keys In Keybind Mode."
 		.. " Copy Settings, Paste Settings, Copy Settings To, Copy To All Items, Hide This Item, Reset This Item."
+	local CDBAR_ICONS_SEARCH_NO_RECALL = (CDBAR_ICONS_SEARCH:gsub("Totemic Call, Totemic Recall, ", ""))
 	local args = {
-		cdbarIcons = { type = "description", width = "full", name = " ", desc = CDBAR_ICONS_SEARCH },
+		cdbarIcons = { type = "description", width = "full", name = " ", desc = function()
+			-- (Totemic Recall on the totem bar: its icon is on Totem Bar > Bar, and the search finds it there)
+			if ShamanPower:RecallOnTotemBarPage() then return CDBAR_ICONS_SEARCH_NO_RECALL end
+			return CDBAR_ICONS_SEARCH
+		end },
 		cdbar_fx_note = { type = "description", width = "full",
 			name = "Which effect each item plays, and when: right-click the item, then Effects." },
 		-- at the top, where it is seen: a button into Unlock UI (Done there ends it), as the other pages'

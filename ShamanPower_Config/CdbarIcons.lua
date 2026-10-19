@@ -260,18 +260,21 @@ end
 -- The menu
 -- ---------------------------------------------------------------------------
 local Row   -- (below)
+-- the row whose menu is open: this page's, or Totem Bar > Bar's Buttons row while Totemic Recall sits on
+-- the totem bar (TotemBarIcons.lua shows it there, with this same menu)
+local function MenuRow() return ns.CdbarMenuRow or Row end
 local function Get(t, name) return Data.Get(t, name) end
 -- a choice: saved, the menu stays open and is drawn again
 local function Set(t, name, v)
 	Data.Set(t, name, v)
-	Row:Changed(true)
+	MenuRow():Changed(true)
 	return true
 end
 -- a slider's value: only saved, the icons and the preview follow; never a redraw of the
 -- page under a drag
 local function SliderSet(t, name, v)
 	Data.Set(t, name, v)
-	Row:Repaint()
+	MenuRow():Repaint()
 	local cfg = _G.ShamanPowerConfig
 	if cfg and cfg.PreviewChanged then cfg:PreviewChanged() end
 end
@@ -327,7 +330,7 @@ local function EffectRow(t, text, onName, styleName, list, fallback, tip, pics)
 						Data.Set(t, styleName, v)
 						Data.Set(t, onName, true)
 					end
-					Row:Changed(true)
+					MenuRow():Changed(true)
 					return true
 				end }
 			end
@@ -397,7 +400,7 @@ local function Copy(from, to, group)
 end
 local function CopyGroup(t, to, group)
 	Copy(t, to, group)
-	Row:Changed(true)
+	MenuRow():Changed(true)
 	return true
 end
 -- Cooldown Ready, Cooldown Almost Ready and the time's gold onto every other cooldown this game
@@ -415,7 +418,7 @@ local function CopyEffectsToCooldowns(t)
 			end
 		end
 	end
-	Row:Changed(true)
+	MenuRow():Changed(true)
 	return true
 end
 local function CopyLine(text, fn) return { text = text, onClick = fn } end
@@ -629,7 +632,7 @@ local function MenuItems(item)
 	r[#r + 1] = { text = "Show", label = true }
 	r[#r + 1] = { text = on and "Hide This Icon" or "Show This Icon", onClick = function()
 		OptSet(I, SHOW_OPTION[t], not on)
-		Row:Changed(false)
+		MenuRow():Changed(false)
 	end }
 	-- when it shows
 	if IsShieldOrImbue(t) then
@@ -662,7 +665,7 @@ local function MenuItems(item)
 				Data.Set(t, "runOutReady", v)
 				Data.Set(t, "runOutOnly", true)
 			end
-			Row:Changed(true)
+			MenuRow():Changed(true)
 			return true
 		end, "Out of sight until its last seconds (Almost Ready At). Then Hide Again: gone again once it is ready."
 			.. " Until Used: up until you use it.")
@@ -700,8 +703,21 @@ local function MenuItems(item)
 		pk[#pk + 1] = Choice("Bar", { { false, "Cooldown Bar" }, { true, "Totem Bar" } }, function()
 			local v, own = Get(t, "onTotemBar")
 			return v and true or false, own
-		end, function(v) return Set(t, "onTotemBar", v) end, "Totem Bar: the button sits at the end of your totem bar instead.",
-			PIC.none)
+		end, function(v)
+			local was = SP.RecallOnTotemBarPage and SP:RecallOnTotemBarPage()
+			Data.Set(t, "onTotemBar", v)
+			local now = SP.RecallOnTotemBarPage and SP:RecallOnTotemBarPage()
+			if was == now then
+				MenuRow():Changed(true)
+				return true
+			end
+			-- its icon moves to the other bar's page (Totem Bar > Bar, or here): that page, with this menu open
+			C_Timer.After(0, function()
+				if now and SP.TotemBarOpenItemMenu then SP:TotemBarOpenItemMenu("button", "recall")
+				elseif SP.CooldownBarOpenItemMenu then SP:CooldownBarOpenItemMenu(t) end
+			end)
+		end, "Totem Bar: the button sits at the end of your totem bar instead, and its icon and these settings move to"
+			.. " Totem Bar > Bar.", PIC.none)
 		pk[#pk].words = "which bar the button sits on"
 	end
 	if t == SHIELD then
@@ -730,7 +746,7 @@ local function MenuItems(item)
 				SP:PasteCdItem(Row.clip.snap, t)
 				FixGoneStyles()
 			end
-			Row:Changed(true)
+			MenuRow():Changed(true)
 			return true
 		end }
 	r[#r + 1] = { text = "Copy Settings To...", subMaxHeight = 420, disabled = not HasAPI("CopyCdItem"),
@@ -739,18 +755,18 @@ local function MenuItems(item)
 		for _, x in ipairs(SP:GetCooldownBarOrder()) do
 			if x ~= t then
 				o[#o + 1] = { text = NAMES[x] or ("Item " .. x), icon = ICONS[x] and ICONS[x][1],
-					onClick = function() Copy(t, x); Row:Changed(false) end }
+					onClick = function() Copy(t, x); MenuRow():Changed(false) end }
 			end
 		end
 		o[#o + 1] = SEP
-		o[#o + 1] = { text = "All Items", onClick = function() Copy(t, "all"); Row:Changed(false) end }
+		o[#o + 1] = { text = "All Items", onClick = function() Copy(t, "all"); MenuRow():Changed(false) end }
 		return o
 	end }
 	r[#r + 1] = { text = "Reset This Button", disabled = not (SP.CdItemHasOwn and SP:CdItemHasOwn(t)),
 		tip = "Clear this icon's changes and use the bar's settings again.",
 		onClick = function()
 			if SP.ResetCdItem then SP:ResetCdItem(t) end
-			Row:Changed(false)
+			MenuRow():Changed(false)
 		end }
 	r[#r + 1] = SEP
 	-- its test
@@ -765,11 +781,19 @@ end
 local function MoveItem(item, index)
 	if InCombatLockdown() or not SP.GetCooldownBarOrder then return end
 	local order = SP:GetCooldownBarOrder()
+	-- (Totemic Recall on the totem bar is not in this row: the row's places are counted without it,
+	-- and it keeps its own place in the saved order)
+	local recallAt
+	if SP.RecallOnTotemBarPage and SP:RecallOnTotemBarPage() then
+		for i, x in ipairs(order) do if x == RECALL then recallAt = i break end end
+		if recallAt then table.remove(order, recallAt) end
+	end
 	local from
 	for i, x in ipairs(order) do if x == item.key then from = i break end end
 	if not from then return end
 	table.remove(order, from)
 	table.insert(order, math.max(1, math.min(#order + 1, index)), item.key)
+	if recallAt then table.insert(order, math.min(recallAt, #order + 1), RECALL) end
 	local seen = {}
 	for _, x in ipairs(order) do seen[x] = true end
 	for _, x in ipairs(SP.opt.cooldownBarOrder or {}) do
@@ -787,8 +811,9 @@ Row = ns.IconRow.New({
 	hint = "Click: show or hide it\nRight-click: its settings\nDrag: move it",
 	list = function(out)
 		Setup()
+		local away = SP.RecallOnTotemBarPage and SP:RecallOnTotemBarPage()   -- (Totemic Recall: on Totem Bar > Bar)
 		for _, t in ipairs(SP.GetCooldownBarOrder and SP:GetCooldownBarOrder() or {}) do
-			out[#out + 1] = { key = t, name = NAMES[t] or ("Item " .. t) }
+			if not (away and t == RECALL) then out[#out + 1] = { key = t, name = NAMES[t] or ("Item " .. t) } end
 		end
 	end,
 	textures = function(item, out)
@@ -808,7 +833,10 @@ Row = ns.IconRow.New({
 		local key = SHOW_OPTION[item.key]
 		if key then OptSet(I, key, not ShownOnBar(item.key)) end
 	end,
-	menu = MenuItems,
+	menu = function(item)
+		ns.CdbarMenuRow = nil   -- (this page's menu: this row redraws)
+		return MenuItems(item)
+	end,
 	move = MoveItem,
 	locked = function() return InCombatLockdown() end,
 	onLocked = function()
@@ -817,6 +845,22 @@ Row = ns.IconRow.New({
 })
 ns.CustomRows.cdbarIcons = Row
 ns.CdbarRow = Row
+SP.CooldownBarRow = Row   -- (the test round and the renderer reach the row here)
+
+-- Totemic Recall on the totem bar: Totem Bar > Bar's Buttons row shows its icon with these (row: that row,
+-- which the menu then redraws)
+ns.CdbarRecall = {
+	name = function() Setup() return NAMES[RECALL] or "Totemic Recall" end,
+	icon = function() Setup() return ICONS[RECALL] and ICONS[RECALL][1] end,
+	shown = function() return ShownOnBar(RECALL) end,
+	learned = function() return Learned(RECALL) end,
+	hasOwn = function() return SP.CdItemHasOwn and SP:CdItemHasOwn(RECALL) or false end,
+	toggle = function() OptSet(I, SHOW_OPTION[RECALL], not ShownOnBar(RECALL)) end,
+	menu = function(row, item)
+		ns.CdbarMenuRow = row
+		return MenuItems({ key = RECALL, name = item and item.name })
+	end,
+}
 
 -- SP:CooldownBarOpenItemMenu(type, path): the settings window on the Cooldown Bar page with
 -- that item's menu open once the row is drawn
