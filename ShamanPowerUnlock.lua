@@ -385,7 +385,9 @@ local GRID_DEFAULT = 16
 
 local function SnapOn() return not (SP.opt and SP.opt.unlockSnap == false) end
 local function GridOn() return ACTIVE and SP.opt and SP.opt.unlockGrid and true or false end
-local function GridSnapOn() return not (SP.opt and SP.opt.unlockGridSnap == false) end
+-- Snap to Boxes and Snap to Grid are one or the other (the owner, 3.0.9.2): Snap to Boxes is on to
+-- start, as Snapping always was; turning either on turns the other off; both can be off
+local function GridSnapOn() return SP.opt and SP.opt.unlockGridSnap == true and not SnapOn() or false end
 local function GridSize()
 	local g = tonumber(SP.opt and SP.opt.unlockGridSize) or GRID_DEFAULT
 	return math.min(math.max(g, 8), 128)
@@ -1987,13 +1989,13 @@ function SP:UnlockDragStop(mover)
 end
 
 -- ---------------------------------------------------------------------------
--- The bar at the top of the screen: the keys, Snapping, the grid, Tuck Away, the
+-- The bar at the top of the screen: the keys, Snap to Boxes, the grid, Tuck Away, the
 -- settings window, Reset All Positions and Done. In the 3.0.6 brand: Fira Sans,
 -- the four elements along its top edge, the tiny totem switches, and the logo
 -- docked beside the title.
 -- ---------------------------------------------------------------------------
 local KEYS = {
-	{ "Drag", "Move it (it snaps to other boxes and the screen center while Snapping is on)" },
+	{ "Drag", "Move it (it snaps to other boxes with Snap to Boxes, or to the grid with Snap to Grid)" },
 	{ "Click, then arrow keys", "Nudge it 1 px (Shift: 10 px). Escape lets it go" },
 	{ "Mouse wheel", "Its size (its Scale, or its Icon Size)" },
 	{ "Ctrl + wheel", "Its opacity" },
@@ -2243,21 +2245,26 @@ local function EnsureDoneBar()
 	row:SetPoint("LEFT", div, "RIGHT", 16, 0)
 	row:SetPoint("RIGHT", f, "RIGHT", -10, 0)
 	row:SetHeight(26)
-	local snap = MakeSwitch(row, "Snapping", SnapOn,
-		function(v) if v then SP.opt.unlockSnap = nil else SP.opt.unlockSnap = false end end,
-		"Line up dragged boxes with other boxes' edges and centers, or the screen center. Boxes snap within 8 pixels. Gold lines show the alignment. The grid has its own switch, Snap to Grid. This choice is saved.")
+	local snap = MakeSwitch(row, "Snap to Boxes", SnapOn,
+		function(v)
+			if v then SP.opt.unlockSnap, SP.opt.unlockGridSnap = nil, nil else SP.opt.unlockSnap = false end
+			if doneBar and doneBar.Refresh then doneBar:Refresh() end   -- (Snap to Grid's switch: off now)
+		end,
+		"Line up dragged boxes with other boxes' edges and centers, or the screen center. Boxes snap within 8 pixels. Gold lines show the alignment. One or the other: turning this on turns Snap to Grid off. This choice is saved.")
 	snap:SetPoint("LEFT", row, "LEFT", 0, 0)
 	local grid = MakeSwitch(row, "Show Grid", function() return SP.opt.unlockGrid end,
 		function(v) if v then SP.opt.unlockGrid = true else SP.opt.unlockGrid = nil end; ApplyGrid() end,
-		"Show a grid to help line up your bars and panels. With Snap to Grid on, a box dropped away from other boxes lines up with the grid. This choice is saved.")
+		"Show a grid to help line up your bars and panels. With Snap to Grid on, a dropped box lines up with it. This choice is saved.")
 	grid:SetPoint("LEFT", snap.label, "RIGHT", 20, 0)
 	-- Snap to Grid, beside Show Grid: only while the grid shows (it does nothing without it); the
 	-- grid size buttons follow it (placeGridSnap, below)
 	local gridSnap = MakeSwitch(row, "Snap to Grid", GridSnapOn,
-		function(v) if v then SP.opt.unlockGridSnap = nil else SP.opt.unlockGridSnap = false end end,
-		"A box dropped away from other boxes lines up with the grid. Off: the grid only shows,"
-		.. " and boxes stay exactly where you drop them. Snapping to other boxes and the screen"
-		.. " center is the Snapping switch. This choice is saved.")
+		function(v)
+			if v then SP.opt.unlockGridSnap, SP.opt.unlockSnap = true, false else SP.opt.unlockGridSnap = nil end
+			if doneBar and doneBar.Refresh then doneBar:Refresh() end   -- (Snap to Boxes' switch: off now)
+		end,
+		"A dropped box lines up with the grid. One or the other: turning this on turns Snap to Boxes off."
+		.. " With both off, boxes stay exactly where you drop them. This choice is saved.")
 	gridSnap:SetPoint("LEFT", grid.label, "RIGHT", 20, 0)
 	f:SetWidth(1180 + math.ceil(gridSnap:GetWidth()) + 8 + gridSnap.labelW + 20)   -- room for it, the bar the same width either way
 	local function stepGrid(d)

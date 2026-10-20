@@ -43,12 +43,17 @@ do
 	if a and scale then
 		a.tb_bar_size = twin(scale, { name = "Bar Size", width = 1.0,
 			desc = "How big the totem bar is. The same as Scale on Appearance > Totem Bar." })
+		-- (3.0.9.2, the owner: room for the glows) the space between its buttons: Button Spacing on Appearance > Totem Bar
+		a.tb_bar_spacing = { type = "range", width = 1.0, name = "Space Between Icons", min = 0, max = 20, step = 1,
+			desc = "The space between the totem bar's buttons, in pixels, so glows have room. The same as Button Spacing on Appearance > Totem Bar.",
+			get = function() return SP.opt.totemBarPadding or 2 end,
+			set = function(_, v) SP.opt.totemBarPadding = v; SP:UpdateRoster() end }
 		SP.OrderSettingsBands(bar, {
 			-- the pictures first, the switches under them (the owner, 2026-10-17: every icon page)
 			{ header = "buttons_header", name = "Buttons", keys = { "tb_buttons", "totembar_hide_unlearned" } },
 			{ header = "flyouts_header", name = "Totems in the Flyouts", keys = { "tb_totems", "show_totem_flyouts", "tb_flyouts_note" } },
 			{ keys = { "auto_enable" } },
-			{ header = "position_header", name = "Position & Size", keys = { "unlock_totem_bar", "tb_bar_size" },
+			{ header = "position_header", name = "Position & Size", keys = { "unlock_totem_bar", "tb_bar_size", "tb_bar_spacing" },
 				names = { unlock_totem_bar = "Move the Totem Bar" } },
 		})
 	end

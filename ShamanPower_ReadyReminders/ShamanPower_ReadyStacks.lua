@@ -42,8 +42,9 @@ local IconOpt, color = API.IconOpt, API.color
 local S = { stages = {} }
 SP.ReadyStacks = S
 
-local LOOKS = { number = true, bar = true, wings = true, fill = true, iconfill = true, storm = true }
-local WIDE = { wings = true, fill = true }
+local LOOKS = { number = true, bar = true, wings = true, fill = true, iconfill = true, storm = true, baronly = true }
+-- three icons wide: a spot of their own (Charge Bar Only too: the bar alone, no emblem, no icon)
+local WIDE = { wings = true, fill = true, baronly = true }
 local SHOWS = { stacks = true, five = true, always = true }
 local LEFTS = { off = true, number = true, drain = true }
 -- Blizzard's own Maelstrom Weapon pictures, 256 x 128 (textures/spellactivationoverlays/
@@ -68,7 +69,13 @@ function S.Wide(e) return e ~= nil and e.stacks ~= nil and WIDE[S.Look(e)] == tr
 -- the display's width and height, and the icon size it comes from
 function S.Box(e)
 	local s = IconOpt(e, "iconSize") or 48
-	if WIDE[S.Look(e)] then return math.floor(s * WIDE_W + 0.5), math.floor(s * WIDE_H + 0.5), s end
+	local look = S.Look(e)
+	if look == "baronly" then   -- (Charge Bar Only: as wide as Wings, its Bar Height, else a third of Size)
+		local bh = tonumber(IconOpt(e, "stackBarHeight")) or 0
+		if bh <= 0 then bh = math.max(6, math.floor(s * 0.3 + 0.5)) end
+		return math.floor(s * WIDE_W + 0.5), bh, s
+	end
+	if WIDE[look] then return math.floor(s * WIDE_W + 0.5), math.floor(s * WIDE_H + 0.5), s end
 	return s, s, s
 end
 local function stackRGB(e) return color(IconOpt(e, "stackColor"), 0.35, 0.65, 1.0) end
@@ -95,7 +102,7 @@ local function signature(e)
 		code(r, g, b), code(r5, g5, b5), code(gr, gg, gb), tostring(IconOpt(e, "readyEffect") or "glow"), glowShape(e),
 		tostring(IconOpt(e, "glowThick")), tostring(IconOpt(e, "iconShape")), tostring(IconOpt(e, "hideBackground")),
 		tostring(IconOpt(e, "hideBorder")), tostring(bc and (bc.r or bc[1])) .. tostring(bc and (bc.g or bc[2])) .. tostring(bc and (bc.b or bc[3])),
-		tostring(SP.IconShapeOf and SP:IconShapeOf("ready")), tostring(iconFile(e)) }, "|")
+		tostring(SP.IconShapeOf and SP:IconShapeOf("ready")), tostring(iconFile(e)), tostring(IconOpt(e, "stackBarHeight")) }, "|")
 end
 
 -- ---------------------------------------------------------------------------
@@ -208,17 +215,20 @@ local function pulse(t)
 	return t
 end
 -- the count over the look (Shield Charges' number font)
-local function countText(fr, s, wide)
+local function countText(fr, s, wide, barH)
 	local fs = fr:CreateFontString(nil, "OVERLAY")
-	SP:SetSPFont(fs, "charges", math.max(10, math.floor(s * 0.7 + 0.5)), "OUTLINE")
+	local size = barH and math.max(8, math.floor(barH * 1.1 + 0.5)) or math.max(10, math.floor(s * 0.7 + 0.5))   -- (Charge Bar Only: the bar's height)
+	SP:SetSPFont(fs, "charges", size, "OUTLINE")
+	if barH then fs:SetPoint("CENTER", fr, "CENTER", 1, 0); fs:SetTextColor(1, 1, 1); return fs end
 	fs:SetPoint("CENTER", fr, "CENTER", 1, wide and -math.floor(s * 0.1) or 0)
 	fs:SetTextColor(1, 1, 1)
 	return fs
 end
 -- the time left: in the icon's corner, or under the emblem's middle
-local function timeText(fr, s, wide)
+local function timeText(fr, s, wide, barH)
 	local fs = fr:CreateFontString(nil, "OVERLAY")
 	SP:SetSPFont(fs, "alerts", math.max(10, math.floor(s * 0.30 + 0.5)), "OUTLINE")
+	if barH then fs:SetPoint("LEFT", fr, "RIGHT", 4, 0); fs:SetTextColor(1, 1, 1); return fs end   -- (Charge Bar Only: beside it)
 	if wide then fs:SetPoint("BOTTOM", fr, "BOTTOM", 0, 2) else fs:SetPoint("BOTTOMRIGHT", fr, "BOTTOMRIGHT", -2, 3) end
 	fs:SetTextColor(1, 1, 1)
 	return fs
@@ -267,6 +277,66 @@ local function stackBar(fr, stage, s, r, g, b, full)
 	end
 	return sb, bh
 end
+-- Charge Bar Only: five parts side by side, from (index) to (index); a color lights them (a shade lighter
+-- at the top), none draws the empty track; a thin dark line round each part and between them
+local function segments(fr, w, h, from, to, r, g, b, alpha)
+	local gap = 1 + math.floor(h / 24)   -- (the owner: no gap, just the line, as one bar)
+	local sw = (w - gap * 4) / 5
+	for i = from, to do
+		local x = (i - 1) * (sw + gap)
+		local edge = fr:CreateTexture(nil, "BORDER")
+		edge:SetColorTexture(0, 0, 0, 0.85)
+		edge:SetPoint("TOPLEFT", fr, "TOPLEFT", x - 1, 1); edge:SetSize(sw + 2, h + 2)
+		local t = fr:CreateTexture(nil, "ARTWORK")
+		t:SetPoint("TOPLEFT", fr, "TOPLEFT", x, 0); t:SetSize(sw, h)
+		t:SetTexture(WHITE)
+		if r then
+			t:SetVertexColor(r, g, b)
+			if t.SetGradient and CreateColor then
+				pcall(t.SetGradient, t, "VERTICAL", CreateColor(r * 0.8, g * 0.8, b * 0.8, 1),
+					CreateColor(math.min(1, r + 0.3), math.min(1, g + 0.3), math.min(1, b + 0.3), 1))
+			end
+		else
+			t:SetVertexColor(0.08, 0.08, 0.1, 0.8)
+		end
+		if alpha then t:SetAlpha(alpha); edge:SetAlpha(alpha) end
+	end
+end
+
+-- Charge Bar Only's glow: light along all four sides of the bar, brightest at its edge and fading
+-- outward, breathing as the reminder's glow does. (The icon glows are square art: stretched over a
+-- long bar they lit only its ends.)
+local function barGlow(fr, anchor, r, g, b)
+	local pad = 8
+	local gf = CreateFrame("Frame", nil, fr)
+	gf:SetAllPoints(anchor)
+	local function strip(p1, a1, p2, a2, vertical, inside)
+		local t = gf:CreateTexture(nil, "OVERLAY", nil, 1)
+		t:SetTexture(WHITE); t:SetBlendMode("ADD")
+		t:SetPoint(p1, anchor, a1); t:SetPoint(p2, anchor, a2)
+		if vertical then t:SetHeight(pad) else t:SetWidth(pad) end
+		-- from the bar's edge (bright) out (clear): `inside` names which end of the gradient is the edge
+		local lo, hi = CreateColor and CreateColor(r, g, b, 0), CreateColor and CreateColor(r, g, b, 0.9)
+		if lo and t.SetGradient then
+			if inside == "min" then pcall(t.SetGradient, t, vertical and "VERTICAL" or "HORIZONTAL", hi, lo)
+			else pcall(t.SetGradient, t, vertical and "VERTICAL" or "HORIZONTAL", lo, hi) end
+		else
+			t:SetVertexColor(r, g, b, 0.5)
+		end
+		return t
+	end
+	strip("BOTTOMLEFT", "TOPLEFT", "BOTTOMRIGHT", "TOPRIGHT", true, "min")        -- above: its bottom is the edge
+	strip("TOPLEFT", "BOTTOMLEFT", "TOPRIGHT", "BOTTOMRIGHT", true, "max")        -- below: its top is the edge
+	strip("TOPRIGHT", "TOPLEFT", "BOTTOMRIGHT", "BOTTOMLEFT", false, "max")       -- left: its right end is the edge
+	strip("TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT", false, "min")       -- right: its left end is the edge
+	local ag = gf:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+	local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.35); a1:SetToAlpha(1); a1:SetDuration(0.5); a1:SetOrder(1)
+	local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(1); a2:SetToAlpha(0.35); a2:SetDuration(0.5); a2:SetOrder(2)
+	ag:Play()
+	gf.ag = ag
+	return gf
+end
+
 -- the gold of 5 stacks: the same bar, full, in Color At 5 Stacks
 local function stackBarFull(fr, stage, s, r, g, b) return (stackBar(fr, stage, s, r, g, b, true)) end
 -- Drain: a gray copy of the look over its top part, down to where the time left reaches. The
@@ -313,7 +383,9 @@ end
 local function describe(A, stage, e)
 	local look, show, left = S.Look(e), S.Show(e), S.Left(e)
 	local w, h, s = S.Box(e)
-	local wide = WIDE[look] == true
+	local barOnly = look == "baronly"
+	local wide = WIDE[look] == true and not barOnly   -- (the emblem's looks)
+	if barOnly and left == "drain" then left = "number" end   -- (no picture to gray: the number instead)
 	local five = show == "five"
 	local sr, sg, sb = stackRGB(e)
 	local r5, g5, b5 = fiveRGB(e)
@@ -325,7 +397,8 @@ local function describe(A, stage, e)
 	if show == "always" then
 		A:Part({ dim = true }, function(host)
 			local fr = layer(host, stage, 1)
-			if wide then emblemTex(fr, EMBLEM, 0.3)
+			if barOnly then segments(fr, w, h, 1, 5, nil, nil, nil, DIM)
+			elseif wide then emblemTex(fr, EMBLEM, 0.3)
 			else
 				plate(fr, e, s, true, DIM)
 				if look == "bar" then local bar = stackBar(fr, stage, s, sr, sg, sb, false); bar:SetAlpha(DIM) end
@@ -336,7 +409,10 @@ local function describe(A, stage, e)
 	-- the look itself, while the buff is on you (Only At 5 Stacks: at 5)
 	A:Part({ main = true, from = five and 5 or nil }, function(host, R)
 		local fr = layer(host, stage, LEVEL.main)
-		if look == "wings" then
+		if barOnly then
+			-- the empty track; Only At 5 Stacks: all of it in Color At 5 Stacks
+			if five then segments(fr, w, h, 1, 5, r5, g5, b5) else segments(fr, w, h, 1, 5) end
+		elseif look == "wings" then
 			if five then emblemTex(fr, EMBLEM) end
 		elseif look == "fill" then
 			if five then emblemTex(fr, EMBLEM)
@@ -365,12 +441,12 @@ local function describe(A, stage, e)
 			R:Time(drainShade(fr, fr, e, s, wide, stage))
 		elseif left == "number" then
 			local tf = layer(fr, stage, LEVEL.text)
-			R:TimeText(timeText(tf, s, wide))
+			R:TimeText(timeText(tf, s, wide, barOnly and h or nil))
 		end
 		-- the count (Icon + Stack Number, or Stack Number on)
 		if S.NumberOn(e) then
 			local tf = layer(fr, stage, LEVEL.text)
-			R:Count(countText(tf, s, wide), countFormatter(five, r5, g5, b5))
+			R:Count(countText(tf, s, wide, barOnly and h or nil), countFormatter(five, r5, g5, b5))
 		end
 	end)
 
@@ -394,6 +470,17 @@ local function describe(A, stage, e)
 					glowTex(fr, fr, shape, sr * 0.3, sg * 0.3, sb * 0.3, 0.7, 1, 0.9 - n * 0.1)
 				end)
 			end
+		end
+		-- Charge Bar Only: one part more per stack (the stack color), all of them in Color At 5 Stacks at 5
+		if barOnly then
+			for n = 1, 4 do
+				A:Part({ from = n }, function(host)
+					segments(layer(host, stage, LEVEL.piece), w, h, n, n, sr, sg, sb)
+				end)
+			end
+			A:Part({ from = 5 }, function(host)
+				segments(layer(host, stage, LEVEL.five), w, h, 1, 5, r5, g5, b5)
+			end)
 		end
 		-- Charge Bar at 5: all of it in Color At 5 Stacks
 		if look == "bar" then
@@ -421,6 +508,8 @@ local function describe(A, stage, e)
 				local pf = CreateFrame("Frame", nil, fr)
 				pf:SetSize(w, h); pf:SetPoint("CENTER", stage, "CENTER", 0, 0)
 				SP.ProcGlow_Start(pf, SP:ProcGlowOptions(pf, c, "rs", true, IconOpt(e, "glowThick") or SP.PROC_GLOW_OUT or 0.2))
+			elseif barOnly then
+				barGlow(fr, fr, gr, gg, gb)   -- (Charge Bar Only: all the way round the bar)
 			else
 				glowTex(fr, fr, shape, gr, gg, gb, 0.15, 0.8, 0.5)
 			end
@@ -429,6 +518,13 @@ local function describe(A, stage, e)
 	if fx == "pulse" or fx == "both" then
 		A:Part({ fx = "pulse" }, function(host)
 			local fr = layer(host, stage, LEVEL.fx - 1)
+			if barOnly then   -- (Charge Bar Only: the whole bar, in Color At 5 Stacks, breathes)
+				local pf = CreateFrame("Frame", nil, fr)
+				pf:SetAllPoints(fr)
+				segments(pf, w, h, 1, 5, r5, g5, b5)
+				pulse(pf)
+				return
+			end
 			local t = fr:CreateTexture(nil, "ARTWORK")
 			if wide then
 				t:SetAllPoints(fr); t:SetTexture(EMBLEM)

@@ -1766,23 +1766,29 @@ function SP:ShieldGoneAsk()
 	if not avail then
 		self:ShowSPDialog({
 			key = "cdmShield",
-			title = "Cooldown Manager Is Unavailable",
-			text = "WoW's Cooldown Manager is unavailable for this character or realm, so ShamanPower cannot use it to see your shield end in a fight. Every other shield feature still works.",
+			title = "Can't Track Shields in Fights",
+			text = "WoW's Cooldown Manager isn't available on this character or realm, so ShamanPower can't tell when your Lightning Shield or Water Shield falls off during a fight. Out of a fight it still can, and every other shield feature works as usual.",
 			buttons = { { text = "Got It" } },
 		})
 		return
 	end
 	self:ShowSPDialog({
 		key = "cdmShield",
-		title = "Set Up Shield Tracking for Combat",
-		text = "ShamanPower can set up WoW's Cooldown Manager to see your shield end in a fight. It turns the Cooldown Manager on if it is off, switches it to a ShamanPower layout that tracks only your shield, hides WoW's own shield display, and reloads once. Your other Cooldown Manager layouts stay saved.",
+		title = "Track Lightning Shield and Water Shield in Fights",
+		text = "During a fight, WoW hides your Lightning Shield and Water Shield from addons, so ShamanPower can't tell when one falls off. WoW's own Cooldown Manager can still see them, so ShamanPower can watch them through it and warn you the moment your shield is gone, even mid-fight."
+			.. "\n\nThe |cff3FA9F5Set It Up|r Button does this once for you:"
+			.. "\n\226\128\162 Turns on WoW's Cooldown Manager if it's off"
+			.. "\n\226\128\162 Adds a ShamanPower layout to Cooldown Manager that tracks only Lightning Shield and Water Shield"
+			.. "\n\226\128\162 Hides WoW's own shield icon, so you don't see it twice"
+			.. "\n\226\128\162 Reloads your UI"
+			.. "\n\nYour other Cooldown Manager layouts stay saved.",
 		buttons = {
-			{ text = "Set It Up And Reload", onClick = function()
+			{ text = "Set It Up and Reload", onClick = function()
 				local ok, why = SP:ShieldGoneSetup()
 				if ok then
 					if C_UI and C_UI.Reload then C_UI.Reload() elseif ReloadUI then ReloadUI() end
 				else
-					print("|cff0070ddShamanPower|r: could not set the Cooldown Manager up (" .. tostring(why) .. "). By hand: in the Cooldown Manager's settings, drag Lightning Shield and Water Shield from Not Displayed into Tracked Buffs, then close the window.")
+					print("|cff0070ddShamanPower|r: couldn't set up the Cooldown Manager (" .. tostring(why) .. "). To do it yourself: open WoW's Cooldown Manager settings, drag Lightning Shield and Water Shield from Not Displayed into Tracked Buffs, then close the window.")
 				end
 			end },
 			-- Not Now is kept: never asked again (the Shield Charges page has a button to come back to it)
@@ -1933,6 +1939,38 @@ local function cdmShieldIDs()
 	return out
 end
 
+-- The lists ShamanPower's layout holds: the shields the player knows (want) in Tracked Buffs,
+-- every other cooldown and buff of the game's catalog in Not Displayed (the game's two hidden
+-- pseudo-categories). The catalog is asked for spells not learned yet too, as the game's own
+-- settings ask (3.0.9.2): a spell learned later stays out of sight instead of showing up.
+local function cdmLayoutLists(want)
+	local C = C_CooldownViewer
+	local E = Enum and Enum.CooldownViewerCategory or {}
+	local hiddenActive, hiddenPassive = E.HiddenActive or -1, E.HiddenPassive or -2
+	local over = {}
+	local function list(cat) local t = over[cat]; if not t then t = {}; over[cat] = t end return t end
+	for _, cat in ipairs({ E.Essential or 0, E.Utility or 1, E.TrackedBuff or 2, E.TrackedBar or 3 }) do
+		local ok, set = pcall(C.GetCooldownViewerCategorySet, cat, true)
+		if ok and type(set) == "table" then
+			local hidden = (cat == (E.Essential or 0) or cat == (E.Utility or 1)) and hiddenActive or hiddenPassive
+			for _, cid in ipairs(set) do
+				if plainNumber(cid) then
+					if want[cid] then local t = list(E.TrackedBuff or 2); t[#t + 1] = cid
+					else local t = list(hidden); t[#t + 1] = cid end
+				end
+			end
+		end
+	end
+	return over
+end
+local function cdmWant()
+	local ids = cdmShieldIDs()
+	local want = {}
+	if ids[1] and knowsShield(1) then want[ids[1]] = true end
+	if ids[2] and knowsShield(2) then want[ids[2]] = true end
+	return want
+end
+
 -- The setup the dialog offers (ShieldGoneAsk): the Cooldown Manager on, and a layout of
 -- ShamanPower's own made active, through the game's own saved string (SetLayoutData; measured
 -- clean 2026-10-10: the live tables taint, the string does not). That layout tracks ONLY the
@@ -1952,10 +1990,7 @@ function SP:ShieldGoneSetup()
 		local ok, v = pcall(getCVar, "cooldownViewerEnabled")
 		if ok and (v == "0" or v == 0) then pcall(setCVar, "cooldownViewerEnabled", "1") end
 	end
-	local ids = cdmShieldIDs()
-	local want = {}
-	if ids[1] and knowsShield(1) then want[ids[1]] = true end
-	if ids[2] and knowsShield(2) then want[ids[2]] = true end
+	local want = cdmWant()
 	if not next(want) then return false, "the game's catalog has no shield you know" end
 	local str = C.GetLayoutData()
 	local data, err = cdmDecode(str)
@@ -1969,7 +2004,7 @@ function SP:ShieldGoneSetup()
 	if type(data[3][tag]) ~= "table" then data[3][tag] = {} end
 	local layouts = data[3][tag]
 	-- ShamanPower's layout for this class and spec: the one named so, else a new one
-	local id, created
+	local id
 	for lid, name in pairs(data[4]) do
 		if name == "ShamanPower" and type(lid) == "number" and layouts[lid] then id = lid break end
 	end
@@ -1985,44 +2020,12 @@ function SP:ShieldGoneSetup()
 		id = maxID + 1
 		layouts[id] = {}
 		data[4][id] = "ShamanPower"
-		created = true
 	end
 	local layout = layouts[id]
 	data[2][tag] = id   -- (active for this class and spec)
-	-- its categories, built from the game's catalog: the shields in Tracked Buffs (2), all else
-	-- Not Displayed (the game's two hidden pseudo-categories)
-	local E = Enum and Enum.CooldownViewerCategory or {}
-	local hiddenActive, hiddenPassive = E.HiddenActive or -1, E.HiddenPassive or -2
-	local over = {}
-	local function list(cat) local t = over[cat]; if not t then t = {}; over[cat] = t end return t end
-	for _, cat in ipairs({ E.Essential or 0, E.Utility or 1, E.TrackedBuff or 2, E.TrackedBar or 3 }) do
-		local ok, set = pcall(C.GetCooldownViewerCategorySet, cat, false)
-		if ok and type(set) == "table" then
-			local hidden = (cat == (E.Essential or 0) or cat == (E.Utility or 1)) and hiddenActive or hiddenPassive
-			for _, cid in ipairs(set) do
-				if plainNumber(cid) then
-					if want[cid] then local t = list(E.TrackedBuff or 2); t[#t + 1] = cid
-					else local t = list(hidden); t[#t + 1] = cid end
-				end
-			end
-		end
-	end
-	if created then
-		layout[2] = over
-	else
-		-- the layout exists (made before, maybe added to by the player since): only the shields move,
-		-- into Tracked Buffs and out of every other list; the rest of it stays theirs
-		if type(layout[2]) ~= "table" then layout[2] = {} end
-		for cat, lst in pairs(layout[2]) do
-			if type(lst) == "table" then
-				for i = #lst, 1, -1 do if want[lst[i]] then table.remove(lst, i) end end
-				if #lst == 0 then layout[2][cat] = nil end
-			end
-		end
-		local tb = layout[2][E.TrackedBuff or 2]
-		if type(tb) ~= "table" then tb = {}; layout[2][E.TrackedBuff or 2] = tb end
-		for cid in pairs(want) do tb[#tb + 1] = cid end
-	end
+	-- its lists, whole: the shields in Tracked Buffs, everything else out of sight. A layout made
+	-- before is rebuilt the same way (3.0.9.2): set up again, it only ever tracks the shields
+	layout[2] = cdmLayoutLists(want)
 	local out, e = cdmEncode(data)
 	if not out then return false, e end
 	self.opt.cdmLayoutBackup = str   -- (the string before: /run ShamanPower:CdmLayoutRestore())
@@ -2030,6 +2033,30 @@ function SP:ShieldGoneSetup()
 	if not ok then return false, tostring(e2) end
 	if C.GetLayoutData() ~= out then return false, "the game did not keep the string" end
 	self.opt.cdmHideShieldIcon = true   -- (the player took ShamanPower's layout: its own shield display takes the icon's place)
+	return true
+end
+-- ShamanPower's layout is the active one and holds exactly what the setup puts there (the shields
+-- you know in Tracked Buffs, nothing else of the game's on screen): the switch then only hides
+-- the shield icon; anything else takes the setup again (3.0.9.2: a layout made before, or the
+-- game's own layout tracking your shield, left the game's other icons showing).
+function SP:ShieldGoneLayoutComplete()
+	local C = C_CooldownViewer
+	if not (C and C.GetLayoutData and C.GetCooldownViewerCategorySet) then return false end
+	local data = cdmDecode(C.GetLayoutData())
+	if not (data and type(data[2]) == "table" and type(data[3]) == "table" and type(data[4]) == "table") then return false end
+	local tag = cdmTag()
+	local id = data[2][tag]
+	if not id or data[4][id] ~= "ShamanPower" then return false end
+	local layout = type(data[3][tag]) == "table" and data[3][tag][id]
+	local have = layout and type(layout[2]) == "table" and layout[2]
+	if not have then return false end
+	local want = cdmWant()
+	if not next(want) then return false end
+	for cat, ids in pairs(cdmLayoutLists(want)) do
+		local inLayout = {}
+		if type(have[cat]) == "table" then for _, cid in ipairs(have[cat]) do inLayout[cid] = true end end
+		for _, cid in ipairs(ids) do if not inLayout[cid] then return false end end
+	end
 	return true
 end
 -- a trace: what each Cooldown Manager item says it carries (ordinary values only; a secret

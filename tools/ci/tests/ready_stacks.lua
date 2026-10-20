@@ -82,8 +82,8 @@ check("Only At 5 Stacks: 5 stacks shown", f:IsShown())
 SP:ReadyReminderSetIconOpt("maelstrom", "stackShow", nil)
 
 -- each look: the game's parts (main; From N; Exactly N; the Effect's glow)
-local want = { number = 2, bar = 3, wings = 7, fill = 2, iconfill = 2, storm = 6 }
-for _, look in ipairs({ "number", "bar", "wings", "fill", "iconfill", "storm" }) do
+local want = { number = 2, bar = 3, baronly = 7, wings = 7, fill = 2, iconfill = 2, storm = 6 }
+for _, look in ipairs({ "number", "bar", "baronly", "wings", "fill", "iconfill", "storm" }) do
 	SP:ReadyReminderSetIconOpt("maelstrom", "stackLook", look)
 	setStacks(2)
 	local d = SP.ReadyStacks.Diag(f)
@@ -107,6 +107,20 @@ SP:UpdateAllReadyReminderAppearance()
 setStacks(3)
 local w, h = f:GetSize()
 check("Wings: 150 x 75 at Size 48", math.abs(w - 150) < 0.5 and math.abs(h - 75) < 0.5, w .. "x" .. h)
+-- Charge Bar Only: the bar alone, as wide as Wings, a third of Size tall (or its Bar Height)
+SP:ReadyReminderSetIconOpt("maelstrom", "stackLook", "baronly")
+SP:UpdateAllReadyReminderAppearance()
+setStacks(3)
+w, h = f:GetSize()
+check("Charge Bar Only: 150 x 14 at Size 48", math.abs(w - 150) < 0.5 and math.abs(h - 14) < 0.5, w .. "x" .. h)
+SP:ReadyReminderSetIconOpt("maelstrom", "stackBarHeight", 22)
+SP:UpdateAllReadyReminderAppearance()
+w, h = f:GetSize()
+check("its own Bar Height", math.abs(h - 22) < 0.5, w .. "x" .. h)
+SP:ReadyReminderSetIconOpt("maelstrom", "stackBarHeight", nil)
+SP:ReadyReminderSetIconOpt("maelstrom", "stackLook", "wings")
+SP:UpdateAllReadyReminderAppearance()
+setStacks(3)
 local prevArrange = sv.arrange
 sv.arrange = "grid"
 SP:UpdateAllReadyReminderAppearance(); setStacks(3)
@@ -116,6 +130,19 @@ local movers = SP:ReadyReminderMoverFrames()
 local hasOwn = false
 for _, m in ipairs(movers) do if m == f then hasOwn = true end end
 check("Unlock UI: Wings gets a box of its own beside the grid's", hasOwn)
+-- Rows placement: dragged down to Not On A Row it's off your screen; back up: its own spot again
+sv.arrange = "rows"
+SP:UpdateAllReadyReminderAppearance(); setStacks(3)
+check("Rows: Wings on its own spot, shown", f:IsShown() and not SP:ReadyOwnOff("maelstrom"))
+SP:ReadySetOwnOff("maelstrom", true)
+setStacks(3)
+check("Rows: Not On A Row, off your screen", not f:IsShown())
+local inMovers = false
+for _, m in ipairs(SP:ReadyReminderMoverFrames()) do if m == f then inMovers = true end end
+check("Rows: no Unlock UI box while it's off", not inMovers)
+SP:ReadySetOwnOff("maelstrom", false)
+setStacks(3)
+check("Rows: back on its own spot", f:IsShown())
 sv.arrange = prevArrange
 SP:UpdateAllReadyReminderAppearance()
 
@@ -139,13 +166,26 @@ if Row then
 	check("menu: At 5 Stacks", byText["At 5 Stacks"] ~= nil)
 	check("menu: no Out of Range", byText["Out of Range"] == nil)
 	local lookSub = byText.Look and byText.Look.sub()
-	checkEq("Look: six looks", lookSub and #lookSub, 6)
+	checkEq("Look: seven looks", lookSub and #lookSub, 7)
 	local showSub = byText.Show and byText.Show.sub()
 	checkEq("Show: three choices", showSub and #showSub, 3)
 	if lookSub then lookSub[2].onClick() end
 	checkEq("a click on Charge Bar saves it", SP:ReadyReminderIconOpt("maelstrom", "stackLook"), "bar")
 	local stackRows = byText.Stacks and byText.Stacks.sub()
 	check("Stacks: Stack Number, Time Left and the two colors", stackRows and #stackRows >= 5)
+	-- Test Icon: the look counting up 1 to 5 on the icon, then back to the real stacks
+	local test = byText["Test Icon"]
+	check("menu: Test Icon", test ~= nil and not test.disabled)
+	setStacks(0)
+	check("0 stacks: hidden before the test", not f:IsShown())
+	if test then test.onClick() end
+	__sim.advance(0.3)
+	check("Test Icon shows the icon", f:IsShown() and f.stack.mode == "paint")
+	SP:UpdateReadyReminders()
+	check("a pass during the test leaves it up", f:IsShown())
+	__sim.advance(7)
+	check("the test ends on its own", f.spStacksTest == nil)
+	check("then the icon follows the real stacks again (0: hidden)", not f:IsShown())
 else
 	check("the Spells row is reachable", false)
 end

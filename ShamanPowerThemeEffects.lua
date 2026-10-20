@@ -574,7 +574,7 @@ local function loopFrac(host, c)
 	if element and buttons and buttons[element] == host then
 		local have, _, start, duration = SP:GetElementTotemInfo(element)
 		if have and type(start) == "number" and type(duration) == "number" and not isSecret(start) and not isSecret(duration) then
-			local secs = (SP.opt and SP.opt.totemCueExpiringSecs) or 5
+			local secs = host.spExpSecs or (SP.opt and SP.opt.totemCueExpiringSecs) or 5   -- (the totem's own, 3.0.9.2)
 			local f = (start + duration - GetTime()) / secs
 			if f < 0 then f = 0 elseif f > 1 then f = 1 end
 			return f

@@ -366,6 +366,8 @@ local function TotemOwn(item)
 	local pk = PulseKey(item.key)
 	if pk and not (PulseBarOn(pk) and PulseFlashOn(pk)) then return true end
 	if TempApplies(item.key) and TempOn(item.key) ~= TempDefault(item.key) then return true end
+	local own = SP.opt and type(SP.opt.totemOwn) == "table" and SP.opt.totemOwn[item.key]   -- (3.0.9.2) its own effects
+	if type(own) == "table" and next(own) ~= nil then return true end
 	return false
 end
 
@@ -840,6 +842,226 @@ local function PulseOffWhy(flash)
 	return nil
 end
 
+-- ---------------------------------------------------------------------------
+-- (3.0.9.2) Each totem's own effects, in its menu: what it set there lives in opt.totemOwn[its
+-- spell] under the bar's own keys; anything it didn't set is the bar's own setting, as it was
+-- (ShamanPowerCues.lua SP:TotemCueOpt). Apply to All Totems makes this totem's the bar's own
+-- (every totem follows them); Apply to All <Element> Totems puts them on that element's totems.
+-- ---------------------------------------------------------------------------
+local FX = {
+	destroyed = { "totemCueDestroyed", "totemCueDestroyedStyle", "totemCueDestroyedMark", "totemCueDestroyedMarkStays" },
+	expired = { "totemCueExpired", "totemCueExpiredStyle" },
+	expiring = { "totemCueExpiring", "totemCueExpiringStyle", "totemCueExpiringSecs" },
+	range = { "totemRangeLook", "totemRangeGlowShape", "totemRangeGlowColor" },
+	look = { "totemCueLook", "totemCueSignature" },
+	usual = { "usualTotemReminder", "usualTotemStyle", "usualTotemLabel", "usualTotemAlert" },
+}
+local FX_ALL = {}
+for _, g in pairs(FX) do for _, k in ipairs(g) do FX_ALL[#FX_ALL + 1] = k end end
+local FX_FALLBACK = { totemCueDestroyedStyle = "shake", totemCueExpiredStyle = "pop", totemCueExpiringStyle = "pulse",
+	totemCueExpiringSecs = 5, totemRangeLook = "gray", totemCueLook = "standard", usualTotemStyle = "glow", usualTotemLabel = true }
+local LOOKS = { { "standard", "Standard" }, { "elemental", "Elemental" }, { "signal", "Signal" } }
+local RANGE_LOOKS = { { "gray", "Gray (as always)" }, { "glow", "Glow" }, { "both", "Gray + Glow" }, { "none", "Nothing" } }
+local function CopyV(v)
+	if type(v) ~= "table" then return v end
+	local t = {}
+	for k, x in pairs(v) do t[k] = x end
+	return t
+end
+local function TOwn(id, create)
+	local o = O()
+	if type(o.totemOwn) ~= "table" then
+		if not create then return nil end
+		o.totemOwn = {}
+	end
+	local t = o.totemOwn[id]
+	if type(t) ~= "table" and create then t = {}; o.totemOwn[id] = t end
+	return t
+end
+local function TPrune(id)
+	local o = O()
+	local t = type(o.totemOwn) == "table" and o.totemOwn[id]
+	if type(t) == "table" and next(t) == nil then o.totemOwn[id] = nil end
+end
+-- value (the bar's own, or its default, when the totem has none), own
+local function TGet(id, k)
+	local own = TOwn(id)
+	if own and own[k] ~= nil then return own[k], true end
+	local v = O()[k]
+	if v == nil then v = FX_FALLBACK[k] end
+	return v, false
+end
+local function FxApplied()
+	Run("ApplyCueSettings")
+	Run("ApplyUsualTotemSettings")
+	if SP.UpdatePlayerTotemRange then Run("UpdatePlayerTotemRange") end
+end
+local function TSet(id, k, v)
+	TOwn(id, true)[k] = v
+	TPrune(id)
+	FxApplied()
+	return Changed(TotRow)
+end
+-- the style list each effect has on Totem Bar > Effects (the same choices, the Effects Look's too)
+local function StyleList(key)
+	local a = SP.options and SP.options.args.fluffy.args.totembar_effects_section
+	local opt = a and a.args[key]
+	local values, order = opt and opt.values, opt and opt.sorting
+	if type(values) == "function" then values = values() end
+	if type(order) == "function" then order = order() end
+	local list = {}
+	for _, k in ipairs(order or {}) do if values and values[k] then list[#list + 1] = { k, values[k] } end end
+	return list
+end
+local function OnOffRowT(id, text, k, tip, isTrue)
+	return Choice(text, { { true, "On" }, { false, "Off" } }, function()
+		local v, own = TGet(id, k)
+		if isTrue then v = v == true else v = v and true or false end
+		return v, own
+	end, function(v) return TSet(id, k, v) end, tip)
+end
+local function ApplyRows(item, keys)
+	local id, e = item.key, item.e
+	return {
+		{ text = "Apply to All Totems", tip = "Every totem takes these settings of this one (they become the bar's own).",
+			onClick = function()
+				local o = O()
+				for _, k in ipairs(keys) do o[k] = CopyV((TGet(id, k))) end
+				if type(o.totemOwn) == "table" then
+					for sid, own in pairs(o.totemOwn) do
+						if type(own) == "table" then
+							for _, k in ipairs(keys) do own[k] = nil end
+							if next(own) == nil then o.totemOwn[sid] = nil end
+						end
+					end
+				end
+				FxApplied()
+				TotRow:Changed(false)
+			end },
+		{ text = "Apply to All " .. ELEM[e] .. " Totems", tip = "Every " .. ELEM[e] .. " totem takes these settings of this one.",
+			onClick = function()
+				for _, t in ipairs(Totems()) do
+					if t.e == e and t.key ~= id then
+						local own = TOwn(t.key, true)
+						for _, k in ipairs(keys) do
+							local v, mine = TGet(id, k)
+							if mine then own[k] = CopyV(v) else own[k] = nil end
+						end
+						TPrune(t.key)
+					end
+				end
+				FxApplied()
+				TotRow:Changed(false)
+			end },
+	}
+end
+local function Join(a, b) for _, x in ipairs(b) do a[#a + 1] = x end return a end
+local function FxGroups(item)
+	local id = item.key
+	local out = {}
+	-- the look its effects play in (Standard, Elemental, Signal) and Signature Moves: was Totem Bar > Effects
+	out[#out + 1] = Menu.Group("Effects Look", function()
+		local look = TGet(id, "totemCueLook")
+		local t = {
+			Choice("Look", LOOKS, function() return TGet(id, "totemCueLook") end, function(v) return TSet(id, "totemCueLook", v) end,
+				"Standard: the original look. Elemental: a ring and glow in the element's color, with cracked stone for a destroyed totem."
+				.. " Signal: a thin border and a bar along the bottom, with a red slash and corner flag for a destroyed totem."),
+			OnOffRowT(id, "Signature Moves", "totemCueSignature", "Each effect plays the look's own animation (Elemental: Crumble,"
+				.. " Shrinking Ring, Shrinking Border. Signal: Blinking Border, Shrinking Underline, Bar Below Icon) instead of its"
+				.. " Style. Needs a look other than Standard.", true),
+			SEP,
+		}
+		if look == "standard" then t[2].disabled = true end
+		return Join(t, ApplyRows(item, FX.look))
+	end, nil, nil, "the look its effects play in")
+	out[#out + 1] = Menu.Group("When Destroyed", function()
+		local t = {
+			OnOffRowT(id, "Effect", "totemCueDestroyed", "When this totem is killed before its time, its button plays the style below in red. Your own right-click dismiss, Totemic Call and dying do not count."),
+			Choice("Style", StyleList("totemCueDestroyedStyle"), function() return TGet(id, "totemCueDestroyedStyle") end,
+				function(v) return TSet(id, "totemCueDestroyedStyle", v) end),
+			OnOffRowT(id, "Red X Until Recast", "totemCueDestroyedMark", "A red X on the button when it's destroyed, until you drop that element again (5 seconds at most).", true),
+		}
+		if TGet(id, "totemCueDestroyedMark") == true then
+			t[#t + 1] = OnOffRowT(id, "Keep the Red X Until Recast", "totemCueDestroyedMarkStays", "The X stays until you drop that element again, instead of fading after 5 seconds.")
+		end
+		t[#t + 1] = SEP
+		return Join(t, ApplyRows(item, FX.destroyed))
+	end, nil, nil, "killed before its time")
+	out[#out + 1] = Menu.Group("When It Expires", function()
+		local t = {
+			OnOffRowT(id, "Effect", "totemCueExpired", "When this totem runs out, its button plays the style below in white."),
+			Choice("Style", StyleList("totemCueExpiredStyle"), function() return TGet(id, "totemCueExpiredStyle") end,
+				function(v) return TSet(id, "totemCueExpiredStyle", v) end),
+			SEP,
+		}
+		return Join(t, ApplyRows(item, FX.expired))
+	end, nil, nil, "it runs out")
+	out[#out + 1] = Menu.Group("Expiring Soon", function()
+		local t = {
+			OnOffRowT(id, "Effect", "totemCueExpiring", "Over this totem's last seconds its button plays the style below, until it runs out or you drop it again."),
+			Choice("Style", StyleList("totemCueExpiringStyle"), function() return TGet(id, "totemCueExpiringStyle") end,
+				function(v) return TSet(id, "totemCueExpiringStyle", v) end),
+			Slider("Warn Before It Ends (Seconds)", 3, 15, 1, function() return (TGet(id, "totemCueExpiringSecs")) end,
+				function(v) TOwn(id, true).totemCueExpiringSecs = v; FxApplied() end),
+			SEP,
+		}
+		return Join(t, ApplyRows(item, FX.expiring))
+	end, nil, nil, "its last seconds")
+	out[#out + 1] = Menu.Group("Out of Range", function()
+		local t = { Choice("Look", RANGE_LOOKS, function() return TGet(id, "totemRangeLook") end,
+			function(v) return TSet(id, "totemRangeLook", v) end,
+			"How its button looks while you're out of its range: gray as it always was, a glow, both, or nothing.") }
+		local look = TGet(id, "totemRangeLook")
+		if look == "glow" or look == "both" then
+			if SP.GlowShapeValues then
+				local map, order = SP:GlowShapeValues()
+				local list = {}
+				for _, k in ipairs(order or {}) do list[#list + 1] = { k, map[k] } end
+				t[#t + 1] = Choice("Glow Shape", list, function()
+					local v, own = TGet(id, "totemRangeGlowShape")
+					return v or (O().glowShape or "default"), own
+				end, function(v) return TSet(id, "totemRangeGlowShape", v) end, "The glow's shape. Proc Glow is the game's ring.")
+			end
+			local c = TGet(id, "totemRangeGlowColor") or SP.TOTEM_RANGE_GLOW_DEFAULT or { r = 1, g = 0.3, b = 0.3 }
+			t[#t + 1] = { text = "Glow Color", swatch = { c.r or 1, c.g or 0.3, c.b or 0.3 }, onClick = function()
+				if not SP.OpenColorPicker then return false end
+				local _, own = TGet(id, "totemRangeGlowColor")
+				local before = own and CopyV((TGet(id, "totemRangeGlowColor"))) or nil
+				SP:OpenColorPicker({ r = c.r or 1, g = c.g or 0.3, b = c.b or 0.3, hasAlpha = false, title = item.name .. " Out of Range Glow Color",
+					onChange = function(r, g, b) TOwn(id, true).totemRangeGlowColor = { r = r, g = g, b = b }; FxApplied(); TotRow:Changed(false) end,
+					onCancel = function() TOwn(id, true).totemRangeGlowColor = before; TPrune(id); FxApplied(); TotRow:Changed(false) end })
+				return false
+			end }
+		end
+		t[#t + 1] = SEP
+		return Join(t, ApplyRows(item, FX.range))
+	end, nil, nil, "you're out of its range")
+	-- Put Your Usual Totem Back (was Totem Bar > Effects): a temporary totem's reminder when it ends
+	if TempApplies(id) then
+		out[#out + 1] = Menu.Group("Put Your Usual Totem Back", function()
+			local t = {
+				OnOffRowT(id, "Remind Me", "usualTotemReminder", "When this totem ends (while it counts as temporary), its"
+					.. " element's button lights up until you drop your usual totem (the one assigned on your bar) again.", true),
+				Choice("Reminder Style", { { "glow", "Glow" }, { "pulse", "Pulse" } }, function()
+					local v, own = TGet(id, "usualTotemStyle")
+					return v == "pulse" and "pulse" or "glow", own
+				end, function(v) return TSet(id, "usualTotemStyle", v) end,
+					"Glow: the button's edges glow gold. Pulse: the icon pulses darker. Both follow this totem's Effects Look."),
+				OnOffRowT(id, "Show BACK on the Button", "usualTotemLabel", "BACK along the bottom of the button. A Compact line says"
+					.. " Put Windfury back, with your own totem's name."),
+				OnOffRowT(id, "Also Show a Text Alert", "usualTotemAlert", "A line like Put Windfury back in the Expiring Alerts text,"
+					.. " at its spot and size. No sound.", true),
+				{ text = "Test Usual Totem Reminder", tip = "Shows this reminder for 5 seconds on its element's button.",
+					onClick = function() if SP.TestUsualTotemReminder then SP:TestUsualTotemReminder(id) end return true end },
+				SEP,
+			}
+			return Join(t, ApplyRows(item, FX.usual))
+		end, nil, nil, "when it ends, back to your usual totem")
+	end
+	return out
+end
+SP.TotemOwnFxKeys = FX_ALL   -- (Copy / Paste and Reset This Totem carry them; ShamanPowerTheme the color)
+
 local function TotemSnapshot(item)
 	local snap = { from = item.key, name = item.name }
 	local pk = PulseKey(item.key)
@@ -848,6 +1070,8 @@ local function TotemSnapshot(item)
 		snap.flash = PulseFlashOn(pk)
 	end
 	if TempApplies(item.key) then snap.temp = TempOn(item.key) end
+	local own = TOwn(item.key)
+	if own then snap.fx = CopyV(own) end   -- (3.0.9.2) its own effects
 	return snap
 end
 local function PasteTotem(snap, item)
@@ -858,6 +1082,15 @@ local function PasteTotem(snap, item)
 		if snap.flash ~= nil then SetPulseFlash(pk, snap.flash) end
 	end
 	if snap.temp ~= nil and TempApplies(item.key) then SetTemp(item.key, snap.temp) end
+	-- (3.0.9.2) its own effects, exactly: what the source took from the bar, this one does too
+	local o = O()
+	if snap.fx then
+		if type(o.totemOwn) ~= "table" then o.totemOwn = {} end
+		o.totemOwn[item.key] = CopyV(snap.fx)
+	elseif type(o.totemOwn) == "table" then
+		o.totemOwn[item.key] = nil
+	end
+	FxApplied()
 end
 local function CopyTo(item, element)
 	local snap = TotemSnapshot(item)
@@ -865,6 +1098,7 @@ local function CopyTo(item, element)
 		if t.key ~= item.key and (not element or t.e == element) then PasteTotem(snap, t) end
 	end
 end
+
 
 local function FlyoutBinding(item)
 	local cast = O().swapFlyoutClickButtons and "RightButton" or "LeftButton"
@@ -886,21 +1120,20 @@ local function TotemMenu(item)
 	end
 	-- what it does
 	if TempApplies(id) then
-		local off = O().usualTotemReminder ~= true
 		local temp = Choice("Treat as Temporary", { { true, "On" }, { false, "Off" } }, function()
 			local v = TempOn(id)
 			return v, v ~= TempDefault(id)
 		end, function(v) SetTemp(id, v) return Changed(TotRow) end,
-			off and "|cffffa040Put Your Usual Totem Back is off: turn it on under Totem Bar > Effects.|r"
-			or ("When it ends, Put Your Usual Totem Back asks for your usual " .. ELEM[item.e] .. " totem (Effects tab). Turn"
-				.. " it off for a totem you keep down on purpose."), off or nil, { kind = "none" })   -- (the words say it)
+			"When it ends, Put Your Usual Totem Back (below) asks for your usual " .. ELEM[item.e] .. " totem. Turn"
+				.. " it off for a totem you keep down on purpose.", nil, { kind = "none" })   -- (the words say it)
 		temp.words = "then back to your usual totem"
 		r[#r + 1] = temp
 	end
 	if TempApplies(id) then r[#r + 1] = SEP end
-	-- its pulse: the bar and the flash
+	-- its effects (3.0.9.2: each totem's own) and its pulse: the bar and the flash
+	r[#r + 1] = { text = "Effects & Sound", label = true }
+	Join(r, FxGroups(item))
 	if pk then
-		r[#r + 1] = { text = "Effects & Sound", label = true }
 		local why = PulseOffWhy(false)
 		-- the pictures: the bar in Pulse Bar Color (the theme's, else white); the flash in Pulse Flash Color
 		local bar = Choice("Pulse Bar", { { true, "On" }, { false, "Off" } }, function()
@@ -932,7 +1165,7 @@ local function TotemMenu(item)
 		flash.words = "the flash on the button each time it pulses"
 		r[#r + 1] = flash
 	end
-	if pk then r[#r + 1] = SEP end
+	r[#r + 1] = SEP
 	-- where it sits in its flyout, and its key (one group: Position & Keys)
 	local pk2 = {}
 	if not Native() then
@@ -952,7 +1185,7 @@ local function TotemMenu(item)
 	r[#r + 1] = SEP
 	-- copy and reset
 	r[#r + 1] = { text = "Copy & Reset", label = true }
-	if pk or TempApplies(id) then
+	do   -- (3.0.9.2: every totem has its own effects to copy now)
 		r[#r + 1] = { text = "Copy Settings", onClick = function()
 			TotRow.clip = TotemSnapshot(item)
 			return true
@@ -964,8 +1197,8 @@ local function TotemMenu(item)
 				PasteTotem(TotRow.clip, item)
 				return Changed(TotRow)
 			end }
-		r[#r + 1] = { text = "Copy Settings To...", tip = "Pulse Bar, Pulse Flash and Treat as Temporary, onto the totems that"
-			.. " have those settings.", words = "the same settings onto other totems",
+		r[#r + 1] = { text = "Copy Settings To...", tip = "Its effects, and Pulse Bar, Pulse Flash and Treat as Temporary onto the"
+			.. " totems that have those settings.", words = "the same settings onto other totems",
 			sub = function()
 			local o = {}
 			for e = 1, 4 do
@@ -987,15 +1220,21 @@ local function TotemMenu(item)
 			tip = "The " .. ELEM[item.e] .. " flyout back in the game's order.",
 			onClick = function() SP:SetFlyoutOrder(item.e, nil) return OrderChanged() end }
 	end
-	r[#r + 1] = { text = "Reset This Totem", disabled = not (TotemOwn(item) or not InFlyout(item)),
+	r[#r + 1] = { text = "Reset This Totem", disabled = not (TotemOwn(item) or TOwn(id) or not InFlyout(item)),
 		tip = "Back to how it came: in its flyout" .. (pk and ", Pulse Bar and Pulse Flash on" or "")
 			.. (TempApplies(id) and (", Counts As Temporary " .. (TempDefault(id) and "on" or "off")) or "") .. ".",
 		onClick = function()
 			if not InFlyout(item) then SetInFlyout(item, true) end
 			if pk then SetPulseBar(pk, true); SetPulseFlash(pk, true) end
 			if TempApplies(id) then SetTemp(id, TempDefault(id)) end
+			if type(O().totemOwn) == "table" then O().totemOwn[id] = nil; FxApplied() end   -- (3.0.9.2) its own effects
 			TotRow:Changed(false)
 		end }
+	-- its test (3.0.9.2: was Totem Bar > Effects' Test button)
+	r[#r + 1] = SEP
+	r[#r + 1] = { text = "Test This Totem's Effects", tip = "Plays this totem's own Destroyed (and its red X), Expired and"
+		.. " Expiring Soon on its element's button, one after the other.",
+		onClick = function() if SP.TestTotemCuesFor then SP:TestTotemCuesFor(id, item.e) end return true end }
 	return r
 end
 

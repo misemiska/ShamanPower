@@ -514,6 +514,7 @@ local function copyButton(r, src)
 		local tf = CreateFrame("Frame", nil, b)
 		tf:SetAllPoints(b)
 		tf:SetFrameLevel(cd:GetFrameLevel() + 1)
+		if SP.KeepAboveCooldown then SP:KeepAboveCooldown(b, tf, 2) end   -- above the sweep, whatever lifts it (3.0.9.2)
 		local t = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		if SP.AdoptSPFont then SP:AdoptSPFont(t, "timers") end
 		t:SetPoint("CENTER", b, "CENTER", 0, 0)

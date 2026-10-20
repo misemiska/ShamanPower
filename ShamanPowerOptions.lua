@@ -4248,8 +4248,8 @@ ShamanPower.options = {
 						},
 						sprange_opacity = {
 							order = 1,
-							name = "Opacity",
-							desc = "Adjust the opacity of the totem range overlay",
+							name = "Overlay Opacity",
+							desc = "The whole overlay's opacity: its panel, title and icons. Each totem also has its own Opacity in its right-click menu.",
 							type = "range",
 							isPercent = true,
 							width = 1.5,
@@ -4266,6 +4266,7 @@ ShamanPower.options = {
 							end
 						},
 						sprange_icon_size = {
+							hidden = true,   -- (3.0.9.2) each totem's own, in its right-click menu; this value is what an unset icon uses
 							order = 2,
 							name = "Icon Size",
 							desc = "Adjust the size of the totem range overlay icons",
@@ -4301,6 +4302,7 @@ ShamanPower.options = {
 							end
 						},
 						sprange_hide_names = {
+							hidden = true,   -- (3.0.9.2) each totem's own, in its right-click menu; this value is what an unset icon uses
 							order = 4,
 							name = "Hide Names",
 							desc = "Hide totem names below the icons",
@@ -4331,6 +4333,7 @@ ShamanPower.options = {
 							end
 						},
 						sprange_show_mode = {
+							hidden = true,   -- (3.0.9.2) each totem's own, in its right-click menu; this value is what an unset icon uses
 							order = 5.1,
 							type = "select",
 							name = "Show Totem Icons",
@@ -12184,6 +12187,31 @@ do
 			func = function() if SP.TestTotemCues then SP:TestTotemCues() end end },
 
 	} }
+	-- (3.0.9.2) each totem's own effects are in its right-click menu (Totem Bar > Bar, the Totems row):
+	-- the switches leave this tab; what they hold stays every totem's start (ShamanPowerCues.lua TotemCueOpt)
+	do
+		local a = SP.options.args.fluffy.args.totembar_effects_section.args
+		for _, k in ipairs({ "totemCueDestroyed", "totemCueDestroyedStyle", "totemCueDestroyedMark", "totemCueDestroyedMarkStays",
+			"totemCueExpired", "totemCueExpiredStyle", "totemCueExpiring", "totemCueExpiringStyle", "totemCueExpiringSecs" }) do
+			if a[k] then a[k].hidden = true end
+		end
+		-- (3.0.9.2) Proc Glow is one more style for each (the game's ring in the effect's color)
+		for _, k in ipairs({ "totemCueDestroyedStyle", "totemCueExpiredStyle", "totemCueExpiringStyle" }) do
+			local opt = a[k]
+			if opt and type(opt.values) == "table" and type(opt.sorting) == "table" and not opt.values.proc then
+				local v, o = {}, {}
+				for key, label in pairs(opt.values) do v[key] = label end
+				for i, key in ipairs(opt.sorting) do o[i] = key end
+				v.proc = "Proc Glow"
+				o[#o + 1] = "proc"
+				opt.values, opt.sorting = v, o
+			end
+		end
+		a.totem_moved_note = { order = 1.055, type = "description",
+			name = "Each totem's effects are in its own right-click menu: Totem Bar > Bar, the Totems row. When Destroyed (with the Red X),"
+				.. " When It Expires, Expiring Soon and Out of Range, each with Apply to All Totems and Apply to All Totems of its element."
+				.. " The Effects Look and the Test button below are for every totem." }
+	end
 	SP.options.args.fluffy.args.cdbar_effects_section = { type = "group", name = "Effects", order = 1.36, args = {
 		effects_desc = { order = 0, type = "description", name = "A short animation on a cooldown bar button when something happens to it, so you notice it mid-fight."
 			.. " Every effect is off until you turn it on, and the look starts as Standard. The Test button plays the chosen styles on your bar." },
@@ -12290,6 +12318,9 @@ do
 	end
 	-- the Effects page used to be Appearance > Effects: its old address lands here
 	SP.SettingsPathAliases["fluffy/effects_appearance"] = { "fluffy", "totembar_effects_section" }
+	-- (3.0.9.2) the Totem Bar's Effects tab is gone: each totem's effects are in its menu on Totem Bar > Bar
+	SP.SettingsPathAliases["fluffy/totembar_effects_section"] = { "buttons", "auto_button" }
+	SP.options.args.fluffy.args.totembar_effects_section.hidden = true
 	for _, group in ipairs({ "totembar_effects_section", "cdbar_effects_section" }) do
 		for key in pairs(SP.options.args.fluffy.args[group].args) do
 			if key ~= "effects_desc" then SP.SettingsPathAliases["fluffy/effects_appearance/" .. key] = { "fluffy", group, key } end
@@ -12502,9 +12533,10 @@ do
 		{ header = "tracked_header", name = "Totems to Track", keys = { "rangeIcons" } },
 		{ keys = { "sprange_desc" } },
 		{ keys = { "show_overlay", "show_when", "open_window" } },
-		{ header = "look_header", name = "Look", keys = {
-			"sprange_icon_size", "sprange_opacity", "sprange_vertical", "sprange_hide_names", "sprange_hide_border",
-			"sprange_show_mode",
+		-- (3.0.9.2) each totem's own look is in its right-click menu above (Icon Size, names, Show and
+		-- the rest); what is left here is the overlay's own
+		{ header = "look_header", name = "Overlay", keys = {
+			"sprange_vertical", "sprange_opacity", "sprange_hide_border",
 		} },
 		{ header = "position_header", name = "Position", keys = { "sprange_move" } },
 		{ header = "minimap_header", name = "Minimap Markers", keys = {
@@ -12883,6 +12915,12 @@ do
 		cdbar_move = { type = "execute", width = "full", name = "Move the Cooldown Bar",
 			desc = "Unlocks only the Cooldown Bar: drag its box where you want it, then press Done. It can't be done in a fight.",
 			func = function() SP:UnlockModuleFrames("cooldownbar") end },
+		-- (3.0.9.2, the owner: room for the glows) Button Spacing on Appearance > Cooldown Bar, here too
+		cdbar_spacing = { type = "range", width = 1.0, name = "Space Between Icons", min = 0, max = 20, step = 1,
+			desc = "The space between the cooldown bar's buttons, in pixels, so glows have room. The same as Button Spacing on Appearance > Cooldown Bar.",
+			disabled = function() return not SP.opt.showCooldownBar end,
+			get = function() return SP.opt.cooldownBarPadding or 2 end,
+			set = function(_, v) SP.opt.cooldownBarPadding = v; SP:UpdateCooldownBar() end },
 		-- 3.0.9: Click Through The Cooldown Bar, as the Totem Bar's (ShamanPowerClickThrough.lua)
 		cdbar_click_through = {
 			type = "select", width = 1.5,
@@ -12956,7 +12994,7 @@ do
 		{ header = "progress_header", name = "Progress Bars and Time", keys = { "cdbar_show_progress_bars", "cdbar_progress_position", "cdbar_progress_height",
 			"cdbar_gradient_direction", "cdbar_duration_text", "cdbar_duration_text_size", "cdbar_countdown_colors", "cdbar_timer_colors", "cdbar_numbers_note", "cdbar_numbers_button" },
 			names = { cdbar_duration_text = "Time Text Position", cdbar_duration_text_size = "Time Text Size" } },
-		{ header = "position_header", name = "Position", keys = { "cdbar_move" } },
+		{ header = "position_header", name = "Position & Size", keys = { "cdbar_move", "cdbar_spacing" } },
 		{ header = "effects_header", name = "Effects", keys = { "cdbar_fx_note", "cdbarCueLook", "cdbarCueSignature" } },
 		{ header = "test_header", name = "Test", keys = { "cdbar_test" } },
 	})
@@ -13044,24 +13082,24 @@ do
 	-- (WoW: Forever) ONE switch: on = the Cooldown Manager set up for the shields (the first-time dialog does the same)
 	-- and its own shield icon hidden; off = the game's icon back (the layout stays, nothing of the player's is touched)
 	args.shieldcharges_cdm = { type = "toggle", width = 1.5, name = "Set Up The Cooldown Manager",
-		desc = "On: the Cooldown Manager set up to show your shields (one reload) and its shield icon hidden. Off: the game's shield icon shows again.",
+		desc = "On: ShamanPower sets up WoW's Cooldown Manager to watch Lightning Shield and Water Shield (one reload) and hides WoW's own shield icon. Off: WoW's shield icon shows again.",
 		hidden = function() return not (SPCompat and SPCompat.FOREVER) end,
 		get = function() return SP.opt.cdmHideShieldIcon == true end,
 		set = function(_, v)
 			if not v then
 				SP.opt.cdmHideShieldIcon = false
 				if SP.ShieldGoneBindQueue then SP:ShieldGoneBindQueue() end
-			elseif SP.ShieldGoneCdmReady and SP:ShieldGoneCdmReady() then
-				SP.opt.cdmHideShieldIcon = true   -- (the shields are tracked already: nothing to set up, just the icon)
+			elseif SP.ShieldGoneCdmReady and SP:ShieldGoneCdmReady() and SP.ShieldGoneLayoutComplete and SP:ShieldGoneLayoutComplete() then
+				SP.opt.cdmHideShieldIcon = true   -- (ShamanPower's layout is up and whole: nothing to set up, just the icon)
 				if SP.ShieldGoneBindQueue then SP:ShieldGoneBindQueue() end
 			elseif SP.ShieldGoneOffer then
-				SP:ShieldGoneOffer()   -- the dialog: Set It Up And Reload (the switch is on after the reload) or Not Now (it stays off)
+				SP:ShieldGoneOffer()   -- the dialog: Set It Up and Reload (the switch is on after the reload) or Not Now (it stays off)
 			end
 		end }
 	args.shieldcharges_cdm_desc = { type = "description", width = "full",
-		name = "To track your shield in a fight, ShamanPower needs WoW's Cooldown Manager to track shields too. "
-			.. "Turn this on and ShamanPower sets it up, hides WoW's own shield icon so you don't see two, "
-			.. "and asks for one reload.",
+		name = "During a fight, WoW hides your Lightning Shield and Water Shield from addons. "
+			.. "Turn this on and ShamanPower sets up WoW's Cooldown Manager to watch them for you, "
+			.. "hides WoW's own shield icon so you don't see it twice, and reloads once.",
 		hidden = function() return not (SPCompat and SPCompat.FOREVER) end }
 	F.shieldcharges_page = { type = "group", name = "Shield Charges", order = 17, args = args }
 	SP.OptionCustomRow = SP.OptionCustomRow or {}

@@ -48,6 +48,7 @@ local function ensureVisual(button)
 	local frame = CreateFrame("Frame", nil, button)
 	frame:SetAllPoints(button)
 	frame:SetFrameLevel((button.cooldown and button.cooldown:GetFrameLevel() or button:GetFrameLevel()) + 3)
+	if SP.KeepAboveCooldown then SP:KeepAboveCooldown(button, frame, 3) end   -- (stays there when the cooldown is lifted)
 	frame:EnableMouse(false)
 	local v = { frame = frame }
 	-- The assigned totem gets a plain element-coloured border on the icon's edge.

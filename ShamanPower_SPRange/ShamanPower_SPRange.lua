@@ -588,11 +588,213 @@ function SP:CreateSPRangeFrame()
 	return frame
 end
 
+-- (3.0.9.2) Each tracked totem's own look, from its right-click menu on the page's Totems to
+-- Track row (ShamanPower_Config/TrackerIcons.lua). opt.rangeTracker.icons[id] holds only what
+-- the player set there; anything unset is the page's (Icon Size, Hide Names, Show Totem Icons,
+-- as they were) or the look the overlay always had, so an icon nobody touched looks the same.
+SP.SPRANGE_ICON_DEFAULTS = {
+	opacity = 1, statusText = true,
+	inEffect = "none", inGlowColor = { r = 0.2, g = 1, b = 0.4 },
+	oorLook = "red", oorEffect = "none", oorGlowColor = { r = 1, g = 0.25, b = 0.25 },
+	missingLook = "gray",
+}
+-- value, and true when it is the icon's own
+function SP:SPRangeIconOpt(id, key)
+	local rt = self.opt and self.opt.rangeTracker
+	local own = rt and type(rt.icons) == "table" and rt.icons[id]
+	local v
+	if type(own) == "table" then v = own[key] end
+	if v ~= nil then return v, true end
+	if key == "iconSize" then return (rt and rt.iconSize) or 36 end
+	if key == "showName" then return not (rt and rt.hideNames) end
+	if key == "showMode" then return (rt and rt.showMode) or "always" end
+	if key == "glowShape" then return (self.opt and self.opt.glowShape) or "default" end
+	return SP.SPRANGE_ICON_DEFAULTS[key]
+end
+function SP:SetSPRangeIconOpt(id, key, v)
+	local rt = self.opt and self.opt.rangeTracker
+	if not rt then return end
+	if type(rt.icons) ~= "table" then rt.icons = {} end
+	local own = rt.icons[id]
+	if type(own) ~= "table" then own = {}; rt.icons[id] = own end
+	own[key] = v
+	if next(own) == nil then rt.icons[id] = nil end
+	self:SPRangeRefreshLook()
+end
+-- Theme hook (Appearance > Themes, spot mod.range): each totem's two glow colors travel with a
+-- theme ("default": the overlay's own green and red, or whatever the icon has from nothing)
+if SP.ThemeSpotSettings then
+	local entries = {}
+	for _, t in ipairs(SP.TrackableTotems) do
+		for _, k in ipairs({ "inGlowColor", "oorGlowColor" }) do
+			local id = t.id
+			entries[#entries + 1] = { key = k .. "." .. id,
+				label = (t.name or id) .. (k == "inGlowColor" and " In Range Glow Color" or " Out of Range Glow Color"),
+				mayBeColor = true,
+				get = function()
+					local rt = SP.opt and SP.opt.rangeTracker
+					local own = rt and type(rt.icons) == "table" and rt.icons[id]
+					local c = type(own) == "table" and own[k]
+					if type(c) ~= "table" then return "default" end
+					return { r = c.r or c[1] or 1, g = c.g or c[2] or 1, b = c.b or c[3] or 1 }
+				end,
+				set = function(v)
+					if v == "default" then SP:SetSPRangeIconOpt(id, k, nil)
+					elseif type(v) == "table" then SP:SetSPRangeIconOpt(id, k, { r = v.r or v[1], g = v.g or v[2], b = v.b or v[3] }) end
+				end }
+		end
+	end
+	SP:ThemeSpotSettings("mod.range", entries)
+end
+
+-- Reset All Colors (Appearance > Themes): the glow colors back to the overlay's own
+if SP.ResetAllColorsToDefault and hooksecurefunc then
+	hooksecurefunc(SP, "ResetAllColorsToDefault", function()
+		local rt = SP.opt and SP.opt.rangeTracker
+		if not (rt and type(rt.icons) == "table") then return end
+		for id, own in pairs(rt.icons) do
+			if type(own) == "table" then
+				own.inGlowColor, own.oorGlowColor = nil, nil
+				if next(own) == nil then rt.icons[id] = nil end
+			end
+		end
+		SP:SPRangeRefreshLook()
+	end)
+end
+
+-- the overlay (or its preview) drawn again with the icons' settings as they are now
+function SP:SPRangeRefreshLook()
+	if self.sprangeDemoActive and self.sprangeDemo and self.sprangeDemo.build then
+		self.sprangeDemo.build()
+	elseif self.spRangeFrame then
+		self:UpdateSPRangeFrame()
+		self:UpdateSPRangeStatus()
+	end
+end
+
+-- a glow (the icon's Glow Shape, Proc Glow too) and / or a pulse on a button, in one color;
+-- fx "none" stops them. Only redone when something about it changed.
+local function rangeColor(c, dr, dg, db)
+	if type(c) ~= "table" then return dr, dg, db end
+	return c.r or c[1] or dr, c.g or c[2] or dg, c.b or c[3] or db
+end
+function SP:SPRangeEffect(btn, fx, c, shapeKey)
+	local id = btn.totemData and btn.totemData.id
+	-- each moment's own Glow Shape (inGlowShape / oorGlowShape), else the icon's, else the shared one
+	local shape = (shapeKey and (self:SPRangeIconOpt(id, shapeKey))) or self:SPRangeIconOpt(id, "glowShape")
+	local r, g, b = rangeColor(c, 1, 1, 1)
+	if btn.spFx == fx and btn.spFxShape == shape and btn.spFxR == r and btn.spFxG == g and btn.spFxB == b then return end
+	btn.spFx, btn.spFxShape, btn.spFxR, btn.spFxG, btn.spFxB = fx, shape, r, g, b
+	if btn.spGlow then btn.spGlow:Hide(); btn.spGlowAnim:Stop() end
+	if btn.spProc and SP.ProcGlow_Stop then SP.ProcGlow_Stop(btn, "sprange"); btn.spProc = nil end
+	if btn.spPulse then btn.spPulse:Stop() end
+	if not fx or fx == "none" then return end
+	if fx == "glow" or fx == "both" then
+		if shape == "proc" and SP.ProcGlow_Start and SP.ProcGlowOptions then
+			SP.ProcGlow_Start(btn, SP:ProcGlowOptions(btn, { r, g, b, 1 }, "sprange", false, SP.PROC_GLOW_OUT or 0.2))
+			btn.spProc = true
+		else
+			if not btn.spGlow then
+				local t = btn:CreateTexture(nil, "OVERLAY", nil, 2)
+				t:SetPoint("TOPLEFT", -10, 10); t:SetPoint("BOTTOMRIGHT", 10, -10)
+				t:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
+				t:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
+				if SP.ShapeGlow then SP:ShapeGlow(t, "alert") end
+				t:SetBlendMode("ADD")
+				local ag = t:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+				local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.15); a1:SetToAlpha(0.8); a1:SetDuration(0.5); a1:SetOrder(1)
+				local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(0.8); a2:SetToAlpha(0.15); a2:SetDuration(0.5); a2:SetOrder(2)
+				btn.spGlow, btn.spGlowAnim = t, ag
+			end
+			if SP.PaintGlowShape then SP:PaintGlowShape(btn.spGlow, shape) end
+			btn.spGlow:SetVertexColor(r, g, b)
+			btn.spGlow:Show(); btn.spGlowAnim:Play()
+		end
+	end
+	if fx == "pulse" or fx == "both" then
+		if not btn.spPulse then
+			local pg = btn.icon:CreateAnimationGroup(); pg:SetLooping("REPEAT")
+			local p1 = pg:CreateAnimation("Scale"); p1:SetScale(1.12, 1.12); p1:SetDuration(0.45); p1:SetOrder(1)
+			local p2 = pg:CreateAnimation("Scale"); p2:SetScale(1 / 1.12, 1 / 1.12); p2:SetDuration(0.45); p2:SetOrder(2)
+			btn.spPulse = pg
+		end
+		btn.spPulse:Play()
+	end
+end
+
+-- one button's look for its status: in range, out of range, missing (the overlay and its preview)
+function SP:SPRangePaint(btn, status)
+	local id = btn.totemData and btn.totemData.id
+	local textOn = self:SPRangeIconOpt(id, "statusText") ~= false
+	btn:SetAlpha(tonumber((self:SPRangeIconOpt(id, "opacity"))) or 1)
+	if status == "inrange" then
+		btn:SetBackdropBorderColor(0, 1, 0, 1); btn.rangeOverlay:Hide()
+		btn.icon:SetDesaturated(false); btn.icon:SetAlpha(1); btn.statusText:Hide()
+		btn.nameText:SetTextColor(0, 1, 0.4)
+		self:SPRangeEffect(btn, self:SPRangeIconOpt(id, "inEffect"), (self:SPRangeIconOpt(id, "inGlowColor")), "inGlowShape")
+	elseif status == "outofrange" then
+		-- Red (as it always was): grayed with a red film; Gray; Dim; None: full color
+		local look = self:SPRangeIconOpt(id, "oorLook")
+		btn:SetBackdropBorderColor(0.8, 0, 0, 1)
+		btn.rangeOverlay:SetShown(look == "red")
+		btn.icon:SetDesaturated(look == "red" or look == "gray")
+		btn.icon:SetAlpha((look == "dim" and 0.4) or (look == "none" and 1) or 0.6)
+		btn.statusText:SetText("OUT OF\nRANGE"); btn.statusText:SetTextColor(1, 0.2, 0.2); btn.statusText:SetShown(textOn)
+		btn.nameText:SetTextColor(0.8, 0.3, 0.3)
+		self:SPRangeEffect(btn, self:SPRangeIconOpt(id, "oorEffect"), (self:SPRangeIconOpt(id, "oorGlowColor")), "oorGlowShape")
+	else
+		-- Gray (as it always was); Dim: faded in color; None: full color
+		local look = self:SPRangeIconOpt(id, "missingLook")
+		btn:SetBackdropBorderColor(0.4, 0.4, 0.4, 1); btn.rangeOverlay:Hide()
+		btn.icon:SetDesaturated(look == "gray")
+		btn.icon:SetAlpha(look == "none" and 1 or 0.4)
+		btn.statusText:SetText("MISSING"); btn.statusText:SetTextColor(0.7, 0.7, 0.7); btn.statusText:SetShown(textOn)
+		btn.nameText:SetTextColor(0.5, 0.5, 0.5)
+		self:SPRangeEffect(btn, "none")
+	end
+end
+
+-- the frame sized to the shown buttons and the buttons placed in it (each its own size)
+function SP:SPRangePlace(frame, shown)
+	local padding, n = 6, #shown
+	local isVertical = SP.opt.rangeTracker.vertical
+	local maxS, total, nameSpace = 0, 0, 0
+	for _, btn in ipairs(shown) do
+		local s = btn.spSize or 36
+		if s > maxS then maxS = s end
+		total = total + s
+		if btn.nameText:IsShown() then nameSpace = 14 end
+	end
+	local gaps = padding * math.max(n - 1, 0)
+	local width, height
+	if isVertical then
+		width = maxS + 24 + nameSpace
+		height = total + gaps + 28
+	else
+		width = total + gaps + 24
+		height = maxS + 26 + nameSpace
+	end
+	frame:SetSize(math.max(80, width), height)
+	local x, y = (frame:GetWidth() - (total + gaps)) / 2, -20
+	for _, btn in ipairs(shown) do
+		btn:ClearAllPoints()
+		if isVertical then
+			btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
+			y = y - (btn.spSize or 36) - padding
+		else
+			btn:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -20)
+			x = x + (btn.spSize or 36) + padding
+		end
+		btn:Show()
+	end
+end
+
 -- Create a totem button for SPRange
 function SP:CreateSPRangeTotemButton(parent, totemData, index)
-	local iconSize = SP.opt.rangeTracker.iconSize or 36
+	local iconSize = SP:SPRangeIconOpt(totemData.id, "iconSize")   -- (3.0.9.2: its own, else the page's)
 	local btn = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	btn:SetSize(iconSize, iconSize)
+	btn.spSize = iconSize
 
 	-- Background
 	SP:ApplyPanelBackdrop(btn)
@@ -630,7 +832,7 @@ function SP:CreateSPRangeTotemButton(parent, totemData, index)
 	nameText:SetPoint("TOP", btn, "BOTTOM", 0, -1)
 	nameText:SetText(self.TrackableTotemShortNames[totemData.id] or totemData.name:sub(1, 6))
 	nameText:SetTextColor(0.8, 0.8, 0.8)
-	if SP.opt.rangeTracker.hideNames then
+	if not SP:SPRangeIconOpt(totemData.id, "showName") then
 		nameText:Hide()
 	end
 	btn.nameText = nameText
@@ -707,7 +909,7 @@ end
 -- status the mode hides keeps its status reads (UpdateSPRangeStatus) so it can come back.
 local function SPRangeShownByMode(btn)
 	if SP.sprangeDemoActive then return true end   -- the preview shows every icon
-	local mode = SP.opt.rangeTracker and SP.opt.rangeTracker.showMode
+	local mode = SP:SPRangeIconOpt(btn.totemData and btn.totemData.id, "showMode")   -- (3.0.9.2: each icon's own)
 	if not mode or mode == "always" then return true end
 	local status = btn.status
 	if not status or status == "unknown" then return true end   -- (not read yet: shown until it is)
@@ -728,32 +930,7 @@ function SP:LayoutSPRangeButtons()
 			if SPRangeShownByMode(btn) then shown[#shown + 1] = btn else btn:Hide() end
 		end
 	end
-	local buttonSize = SP.opt.rangeTracker.iconSize or 36
-	local padding = 6
-	local numButtons = #shown
-	local nameSpace = SP.opt.rangeTracker.hideNames and 0 or 14
-	local isVertical = SP.opt.rangeTracker.vertical
-	local width, height
-	if isVertical then
-		width = buttonSize + 24 + nameSpace
-		height = (math.max(numButtons, 1) * buttonSize) + (padding * math.max(numButtons - 1, 0)) + 28
-	else
-		local buttonsWidth = (numButtons * buttonSize) + (padding * math.max(numButtons - 1, 0))
-		width = buttonsWidth + 24
-		height = buttonSize + 26 + nameSpace
-	end
-	frame:SetSize(math.max(80, width), height)
-	for i, btn in ipairs(shown) do
-		btn:ClearAllPoints()
-		if isVertical then
-			btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -20 - (i - 1) * (buttonSize + padding))
-		else
-			local buttonsWidth = (numButtons * buttonSize) + (padding * (numButtons - 1))
-			local startX = (frame:GetWidth() - buttonsWidth) / 2
-			btn:SetPoint("TOPLEFT", frame, "TOPLEFT", startX + (i - 1) * (buttonSize + padding), -20)
-		end
-		btn:Show()
-	end
+	self:SPRangePlace(frame, shown)
 	local sig = {}
 	for _, btn in ipairs(shown) do sig[#sig + 1] = tostring(btn.totemData and btn.totemData.id) end
 	frame.shownSignature = table.concat(sig, ",")
@@ -856,41 +1033,16 @@ function SP:UpdateSPRangeStatus()
 		btn.inRange = playerHasBuff
 
 		if playerHasBuff then
-			-- IN RANGE - we have the buff
-			btn:SetBackdropBorderColor(0, 1, 0, 1)
-			btn.rangeOverlay:Hide()
-			btn.icon:SetDesaturated(false)
-			btn.icon:SetAlpha(1)
-			btn.statusText:Hide()
-			btn.nameText:SetTextColor(0, 1, 0.4)  -- Green name
 			btn.status = "inrange"
 		elseif totemIsDown then
-			-- OUT OF RANGE - totem is down (someone has buff) but we don't
-			btn:SetBackdropBorderColor(0.8, 0, 0, 1)
-			btn.rangeOverlay:Show()
-			btn.icon:SetDesaturated(true)
-			btn.icon:SetAlpha(0.6)
-			btn.statusText:SetText("OUT OF\nRANGE")
-			btn.statusText:SetTextColor(1, 0.2, 0.2)  -- Red text
-			btn.statusText:Show()
-			btn.nameText:SetTextColor(0.8, 0.3, 0.3)  -- Red name
-			btn.status = "outofrange"
+			btn.status = "outofrange"   -- the totem is down (someone has the buff) but we don't
 		else
-			-- MISSING - no one has the buff, totem not down
-			btn:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)  -- Grey border
-			btn.rangeOverlay:Hide()
-			btn.icon:SetDesaturated(true)
-			btn.icon:SetAlpha(0.4)
-			btn.statusText:SetText("MISSING")
-			btn.statusText:SetTextColor(0.7, 0.7, 0.7)  -- Grey text
-			btn.statusText:Show()
-			btn.nameText:SetTextColor(0.5, 0.5, 0.5)  -- Grey name
-			btn.status = "missing"
+			btn.status = "missing"      -- no one has the buff: the totem is not down
 		end
+		self:SPRangePaint(btn, btn.status)   -- (3.0.9.2: each icon's own look for it)
 	end
 	-- Show a Tracked Totem's Icon: a status change may hide or bring back a button
-	local mode = self.opt.rangeTracker and self.opt.rangeTracker.showMode
-	if mode and mode ~= "always" and frame.trackedList then
+	if frame.trackedList then   -- (each icon its own show rule, 3.0.9.2)
 		local sig = {}
 		for _, totemData in ipairs(frame.trackedList) do
 			local btn = frame.totemButtons[totemData.id]
@@ -1371,23 +1523,9 @@ function SP:SPRangeDemo(on)
 		if not self.sprangeDemoActive then self.sprangeRealShown = frame:IsShown() == true end
 		self:InitSPRange()
 
-		-- Style one button from a fake status (same visuals as UpdateSPRangeStatus).
+		-- Style one button from a fake status (the same painter as UpdateSPRangeStatus).
 		local function style(btn, status)
-			if status == "inrange" then
-				btn:SetBackdropBorderColor(0, 1, 0, 1); btn.rangeOverlay:Hide()
-				btn.icon:SetDesaturated(false); btn.icon:SetAlpha(1); btn.statusText:Hide()
-				btn.nameText:SetTextColor(0, 1, 0.4)
-			elseif status == "outofrange" then
-				btn:SetBackdropBorderColor(0.8, 0, 0, 1); btn.rangeOverlay:Show()
-				btn.icon:SetDesaturated(true); btn.icon:SetAlpha(0.6)
-				btn.statusText:SetText("OUT OF\nRANGE"); btn.statusText:SetTextColor(1, 0.2, 0.2); btn.statusText:Show()
-				btn.nameText:SetTextColor(0.8, 0.3, 0.3)
-			else
-				btn:SetBackdropBorderColor(0.4, 0.4, 0.4, 1); btn.rangeOverlay:Hide()
-				btn.icon:SetDesaturated(true); btn.icon:SetAlpha(0.4)
-				btn.statusText:SetText("MISSING"); btn.statusText:SetTextColor(0.7, 0.7, 0.7); btn.statusText:Show()
-				btn.nameText:SetTextColor(0.5, 0.5, 0.5)
-			end
+			self:SPRangePaint(btn, status)
 			btn.status = status; btn.inRange = (status == "inrange")
 		end
 
@@ -1404,35 +1542,17 @@ function SP:SPRangeDemo(on)
 				if tracked[t.id] then list[#list + 1] = t end
 			end
 			d.list = list
-			local buttonSize = SP.opt.rangeTracker.iconSize or 36
-			local padding, n = 6, #list
-			local nameSpace = SP.opt.rangeTracker.hideNames and 0 or 14
-			local isVertical = SP.opt.rangeTracker.vertical
-			local width, height
-			if n == 0 then
-				width, height = 150, 50
-			elseif isVertical then
-				width = buttonSize + 24 + nameSpace
-				height = (buttonSize * n) + (padding * (n - 1)) + 28
-			else
-				width = (buttonSize * n) + (padding * (n - 1)) + 24
-				height = buttonSize + 26 + nameSpace
-			end
-			frame:SetSize(math.max(80, width), height)
+			local n = #list
 			if frame.title then frame.title:SetText(n == 0 and "Totem Range (pick totems)" or "Totem Range") end
+			local shown = {}
 			for i, t in ipairs(list) do
 				local btn = self:CreateSPRangeTotemButton(frame.iconContainer, t, i)
-				if isVertical then
-					btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -20 - (i - 1) * (buttonSize + padding))
-				else
-					local bw = (buttonSize * n) + (padding * (n - 1))
-					btn:SetPoint("TOPLEFT", frame, "TOPLEFT", (frame:GetWidth() - bw) / 2 + (i - 1) * (buttonSize + padding), -20)
-				end
 				d.states[t.id] = d.states[t.id] or ((i % 3 == 0) and "outofrange" or "inrange")
 				style(btn, d.states[t.id])
-				btn:Show()
 				frame.totemButtons[t.id] = btn
+				shown[#shown + 1] = btn
 			end
+			if n == 0 then frame:SetSize(150, 50) else self:SPRangePlace(frame, shown) end   -- (each its own size, 3.0.9.2)
 			self:UpdateSPRangeBorder()
 			self:UpdateSPRangeOpacity()
 			frame:Show()

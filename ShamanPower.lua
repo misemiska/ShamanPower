@@ -3099,6 +3099,7 @@ function ShamanPower:CreatePulseOverlay(button)
 	-- Create wipe frame for pulse countdown
 	local wipeFrame = CreateFrame("Frame", nil, button)
 	wipeFrame:SetFrameLevel(button:GetFrameLevel() + 1)
+	ShamanPower:LiftCooldownAbove(button, wipeFrame:GetFrameLevel())   -- the cooldown's numbers over the pulse bar
 
 	-- White overlay texture
 	local wipe = wipeFrame:CreateTexture(nil, "OVERLAY")
@@ -3143,6 +3144,7 @@ function ShamanPower:CreatePulseOverlay(button)
 	local iconTextFrame = CreateFrame("Frame", nil, button)
 	iconTextFrame:SetAllPoints(button)
 	iconTextFrame:SetFrameLevel(button:GetFrameLevel() + 2)
+	ShamanPower:KeepAboveCooldown(button, iconTextFrame, 2)   -- and over the cooldown's sweep
 	local iconTimeText = iconTextFrame:CreateFontString(nil, "OVERLAY")
 	ShamanPower:SetSPFont(iconTimeText, "timers", 10, "OUTLINE")
 	iconTimeText:SetPoint("CENTER", iconTextFrame, "CENTER", 0, 0)
@@ -3933,6 +3935,7 @@ function ShamanPower:DurationTextHost(host, store)
 	h = CreateFrame("Frame", nil, host)
 	h:SetAllPoints(host)
 	h:SetFrameLevel(host:GetFrameLevel() + 3)
+	if host.cooldown then ShamanPower:KeepAboveCooldown(host, h, 3) end   -- over the cooldown's sweep and numbers too
 	if store then store.textHost = h end
 	return h
 end
@@ -4636,6 +4639,32 @@ function ShamanPower:ClearEngineCooldowns()
 	end
 end
 
+-- A cooldown's numbers stay readable over everything drawn on its icon (3.0.9.2): the engine
+-- draws its countdown on the cooldown widget itself, so the widget sits above the sweep bar,
+-- the pulse bar and the progress bar (LiftCooldownAbove), and the addon's own texts sit above
+-- the widget (KeepAboveCooldown: the frame and how many levels above it). A child frame always
+-- draws over its parent's own regions, so a text on the button itself was covered by the sweep
+-- (as the duration times were, Miska, 3.0.9.2). Run when the frames are made, never per pass.
+function ShamanPower:KeepAboveCooldown(btn, frame, above)
+	if not (btn and frame) then return end
+	above = above or 1
+	btn.spAboveCd = btn.spAboveCd or {}
+	btn.spAboveCd[frame] = above
+	local cd = btn.cooldown
+	if cd and frame:GetFrameLevel() < cd:GetFrameLevel() + above then frame:SetFrameLevel(cd:GetFrameLevel() + above) end
+end
+function ShamanPower:LiftCooldownAbove(btn, level)
+	local cd = btn and btn.cooldown
+	if not (cd and level) or cd:GetFrameLevel() > level then return end
+	cd:SetFrameLevel(level + 1)
+	local base = cd:GetFrameLevel()
+	if btn.spAboveCd then
+		for frame, above in pairs(btn.spAboveCd) do
+			if frame:GetFrameLevel() < base + above then frame:SetFrameLevel(base + above) end
+		end
+	end
+end
+
 -- The totem bar's (and its flyouts') vertical sweep, drawn the way Target Tracker's is:
 -- the bar ALWAYS fills from the bottom. A bar filled from its top edge stretches the
 -- icon's copy into the fill instead of cropping it, so a whole second icon, hard edges
@@ -4655,6 +4684,7 @@ function ShamanPower:TotemEngineSweepBar(btn, fromTop)
 		bar:SetOrientation("VERTICAL")
 		if bar.SetFillStyle then bar:SetFillStyle("STANDARD") end   -- texture cropped to the fill, never stretched into it
 		btn.cdBar, btn.cdBarClip = bar, clip
+		self:LiftCooldownAbove(btn, bar:GetFrameLevel())   -- the numbers over the sweep
 		if self.ShapeIconTexture then self:ShapeIconTexture(bar:GetStatusBarTexture(), icon) end   -- Icon Shape
 	end
 	local bar = btn.cdBar
@@ -4948,6 +4978,12 @@ function ShamanPower:UpdateTotemCooldowns()
 		elseif btn and btn.cooldown then
 			-- Get the assigned totem's spell ID (a flyout pick made in this fight: the one the button casts)
 			local totemIndex = self:AssignedIndex(element)
+			-- TotemTimers Style, Single Totem and Dynamic (PvP) show the totem that is down on the
+			-- button: its cooldown then, not the assigned one's (a reviewer's report, 3.0.9.2)
+			if self.opt.activeTotemAsMain or self:ShowsActiveTotemOnBar() then
+				local active = self:GetActiveTotemIndex(element)
+				if active and active > 0 then totemIndex = active end
+			end
 			local spellID = nil
 
 			if totemIndex and totemIndex > 0 then
@@ -7446,6 +7482,7 @@ function ShamanPower:CreateTotemButtons()
 		local cdTextFrame = CreateFrame("Frame", nil, btn)
 		cdTextFrame:SetAllPoints(btn)
 		cdTextFrame:SetFrameLevel(cdFrame:GetFrameLevel() + 1)
+		self:KeepAboveCooldown(btn, cdTextFrame, 2)
 		local cdText = cdTextFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		ShamanPower:AdoptSPFont(cdText, "timers")   -- template font = the design; follows the Fonts settings
 		cdText:SetPoint("CENTER", btn, "CENTER", 0, 0)
@@ -8842,6 +8879,7 @@ function ShamanPower:CreateTotemFlyout(element)
 			local cdTextFrame = CreateFrame("Frame", nil, btn)
 			cdTextFrame:SetAllPoints(btn)
 			cdTextFrame:SetFrameLevel(cdFrame:GetFrameLevel() + 1)
+			self:KeepAboveCooldown(btn, cdTextFrame, 2)
 			local cdText = cdTextFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			ShamanPower:AdoptSPFont(cdText, "timers")   -- template font = the design; follows the Fonts settings
 			cdText:SetPoint("CENTER", btn, "CENTER", 0, 0)
@@ -10597,8 +10635,9 @@ function ShamanPower:UpdatePlayerTotemRange()
 		if updateOverlayIcon and activeOverlay and activeOverlay.icon then
 			if haveTotem then
 				if hasTrackableRange then
-					activeOverlay.icon:SetDesaturated(not hasBuff)
-					activeOverlay.icon:SetVertexColor(hasBuff and 1 or 0.6, hasBuff and 1 or 0.6, hasBuff and 1 or 0.6)
+					local grayO = not hasBuff and ShamanPower:TotemRangeGrays(element)   -- (3.0.9.2: the totem's own look)
+					activeOverlay.icon:SetDesaturated(grayO)
+					activeOverlay.icon:SetVertexColor(grayO and 0.6 or 1, grayO and 0.6 or 1, grayO and 0.6 or 1)
 				else
 					-- Non-trackable totem - always show normal (not greyed)
 					activeOverlay.icon:SetDesaturated(false)
@@ -10607,10 +10646,22 @@ function ShamanPower:UpdatePlayerTotemRange()
 			end
 		end
 
+		-- (3.0.9.2) the totem's own Out of Range look, from its right-click menu: Gray (as it always
+		-- was), Glow, Gray + Glow or None
+		local look = "gray"
+		local spell
+		if haveTotem and hasTrackableRange and self.TotemCueOpt then
+			local _, name = self:GetElementTotemInfo(element)
+			spell = self.CueTotemOf and self.CueTotemOf(element, name)
+			look = self:TotemCueOpt(spell, "totemRangeLook") or "gray"
+		end
+		local outOfRange = haveTotem and hasTrackableRange and not hasBuff
+		local gray = outOfRange and (look == "gray" or look == "both")
+
 		if updateMainIcon and iconTexture then
 			if haveTotem then
 				if hasTrackableRange then
-					iconTexture:SetDesaturated(not hasBuff)
+					iconTexture:SetDesaturated(gray and true or false)
 				else
 					-- Non-trackable totem - always show normal (not greyed)
 					iconTexture:SetDesaturated(false)
@@ -10619,7 +10670,74 @@ function ShamanPower:UpdatePlayerTotemRange()
 				iconTexture:SetDesaturated(false)
 			end
 		end
+		local glowHost = (updateOverlayIcon and activeOverlay and activeOverlay.frame) or totemBtn
+		self:TotemRangeGlow(element, glowHost, outOfRange and (look == "glow" or look == "both"), spell)
 	end
+end
+
+-- (3.0.9.2) The totem bar's own Out of Range look (the gray, a totem's own glow) on a pass of its own,
+-- twice a second while a totem is down (asleep otherwise, as the bar's other passes). It rode on the
+-- Party Range module's pass, which stops when party dots, range counters and coverage are all off:
+-- the bar then never grayed out on its own (seen by the owner, 3.0.9.2).
+function ShamanPower:SetupPlayerTotemRange()
+	if not self.updateSystem.subsystems["playerTotemRange"] then
+		local state = {}
+		local function pass() ShamanPower:UpdatePlayerTotemRange() end
+		self:RegisterUpdateSubsystem("playerTotemRange", 0.5, function() ShamanPower._whileTotemsDown(state, pass) end)
+	end
+	self:EnableUpdateSubsystem("playerTotemRange")
+end
+
+-- (3.0.9.2) does the totem down on an element gray out when out of range (its own look: Gray or Gray + Glow)
+function ShamanPower:TotemRangeGrays(element)
+	if not self.TotemCueOpt then return true end
+	local _, name = self:GetElementTotemInfo(element)
+	local look = self:TotemCueOpt(self.CueTotemOf and self.CueTotemOf(element, name), "totemRangeLook") or "gray"
+	return look == "gray" or look == "both"
+end
+
+-- (3.0.9.2) a totem's Out of Range glow: in its own Glow Shape (Proc Glow too) and color, on the
+-- button (or the active totem's overlay) while you're out of its range; redone only on a change
+ShamanPower.TOTEM_RANGE_GLOW_DEFAULT = { r = 1, g = 0.3, b = 0.3 }   -- (no new top-level local: this chunk is near Lua's 200)
+function ShamanPower:TotemRangeGlow(element, host, on, spell)
+	local g = self.totemRangeGlows
+	if not g then g = {}; self.totemRangeGlows = g end
+	local cur = g[element]
+	local shape, r, gg, b
+	if on and host then
+		shape = self:TotemCueOpt(spell, "totemRangeGlowShape") or (self.opt and self.opt.glowShape) or "default"
+		local c = self:TotemCueOpt(spell, "totemRangeGlowColor") or self.TOTEM_RANGE_GLOW_DEFAULT
+		r, gg, b = c.r or c[1] or 1, c.g or c[2] or 0.3, c.b or c[3] or 0.3
+	end
+	if cur and cur.host == host and cur.on == (on and true or false) and cur.shape == shape and cur.r == r and cur.g == gg and cur.b == b then return end
+	-- off where it was
+	if cur and cur.host then
+		local h = cur.host
+		if h.spRangeGlow then h.spRangeGlow:Hide(); h.spRangeGlowAnim:Stop() end
+		if cur.proc and self.ProcGlow_Stop then self.ProcGlow_Stop(h, "totemrange") end
+	end
+	g[element] = { host = host, on = on and true or false, shape = shape, r = r, g = gg, b = b }
+	if not (on and host) then return end
+	if shape == "proc" and self.ProcGlow_Start and self.ProcGlowOptions then
+		self.ProcGlow_Start(host, self:ProcGlowOptions(host, { r, gg, b, 1 }, "totemrange", false, self.PROC_GLOW_OUT or 0.2))
+		g[element].proc = true
+		return
+	end
+	if not host.spRangeGlow then
+		local t = host:CreateTexture(nil, "OVERLAY", nil, 6)
+		t:SetPoint("TOPLEFT", -10, 10); t:SetPoint("BOTTOMRIGHT", 10, -10)
+		t:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
+		t:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
+		if self.ShapeGlow then self:ShapeGlow(t, "alert") end
+		t:SetBlendMode("ADD")
+		local ag = t:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+		local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.15); a1:SetToAlpha(0.8); a1:SetDuration(0.5); a1:SetOrder(1)
+		local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(0.8); a2:SetToAlpha(0.15); a2:SetDuration(0.5); a2:SetOrder(2)
+		host.spRangeGlow, host.spRangeGlowAnim = t, ag
+	end
+	if self.PaintGlowShape then self:PaintGlowShape(host.spRangeGlow, shape) end
+	host.spRangeGlow:SetVertexColor(r, gg, b)
+	host.spRangeGlow:Show(); host.spRangeGlowAnim:Play()
 end
 
 -- ============================================================================
@@ -10930,22 +11048,29 @@ function ShamanPower:CreateCooldownBar()
 			greyOverlay:Hide()
 			btn.greyOverlay = greyOverlay
 
+			-- The texts sit on a frame above the cooldown widget: on the button itself the sweep
+			-- covered them (a child frame draws over its parent's own regions; 3.0.9.2)
+			local texts = CreateFrame("Frame", nil, btn)
+			texts:SetAllPoints(btn)
+			ShamanPower:KeepAboveCooldown(btn, texts, 2)
+			btn.spTexts = texts
+
 			-- Time text for showing remaining duration (center of button - legacy)
-			local timeText = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+			local timeText = texts:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
 			ShamanPower:AdoptSPFont(timeText, "timers")   -- template font = the design; follows the Fonts settings
 			timeText:SetPoint("CENTER", btn, "CENTER", 0, 0)
 			timeText:SetText("")
 			btn.timeText = timeText
 
 			-- Duration text INSIDE the bar
-			local insideText = btn:CreateFontString(nil, "OVERLAY", nil, 7)
+			local insideText = texts:CreateFontString(nil, "OVERLAY", nil, 7)
 			ShamanPower:SetSPFont(insideText, "timers", 8, "OUTLINE")
 			insideText:SetTextColor(1, 1, 1)
 			insideText:Hide()
 			btn.insideText = insideText
 
 			-- Duration text OUTSIDE the bar
-			local outsideText = btn:CreateFontString(nil, "OVERLAY")
+			local outsideText = texts:CreateFontString(nil, "OVERLAY")
 			ShamanPower:SetSPFont(outsideText, "timers", 8, "OUTLINE")
 			outsideText:SetTextColor(1, 1, 1)
 			outsideText:Hide()
@@ -10953,7 +11078,7 @@ function ShamanPower:CreateCooldownBar()
 			btn.belowText = outsideText  -- Compatibility
 
 			-- Duration text ON the icon
-			local iconText = btn:CreateFontString(nil, "OVERLAY")
+			local iconText = texts:CreateFontString(nil, "OVERLAY")
 			ShamanPower:SetSPFont(iconText, "timers", 9, "OUTLINE")
 			iconText:SetPoint("CENTER", btn, "CENTER", 0, 0)
 			iconText:SetTextColor(1, 1, 1)
@@ -10961,7 +11086,7 @@ function ShamanPower:CreateCooldownBar()
 			btn.iconText = iconText
 
 			-- Keybind text (top right corner, like standard action buttons)
-			local keybindText = btn:CreateFontString(nil, "OVERLAY")
+			local keybindText = texts:CreateFontString(nil, "OVERLAY")
 			ShamanPower:SetSPFont(keybindText, "labels", 9, "OUTLINE", "Fonts\\ARIALN.TTF")
 			keybindText:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 1, 0)
 			keybindText:SetTextColor(0.9, 0.9, 0.9, 1)
@@ -10971,7 +11096,7 @@ function ShamanPower:CreateCooldownBar()
 
 			-- Charge count text for shield buttons (bottom right corner)
 			if spellType == "shield" then
-				local chargeText = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+				local chargeText = texts:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 				ShamanPower:AdoptSPFont(chargeText, "charges")   -- template font = the design; follows the Fonts settings
 				chargeText:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
 				chargeText:SetText("")
@@ -10980,7 +11105,7 @@ function ShamanPower:CreateCooldownBar()
 
 			-- Ankh count text for Reincarnation button (bottom right corner)
 			if spellID == 20608 then
-				local ankhCountText = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+				local ankhCountText = texts:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 				ShamanPower:AdoptSPFont(ankhCountText, "labels")   -- template font = the design; follows the Fonts settings
 				ankhCountText:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
 				ankhCountText:SetText("")
@@ -11352,6 +11477,7 @@ local function EngineProgressBar(btn)
 		bar:SetFrameLevel(btn:GetFrameLevel() + 2)
 		if bar.SetFillStyle then bar:SetFillStyle("STANDARD") end
 		btn.engineBar = bar
+		ShamanPower:LiftCooldownAbove(btn, bar:GetFrameLevel())   -- the numbers over the bar
 	end
 	return btn.engineBar
 end
@@ -16127,6 +16253,9 @@ function ShamanPower:UpdateMiniTotemBar()
 
 	-- Setup pulse overlays for totems like Tremor
 	self:SetupPulseOverlays()
+
+	-- the bar's own Out of Range look, on a pass of its own (3.0.9.2)
+	self:SetupPlayerTotemRange()
 
 	-- Setup party range dots
 	self:SetupPartyRangeDots()
@@ -21280,7 +21409,9 @@ function ShamanPower:SetupTotemBarKeybindText()
 	for bindingName, buttonName in pairs(self.TotemBarKeybinds) do
 		local btn = _G[buttonName]
 		if btn and not btn.keybindText then
-			local keybindText = btn:CreateFontString(nil, "OVERLAY")
+			-- on the cooldown text's frame, above the sweep (3.0.9.2), where the button has one
+			local host = btn.cooldownText and btn.cooldownText:GetParent() or btn
+			local keybindText = host:CreateFontString(nil, "OVERLAY")
 			ShamanPower:SetSPFont(keybindText, "labels", 9, "OUTLINE", "Fonts\\ARIALN.TTF")
 			keybindText:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 1, 0)
 			keybindText:SetTextColor(0.9, 0.9, 0.9, 1)

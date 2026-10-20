@@ -53,7 +53,6 @@ local MOCK_DURATION = { mocks = { { label = "Duration bars", build = "BuildDurat
 local MOCK_CDBAR    = { mocks = { { label = "Cooldown bar",  build = "BuildCooldownBarStep" } } }
 local MOCK_BARS     = { mocks = { MOCK_TOTEM.mocks[1], MOCK_CDBAR.mocks[1] } }
 -- the Totem Bar's Effects tab: its preview with its effects playing on it
-local MOCK_TOTEM_EFFECTS = { mocks = MOCK_TOTEM.mocks, effects = true }
 local MOCK_THEMES   = { mocks = MOCK_BARS.mocks }   -- Appearance > Themes: the split bar preview, rebuilt on every theme change (no Effects: themes are not effects)
 -- which bar a mock is, for a theme's flat boxes on it (SP:ThemeSkinPreview)
 local MOCK_SKIN_FAMILY = {
@@ -300,7 +299,7 @@ local NAV = {
 			{ label = "Style",         paths = { P("settings", "settings_totemMode") } },
 			{ label = "Clicks",        paths = { P("settings", "settings_totemClicks") } },
 			{ label = "Duration Bars", preview = MOCK_DURATION, paths = { P("fluffy", "totembar_duration_section") } },
-			{ label = "Effects",       preview = MOCK_TOTEM_EFFECTS, paths = { P("fluffy", "totembar_effects_section") } },
+			-- (3.0.9.2) no Effects tab: each totem's effects are in its menu on Bar (TotemBarIcons.lua)
 			{ label = "Macros",        paths = { P("buttons", "macros_section") } },
 			{ label = "Twisting",      paths = { P("settings", "settings_totemTwisting") }, power = true },   -- no rows (so no tab) on WoW: Forever
 		}},

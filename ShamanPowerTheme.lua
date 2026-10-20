@@ -1607,7 +1607,8 @@ function LOOK.CaptureColors(o)
 	if type(rr) == "table" then
 		c.rr = { borderColor = Copy(rr.borderColor), glowColor = Copy(rr.glowColor), barColor = Copy(rr.barColor),
 			buffEdgeColor = Copy(rr.buffEdgeColor), resetColor = Copy(rr.resetColor),   -- (D52: the buff's Edge Color; A25: the reset burst's)
-			stackColor = Copy(rr.stackColor), stackColor5 = Copy(rr.stackColor5) }   -- (3.0.9.2: Maelstrom Weapon's two colors)
+			stackColor = Copy(rr.stackColor), stackColor5 = Copy(rr.stackColor5),   -- (3.0.9.2: Maelstrom Weapon's two colors)
+			oomColor = Copy(rr.oomColor), oomGlowColor = Copy(rr.oomGlowColor) }   -- (3.0.9.2: When Out of Mana's two)
 	end
 	local tr = ShamanPowerTremorReminderDB
 	if type(tr) == "table" then c.tremor = Copy(tr.glowColor) end
@@ -1624,6 +1625,7 @@ function LOOK.RestoreColors(c)
 		rr.buffEdgeColor = Copy(c.rr.buffEdgeColor)   -- (D52; a look kept before it existed: the default again)
 		rr.resetColor = Copy(c.rr.resetColor)   -- (A25; the same)
 		rr.stackColor, rr.stackColor5 = Copy(c.rr.stackColor), Copy(c.rr.stackColor5)   -- (3.0.9.2; the same)
+		rr.oomColor, rr.oomGlowColor = Copy(c.rr.oomColor), Copy(c.rr.oomGlowColor)     -- (3.0.9.2; the same)
 	end
 	local tr = ShamanPowerTremorReminderDB
 	if type(tr) == "table" and c.tremor ~= nil then tr.glowColor = Copy(c.tremor) end
@@ -1637,9 +1639,9 @@ function LOOK.ColorsDiffer(c)
 	if type(o.rangeCounter) == "table" and o.rangeCounter.useElementColors ~= c.rangeElem then return true end
 	local rr = ShamanPower_ReadyReminders
 	if type(rr) == "table" and type(c.rr) == "table" then
-		for _, k in ipairs({ "borderColor", "glowColor", "barColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5" }) do
+		for _, k in ipairs({ "borderColor", "glowColor", "barColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5", "oomColor", "oomGlowColor" }) do
 			-- (D52, A25, 3.0.9.2) a look kept before the buff's Edge Color / the reset burst's color / the stack colors existed has none: nothing to load for it
-			if not ((k == "buffEdgeColor" or k == "resetColor" or k == "stackColor" or k == "stackColor5") and c.rr[k] == nil)
+			if not ((k == "buffEdgeColor" or k == "resetColor" or k == "stackColor" or k == "stackColor5" or k == "oomColor" or k == "oomGlowColor") and c.rr[k] == nil)
 				and not Near(rr[k], c.rr[k]) then return true end
 		end
 	end
@@ -1771,6 +1773,8 @@ function SP:ResetAllColorsToDefault(everything)
 		ShamanPower_ReadyReminders.resetColor = nil   -- (A25) back to WoW's gold on the next read
 		ShamanPower_ReadyReminders.stackColor = nil   -- (3.0.9.2) Maelstrom Weapon: back to the stack blue
 		ShamanPower_ReadyReminders.stackColor5 = nil  -- (3.0.9.2) and WoW's gold at 5 stacks
+		ShamanPower_ReadyReminders.oomColor = nil     -- (3.0.9.2) When Out of Mana: back to the out-of-mana blue
+		ShamanPower_ReadyReminders.oomGlowColor = nil
 	end
 	if type(ShamanPowerTremorReminderDB) == "table" then
 		ShamanPowerTremorReminderDB.glowColor = { r = 1, g = 0.8, b = 0 }
@@ -1830,7 +1834,7 @@ end
 -- ===========================================================================
 Cards.THEME_KEYS = { "palette", "shield", "custom" }       -- (plus global, spots and LOOK.theme)
 Cards.MODULES = { "ShamanPower_ReadyReminders", "ShamanPowerTremorReminderDB", "ShamanPower_TargetTracker", "ShamanPower_ReactiveTotems" }
-Cards.RR = { "borderColor", "glowColor", "barColor", "rangeColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5" }
+Cards.RR = { "borderColor", "glowColor", "barColor", "rangeColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5", "oomColor", "oomGlowColor" }
 -- flat keys an update added, with their defaults (see Cards.Migrate)
 function Cards.InheritedSweepDirection() return "default" end
 Cards.ADDED = {
@@ -1839,6 +1843,8 @@ Cards.ADDED = {
 	["rr.resetColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").resetColor end,   -- (A25)
 	["rr.stackColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").stackColor end,   -- (3.0.9.2)
 	["rr.stackColor5"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").stackColor5 end,   -- (3.0.9.2)
+	["rr.oomColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").oomColor end,   -- (3.0.9.2)
+	["rr.oomGlowColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").oomGlowColor end,   -- (3.0.9.2)
 	["e.mod.readyreminders.sweepDirection"] = function() return "bottom" end,
 	["e.mod.targettracker.sweepDirection.fs"] = Cards.InheritedSweepDirection,
 	["e.mod.targettracker.sweepDirection.frs"] = Cards.InheritedSweepDirection,
@@ -2233,8 +2239,30 @@ function Cards.Migrate()
 				Cards.ADDED["e.mod.readyreminders.stackColor." .. entry.key] = Cards.InheritedSweepDirection
 				Cards.ADDED["e.mod.readyreminders.stackColor5." .. entry.key] = Cards.InheritedSweepDirection
 			end
+			-- (3.0.9.2) When Out of Mana's two colors, the same way
+			if not (entry.weaponSet or entry.stacks) then
+				Cards.ADDED["e.mod.readyreminders.oomColor." .. entry.key] = Cards.InheritedSweepDirection
+				Cards.ADDED["e.mod.readyreminders.oomGlowColor." .. entry.key] = Cards.InheritedSweepDirection
+			end
 		end
 		Cards.addedReadyDirections = true
+	end
+	-- (3.0.9.2) the Totem Range Tracker's per-totem glow colors (ShamanPower_SPRange.lua, spot mod.range)
+	if SP.TrackableTotems and SP.SPRangeIconOpt and not Cards.addedRangeColors then
+		for _, t in ipairs(SP.TrackableTotems) do
+			Cards.ADDED["e.mod.range.inGlowColor." .. t.id] = Cards.InheritedSweepDirection
+			Cards.ADDED["e.mod.range.oorGlowColor." .. t.id] = Cards.InheritedSweepDirection
+		end
+		Cards.addedRangeColors = true
+	end
+	-- (3.0.9.2) each totem's Out of Range glow color (ShamanPowerCues.lua, spot tb.totems)
+	if SP.Totems and SP.TotemCueOpt and not Cards.addedTotemRangeColors then
+		for e = 1, 4 do
+			for _, id in pairs(SP.Totems[e] or {}) do
+				if type(id) == "number" then Cards.ADDED["e.tb.totems.totemRangeGlowColor." .. id] = Cards.InheritedSweepDirection end
+			end
+		end
+		Cards.addedTotemRangeColors = true
 	end
 	local t = TW()
 	if not t then return end
@@ -2616,6 +2644,8 @@ Cards.LABEL = {
 	["rr.resetColor"] = "Ready Reminders Reset Burst Color",
 	["rr.stackColor"] = "Ready Reminders Stack Color",
 	["rr.stackColor5"] = "Ready Reminders Color At 5 Stacks",
+	["rr.oomColor"] = "Ready Reminders Out of Mana Color",
+	["rr.oomGlowColor"] = "Ready Reminders Out of Mana Glow Color",
 }
 for sh, nm in pairs({ LS = "Lightning Shield", WS = "Water Shield", ES = "Earth Shield" }) do   -- each shield's own gradient (3.0.8)
 	for _, part in ipairs({ "", "Direction", "Color1", "Color2", "Fade" }) do

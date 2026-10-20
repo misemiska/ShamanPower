@@ -206,6 +206,18 @@ if ThemeCue then ThemeCue.init(cueFrame, TINT, iconMotion, alphaAnim) end
 -- look: a look to play in (a preview), nil = the effect's own
 local function playCue(host, style, kind, icon, look)
 	if not host then return end
+	if style == "proc" then   -- (3.0.9.2) Proc Glow: the game's ring in the effect's color, for a moment
+		local t = TINT[kind] or TINT.expired
+		if SP.ProcGlow_Start and SP.ProcGlowOptions then
+			SP.ProcGlow_Start(host, SP:ProcGlowOptions(host, { t[1], t[2], t[3], 1 }, "cue", false, SP.PROC_GLOW_OUT or 0.2))
+			host.spCueProcSerial = (host.spCueProcSerial or 0) + 1
+			local serial = host.spCueProcSerial
+			C_Timer.After(1.6, function()
+				if host.spCueProcSerial == serial and SP.ProcGlow_Stop then SP.ProcGlow_Stop(host, "cue") end
+			end)
+		end
+		return
+	end
 	if ThemeCue and ThemeCue.play(host, style, kind, icon, look) then return end
 	local c = cueFrame(host)
 	local t = TINT[kind] or TINT.expired
@@ -346,6 +358,7 @@ end
 -- kind: whose loop, for its look and colors (nil: Totem Expiring Soon).
 local function loopOn(host, style, t, look, kind)
 	if style == "red" then
+		if host.spCueProcLoop then host.spCueProcLoop = nil; if SP.ProcGlow_Stop then SP.ProcGlow_Stop(host, "cueloop") end end
 		local c = host.spCue
 		if c then
 			c.dimLoop:Stop(); c.glowLoop:Stop()
@@ -355,6 +368,16 @@ local function loopOn(host, style, t, look, kind)
 		return
 	end
 	redOff(host)
+	if style == "proc" then   -- (3.0.9.2) Proc Glow until it ends
+		if not host.spCueProcLoop and SP.ProcGlow_Start and SP.ProcGlowOptions then
+			local c = host.spCue
+			if c then c.dimLoop:Stop(); c.glowLoop:Stop() end
+			SP.ProcGlow_Start(host, SP:ProcGlowOptions(host, { t[1], t[2], t[3], 1 }, "cueloop", false, SP.PROC_GLOW_OUT or 0.2))
+			host.spCueProcLoop = true
+		end
+		return
+	end
+	if host.spCueProcLoop then host.spCueProcLoop = nil; if SP.ProcGlow_Stop then SP.ProcGlow_Stop(host, "cueloop") end end
 	if ThemeCue and ThemeCue.loop(host, style, t, look, kind) then return end
 	local c = cueFrame(host)
 	if style == "glow" then
@@ -370,6 +393,7 @@ local function loopOn(host, style, t, look, kind)
 end
 local function loopOff(host)
 	redOff(host)
+	if host.spCueProcLoop then host.spCueProcLoop = nil; if SP.ProcGlow_Stop then SP.ProcGlow_Stop(host, "cueloop") end end
 	local c = host.spCue
 	if c then c.dimLoop:Stop(); c.glowLoop:Stop() end
 	if c and c.spTheme and ThemeCue then ThemeCue.stop(c) end   -- a theme's loop
@@ -421,11 +445,12 @@ local function stopExpiring(element)
 	loopOff(host)
 end
 
-local function startExpiring(element, style)
+local function startExpiring(element, style, secs, look)
 	local host = totemHost(element)
 	if expiringHost[element] ~= host then stopExpiring(element) end
 	if not host then return end
-	loopOn(host, style, TINT.expiring)
+	host.spExpSecs = secs   -- (3.0.9.2: the totem's own seconds, for the looks that drain with the time)
+	loopOn(host, style, TINT.expiring, look)
 	expiringHost[element] = host
 end
 
@@ -446,29 +471,88 @@ end
 -- the red X on an element goes (Dropped Totems: the fight ended)
 function SP:TotemMarkClear(element) clearMark(element) end
 
+-- (3.0.9.2) Each totem's own effects, from its right-click menu on Totem Bar > Bar: what it set
+-- there (opt.totemOwn[its spell], the same keys), else the bar's own settings as they were.
+function SP:TotemCueOpt(spell, key)
+	local o = self.opt
+	if not o then return nil end
+	local own = spell and type(o.totemOwn) == "table" and o.totemOwn[spell]
+	if type(own) == "table" and own[key] ~= nil then return own[key] end
+	return o[key]
+end
+-- the totem down on an element by its name (the spell its menu is keyed by), kept per element
+local cueSpellName, cueSpellID = {}, {}
+local function cueTotem(element, name)
+	if not name or isSecret(name) then return nil end
+	if cueSpellName[element] == name then return cueSpellID[element] end
+	local list = SP.Totems and SP.Totems[element]
+	local names = SP.TotemNames and SP.TotemNames[element]
+	local found
+	if list then
+		for idx, id in pairs(list) do
+			if type(id) == "number" and SPCompat.TotemNameMatches(name, id, names and names[idx]) then found = id break end
+		end
+	end
+	cueSpellName[element], cueSpellID[element] = name, found
+	return found
+end
+SP.CueTotemOf = cueTotem
+-- a totem's own Effects Look (nil: the bar's, as the Themes engine reads it), and the style an effect
+-- plays in: with Signature Moves on and a look other than Standard, that look's own move
+local SIG = { elemental = { destroyed = "crumble", expired = "ringin", expiring = "drain" },
+	signal = { destroyed = "frameblink", expired = "underline", expiring = "underbar" } }
+local function cueLook(spell)
+	local o = SP.opt
+	local own = spell and o and type(o.totemOwn) == "table" and o.totemOwn[spell]
+	if type(own) == "table" then return own.totemCueLook end
+	return nil
+end
+local function cueStyle(spell, kind, key, fallback)
+	local look = SP:TotemCueOpt(spell, "totemCueLook") or "standard"
+	if look ~= "standard" and SIG[look] and SP:TotemCueOpt(spell, "totemCueSignature") == true then return SIG[look][kind] end
+	return SP:TotemCueOpt(spell, key) or fallback
+end
+-- any totem with this switch on (the bar's own, or one of its own)
+local function anyTotem(key, on)
+	local o = SP.opt
+	if not o then return false end
+	if on(o[key]) then return true end
+	if type(o.totemOwn) == "table" then
+		for _, t in pairs(o.totemOwn) do if type(t) == "table" and on(t[key]) then return true end end
+	end
+	return false
+end
+local function truthy(v) return v and true or false end
+local function isTrue(v) return v == true end
+
 -- Red X Until Recast alone (Totem Destroyed's animation off) still needs the destroyed totem noticed
 function SP:TotemCuesWanted()
-	local o = self.opt
-	return o and (o.totemCueDestroyed or o.totemCueExpired or o.totemCueDestroyedMark == true) and true or false
+	return anyTotem("totemCueDestroyed", truthy) or anyTotem("totemCueExpired", truthy) or anyTotem("totemCueDestroyedMark", isTrue)
 end
 
--- A totem went (why: destroyed / expired / recalled / dismissed / died / unknown).
-function SP:TotemEndCue(element, why)
+-- A totem went (why: destroyed / expired / recalled / dismissed / died / unknown); name: the totem's
+-- (each totem's own effects, 3.0.9.2)
+function SP:TotemEndCue(element, why, name)
 	stopExpiring(element)
-	local o = self.opt
-	if not o or self:IsOff() then return end
+	if not self.opt or self:IsOff() then return end
+	local spell = cueTotem(element, name)
+	local function O(k) return self:TotemCueOpt(spell, k) end
+	local o = { totemCueDestroyed = O("totemCueDestroyed"), totemCueDestroyedStyle = cueStyle(spell, "destroyed", "totemCueDestroyedStyle", "shake"),
+		totemCueDestroyedMark = O("totemCueDestroyedMark"), totemCueDestroyedMarkStays = O("totemCueDestroyedMarkStays"),
+		totemCueExpired = O("totemCueExpired"), totemCueExpiredStyle = cueStyle(spell, "expired", "totemCueExpiredStyle", "pop") }
+	local look = cueLook(spell)
 	if why == "destroyed" and (o.totemCueDestroyed or o.totemCueDestroyedMark == true) then
 		-- Totem Destroyed (the animation) and Red X Until Recast are two switches (3.0.9.1): either alone
 		local host, icon = totemHost(element)
 		if not host then return end
-		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon) end
+		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon, look) end
 		-- Keep the Red X: until the recast; on the Dropped Totems style (its picture goes with the totem) until
 		-- the fight ends instead, and out of a fight there is nothing to wait for: the usual 5 seconds
 		local stays = o.totemCueDestroyedMarkStays and true or false
 		local dropped = SP.DroppedActive and SP:DroppedActive()
 		if dropped and stays and not InCombatLockdown() then stays = false end
 		if o.totemCueDestroyedMark == true then
-			showMark(host, nil, stays)
+			showMark(host, look, stays)
 			markHost[element] = host   -- (cleared with the recast, wherever it was drawn)
 		end
 		-- Dropped Totems: the picture stays up while the cue plays (the red X: its 4.5 s, or until the fight ends)
@@ -478,7 +562,7 @@ function SP:TotemEndCue(element, why)
 	elseif why == "expired" and o.totemCueExpired then
 		local host, icon = totemHost(element)
 		if not host then return end
-		playCue(host, o.totemCueExpiredStyle or "pop", "expired", icon)
+		playCue(host, o.totemCueExpiredStyle or "pop", "expired", icon, look)
 		if SP.DroppedKeep then SP:DroppedKeep(element, 2) end   -- Dropped Totems: the picture stays up for the cue
 	end
 end
@@ -487,11 +571,11 @@ end
 -- they were, and the destroyed verdicts waiting out the window (one per
 -- element, answered by a callback made once, so nothing is made per totem).
 local prevTotem = { {}, {}, {}, {} }
-local pendingAt, pendingSlot, verdict = {}, {}, {}
+local pendingAt, pendingSlot, pendingName, verdict = {}, {}, {}, {}
 for element = 1, 4 do
 	verdict[element] = function()
-		local at, slot = pendingAt[element], pendingSlot[element]
-		pendingAt[element], pendingSlot[element] = nil, nil
+		local at, slot, name = pendingAt[element], pendingSlot[element], pendingName[element]
+		pendingAt[element], pendingSlot[element], pendingName[element] = nil, nil, nil
 		if not at then return end
 		local recall = SP._totemRecallAt
 		if recall and at - recall < 2 then return end
@@ -502,7 +586,7 @@ for element = 1, 4 do
 		if SP._cueWorldAt and at - SP._cueWorldAt < 3 then return end
 		if UnitOnTaxi and UnitOnTaxi("player") then return end
 		if SP:GetElementTotemInfo(element) then return end   -- that element is down again
-		SP:TotemEndCue(element, "destroyed")
+		SP:TotemEndCue(element, "destroyed", name)
 	end
 end
 
@@ -519,9 +603,9 @@ function SP:CueTotemUpdate()
 			-- Fire Nova Totem (Anniversary) removes itself when it goes off, ahead of its time
 			local selfEnding = SPCompat.TotemNameMatches(p.name, 1535, "Fire Nova Totem")
 			if selfEnding or (type(p.duration) == "number" and p.duration > 0 and now - p.start >= p.duration - 0.5) then
-				self:TotemEndCue(element, "expired")
+				self:TotemEndCue(element, "expired", p.name)
 			else
-				pendingAt[element], pendingSlot[element] = now, p.slot
+				pendingAt[element], pendingSlot[element], pendingName[element] = now, p.slot, p.name
 				C_Timer.After(VERDICT_WINDOW, verdict[element])
 			end
 		end
@@ -534,19 +618,22 @@ end
 -- Expiring: 5 times a second, only while the option is on and a totem is down.
 local expiringState = {}
 local function expiringPass()
-	local o = SP.opt
-	if not o.totemCueExpiring then
-		for element = 1, 4 do stopExpiring(element) end
-		return
-	end
-	local secs = o.totemCueExpiringSecs or 5
-	local style = o.totemCueExpiringStyle or "pulse"
 	local now = GetTime()
 	for element = 1, 4 do
-		local have, _, start, duration = SP:GetElementTotemInfo(element)
-		local left = have and type(start) == "number" and type(duration) == "number" and not isSecret(start)
-			and duration > secs + 1 and (start + duration - now) or nil
-		if left and left > 0 and left <= secs then startExpiring(element, style) else stopExpiring(element) end
+		local have, name, start, duration = SP:GetElementTotemInfo(element)
+		local spell = have and cueTotem(element, name)
+		local left
+		if have and SP:TotemCueOpt(spell, "totemCueExpiring") then   -- (3.0.9.2: the totem's own, else the bar's)
+			local secs = SP:TotemCueOpt(spell, "totemCueExpiringSecs") or 5
+			left = type(start) == "number" and type(duration) == "number" and not isSecret(start)
+				and duration > secs + 1 and (start + duration - now) or nil
+			if left and left > 0 and left <= secs then
+				startExpiring(element, cueStyle(spell, "expiring", "totemCueExpiringStyle", "pulse"), secs, cueLook(spell))
+			else
+				left = nil
+			end
+		end
+		if not left then stopExpiring(element) end
 	end
 end
 
@@ -1145,6 +1232,7 @@ local function almostHolder(btn)
 	h = CreateFrame("Frame", nil, btn)
 	h:SetAllPoints(btn)
 	h:SetFrameLevel(btn:GetFrameLevel() + 1)
+	if SP.KeepAboveCooldown then SP:KeepAboveCooldown(btn, h, 1) end   -- over the sweep, under the numbers' texts
 	btn.spAlmost = h
 	return h
 end
@@ -1442,7 +1530,7 @@ function SP:ApplyCueSettings()
 			SP._whileTotemsDown(expiringState, expiringPass)
 		end)
 	end
-	if o.totemCueExpiring and not self:IsOff() then
+	if anyTotem("totemCueExpiring", truthy) and not self:IsOff() then   -- (any totem's own too, 3.0.9.2)
 		self:EnableUpdateSubsystem("totemCues")
 	else
 		self:DisableUpdateSubsystem("totemCues")
@@ -1474,18 +1562,53 @@ end
 
 -- Test buttons: the chosen styles on the real bars, on or off.
 function SP:TestTotemCues()
-	local o = self.opt
+	-- (3.0.9.2) each element's assigned totem, with its own effects (else the bar's)
+	local function T(e, k)
+		local idx = self.AssignedIndex and self:AssignedIndex(e)
+		local spell = idx and idx > 0 and self.GetTotemSpell and self:GetTotemSpell(e, idx) or nil
+		return self:TotemCueOpt(spell, k)
+	end
 	local host, icon = totemHost(1)
 	if host then
-		if o.totemCueDestroyed then playCue(host, o.totemCueDestroyedStyle or "shake", "destroyed", icon) end
-		if o.totemCueDestroyedMark == true then showMark(host, nil, o.totemCueDestroyedMarkStays) end
+		if T(1, "totemCueDestroyed") then playCue(host, T(1, "totemCueDestroyedStyle") or "shake", "destroyed", icon) end
+		if T(1, "totemCueDestroyedMark") == true then showMark(host, nil, T(1, "totemCueDestroyedMarkStays")) end
 	end
 	host, icon = totemHost(2)
-	if host then playCue(host, o.totemCueExpiredStyle or "pop", "expired", icon) end
+	if host then playCue(host, T(2, "totemCueExpiredStyle") or "pop", "expired", icon) end
 	if totemHost(3) then
-		startExpiring(3, o.totemCueExpiringStyle or "pulse")
+		startExpiring(3, T(3, "totemCueExpiringStyle") or "pulse", T(3, "totemCueExpiringSecs") or 5)
 		C_Timer.After(3, function() stopExpiring(3) end)
 	end
+end
+
+-- (3.0.9.2) one totem's own effects on its element's button, from its menu (Test This Totem's
+-- Effects): Destroyed (and its red X), then Expired, then Expiring Soon for 3 seconds
+function SP:TestTotemCuesFor(spell, element)
+	local host, icon = totemHost(element)
+	if not host then
+		print("|cff0070ddShamanPower|r: its element's button isn't on screen (a Totem Bar style without it, or the element turned off).")
+		return
+	end
+	local function T(k) return self:TotemCueOpt(spell, k) end
+	local look = cueLook(spell)
+	local any = false
+	if T("totemCueDestroyed") or T("totemCueDestroyedMark") == true then
+		any = true
+		if T("totemCueDestroyed") then playCue(host, cueStyle(spell, "destroyed", "totemCueDestroyedStyle", "shake"), "destroyed", icon, look) end
+		if T("totemCueDestroyedMark") == true then showMark(host, look, false) end
+	end
+	if T("totemCueExpired") then
+		any = true
+		C_Timer.After(1.4, function() playCue(host, cueStyle(spell, "expired", "totemCueExpiredStyle", "pop"), "expired", icon, look) end)
+	end
+	if T("totemCueExpiring") then
+		any = true
+		C_Timer.After(2.8, function()
+			startExpiring(element, cueStyle(spell, "expiring", "totemCueExpiringStyle", "pulse"), T("totemCueExpiringSecs") or 5, look)
+			C_Timer.After(3, function() stopExpiring(element) end)
+		end)
+	end
+	if not any then print("|cff0070ddShamanPower|r: this totem has no effects on yet: turn one on in its menu first.") end
 end
 
 function SP:TestCooldownCues()
@@ -1613,4 +1736,49 @@ function SP:CueMarkCarryOver()
 	if not o or o.totemCueDestroyedMarkSet3091 then return end
 	o.totemCueDestroyedMarkSet3091 = true
 	o.totemCueDestroyedMark = (o.totemCueDestroyed and o.totemCueDestroyedMark ~= false) and true or false
+end
+
+-- (3.0.9.2) Theme hook (Appearance > Themes, spot tb.totems): each totem's Out of Range glow color
+-- travels with a theme ("default": the red every totem starts with). Reset All Colors clears them.
+if SP.ThemeSpotSettings and SP.Totems then
+	local entries = {}
+	for e = 1, 4 do
+		for idx, id in pairs(SP.Totems[e] or {}) do
+			if type(id) == "number" then
+				local name = (SP.TotemNames and SP.TotemNames[e] and SP.TotemNames[e][idx]) or tostring(id)
+				entries[#entries + 1] = { key = "totemRangeGlowColor." .. id, label = name .. " Out of Range Glow Color",
+					mayBeColor = true,
+					get = function()
+						local own = SP.opt and type(SP.opt.totemOwn) == "table" and SP.opt.totemOwn[id]
+						local c = type(own) == "table" and own.totemRangeGlowColor
+						if type(c) ~= "table" then return "default" end
+						return { r = c.r or c[1] or 1, g = c.g or c[2] or 1, b = c.b or c[3] or 1 }
+					end,
+					set = function(v)
+						local o = SP.opt
+						if not o then return end
+						if type(o.totemOwn) ~= "table" then o.totemOwn = {} end
+						local own = o.totemOwn[id]
+						if type(own) ~= "table" then own = {}; o.totemOwn[id] = own end
+						if type(v) == "table" then own.totemRangeGlowColor = { r = v.r or v[1], g = v.g or v[2], b = v.b or v[3] }
+						else own.totemRangeGlowColor = nil end
+						if next(own) == nil then o.totemOwn[id] = nil end
+						if SP.UpdatePlayerTotemRange then SP:UpdatePlayerTotemRange() end
+					end }
+			end
+		end
+	end
+	SP:ThemeSpotSettings("tb.totems", entries)
+end
+if SP.ResetAllColorsToDefault and hooksecurefunc then
+	hooksecurefunc(SP, "ResetAllColorsToDefault", function()
+		local o = SP.opt
+		if not (o and type(o.totemOwn) == "table") then return end
+		for id, own in pairs(o.totemOwn) do
+			if type(own) == "table" then
+				own.totemRangeGlowColor = nil
+				if next(own) == nil then o.totemOwn[id] = nil end
+			end
+		end
+	end)
 end

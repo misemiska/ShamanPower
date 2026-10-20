@@ -358,17 +358,17 @@ local function UsualLine(it)
 	local on = o ~= nil and o.usualTotemReminder == true and o.usualTotemAlert == true
 	return {
 		text = "Put Your Usual Totem Back",
-		words = "one switch for all four elements, on Totem Bar > Effects",
+		words = "in each temporary totem's menu, on Totem Bar > Bar",
 		value = function() return OnOffWord(on), false end,
 		tip = "When a temporary " .. ELEMENTS[it.element]:lower() .. " totem you dropped ends (like Tremor or Grounding), a line"
-			.. " like Put Windfury back shows with these alerts, in this element's color, with no sound. One switch for all"
-			.. " four elements, on Totem Bar > Effects: Remind Me to Put My Usual Totem Back, then Also Show a Text Alert."
+			.. " like Put Windfury back shows with these alerts, in this element's color, with no sound. Its switches are in"
+			.. " each temporary totem's menu on Totem Bar > Bar: Put Your Usual Totem Back > Remind Me, then Also Show a Text Alert."
 			.. " Turning this element's alerts off here doesn't stop it.",
 		sub = function()
-			return { { text = "Open Totem Bar > Effects", tip = "Where its switch is: Put Your Usual Totem Back > Also Show a Text Alert.",
+			return { { text = "Open Totem Bar > Bar", tip = "Right-click a temporary totem (Tremor, Grounding...): Put Your Usual Totem Back.",
 				onClick = function()
 					local cfg = _G.ShamanPowerConfig
-					if cfg and cfg.Open then cfg:Open({ "fluffy", "totembar_effects_section" }) end
+					if cfg and cfg.Open then cfg:Open({ "buttons", "auto_button" }) end
 				end } }
 		end,
 	}

@@ -627,7 +627,11 @@ do
 end
 
 -- ===========================================================================
--- Totem Range Tracker: Totems to Track (both games; clicks only)
+-- Totem Range Tracker: Totems to Track (both games). Click: track it or stop tracking it.
+-- Right-click (3.0.9.2): the totem's own look on the overlay, as a Ready Reminder's menu
+-- is laid out: Show, Appearance, Effects (When In Range, When Out of Range, When Missing),
+-- Copy & Reset. Anything not set is the page's or the look the overlay always had
+-- (ShamanPower_SPRange.lua SP:SPRangeIconOpt).
 -- ===========================================================================
 local Range
 do
@@ -643,10 +647,183 @@ do
 		if SP.UpdateSPRangeFrame then SP:UpdateSPRangeFrame() end
 	end
 
+	local EFFECTS = { { "none", "None" }, { "glow", "Glow" }, { "pulse", "Pulse" }, { "both", "Glow + Pulse" } }
+	local SHOWS = { { "always", "Always" }, { "notmissing", "While Totem Is Down" }, { "inrange", "Only While I'm in Range" } }
+	local OOR_LOOKS = { { "red", "Red (Grayed With a Red Film)" }, { "gray", "Gray" }, { "dim", "Dim" }, { "none", "Full Color" } }
+	local MISS_LOOKS = { { "gray", "Gray" }, { "dim", "Dim" }, { "none", "Full Color" } }
+	local GROUP_KEYS = {
+		Appearance = { "iconSize", "opacity", "showName", "statusText" },
+		["When In Range"] = { "inEffect", "inGlowShape", "inGlowColor" },
+		["When Out of Range"] = { "oorLook", "oorEffect", "oorGlowShape", "oorGlowColor" },
+		["When Missing"] = { "missingLook" },
+	}
+	local ALL_KEYS = { "showMode", "iconSize", "opacity", "showName", "statusText", "glowShape",
+		"inEffect", "inGlowShape", "inGlowColor", "oorLook", "oorEffect", "oorGlowShape", "oorGlowColor", "missingLook" }
+	local COPY_NAMES = { ["When In Range"] = "In Range Effects", ["When Out of Range"] = "Out of Range Look",
+		["When Missing"] = "Missing Look" }
+
+	local function Opt(id, k) return SP:SPRangeIconOpt(id, k) end
+	local function Set(id, k, v) SP:SetSPRangeIconOpt(id, k, v); Range:Changed(true); return true end
+	local function OwnOf(id)
+		local rt = SP.opt and SP.opt.rangeTracker
+		local icons = rt and rt.icons
+		return type(icons) == "table" and icons[id] or nil
+	end
+	local function Copy(v)
+		if type(v) ~= "table" then return v end
+		local t = {}
+		for k, x in pairs(v) do t[k] = x end
+		return t
+	end
+	-- these settings of one totem onto others (nil: they follow the page there too)
+	local function CopyKeys(from, targets, keys)
+		local own = OwnOf(from)
+		for _, to in ipairs(targets) do
+			if to ~= from then
+				for _, k in ipairs(keys) do
+					local rt = SP.opt.rangeTracker
+					if type(rt.icons) ~= "table" then rt.icons = {} end
+					local t = rt.icons[to]
+					if type(t) ~= "table" then t = {}; rt.icons[to] = t end
+					t[k] = Copy(own and own[k])
+					if next(t) == nil then rt.icons[to] = nil end
+				end
+			end
+		end
+		SP:SPRangeRefreshLook()
+		Range:Changed(false)
+	end
+	local function Others(id)
+		local out = {}
+		for _, t in ipairs(SP.TrackableTotems or {}) do if t.id ~= id then out[#out + 1] = t end end
+		return out
+	end
+	local function CopyRows(id, group)
+		local keys = GROUP_KEYS[group]
+		local name = COPY_NAMES[group] or group
+		local all = {}
+		for _, t in ipairs(Others(id)) do all[#all + 1] = t.id end
+		return {
+			{ text = "Copy " .. name .. " To All Icons", onClick = function() CopyKeys(id, all, keys); return true end },
+			{ text = "Copy " .. name .. " To...", subMaxHeight = 420, sub = function()
+				local items = {}
+				for _, t in ipairs(Others(id)) do
+					items[#items + 1] = { text = t.name or t.id, icon = SP.TrackableTotemIcon and SP:TrackableTotemIcon(t) or QUESTION,
+						onClick = function() CopyKeys(id, { t.id }, keys) end }
+				end
+				return items
+			end },
+		}
+	end
+	local function Rgb(c, dr, dg, db)
+		if type(c) ~= "table" then return dr, dg, db end
+		return c.r or c[1] or dr, c.g or c[2] or dg, c.b or c[3] or db
+	end
+	local function ColorRow(id, name, text, k)
+		local r, g, b = Rgb(Opt(id, k), 1, 1, 1)
+		return { text = text, swatch = { r, g, b },
+			onClick = function()
+				if not SP.OpenColorPicker then return false end
+				local _, own = Opt(id, k)
+				local before = own and Copy((OwnOf(id) or {})[k]) or nil
+				local cr, cg, cb = Rgb(Opt(id, k), 1, 1, 1)
+				SP:OpenColorPicker({ r = cr, g = cg, b = cb, hasAlpha = false, title = name .. " " .. text,
+					onChange = function(nr, ng, nb) SP:SetSPRangeIconOpt(id, k, { r = nr, g = ng, b = nb }); Range:Changed(false) end,
+					onCancel = function() SP:SetSPRangeIconOpt(id, k, before); Range:Changed(false) end })
+				return false
+			end }
+	end
+	local function Get(id, k) return function() return Opt(id, k) end end
+	local function Put(id, k) return function(v) return Set(id, k, v) end end
+	local function EffectRows(id, name, fxKey, colorKey, tipWhen, shapeKey)
+		local t = { Choice("Effect", EFFECTS, Get(id, fxKey), Put(id, fxKey),
+			"What the icon does " .. tipWhen .. ": a glow, a pulse, both, or nothing.") }
+		local fx = Opt(id, fxKey)
+		if fx == "glow" or fx == "both" then
+			if SP.GlowShapeValues then
+				local map, order = SP:GlowShapeValues()
+				local list = {}
+				for _, k in ipairs(order or {}) do list[#list + 1] = { k, map[k] } end
+				t[#t + 1] = Choice("Glow Shape", list, function()
+					local v, own = Opt(id, shapeKey)
+					if v == nil then v = Opt(id, "glowShape") end
+					return v, own
+				end, Put(id, shapeKey), "The glow's shape. Proc Glow is the game's ring.")
+			end
+			t[#t + 1] = ColorRow(id, name, "Glow Color", colorKey)
+		end
+		return t
+	end
+	local function Join(a, b) for _, x in ipairs(b) do a[#a + 1] = x end return a end
+
+	local function RangeMenu(item)
+		local id, name = item.key, item.name
+		local on = Tracked(id)
+		local items = {}
+		items[#items + 1] = { text = "Show", label = true }
+		items[#items + 1] = { text = on and "Stop Tracking This Totem" or "Track This Totem",
+			onClick = function() SetTracked(id, not on); Range:Changed(false) end }
+		items[#items + 1] = Choice("Show", SHOWS, Get(id, "showMode"), Put(id, "showMode"),
+			"Always: it shows the whole time. While Totem Is Down: hidden while no one has it down. Only While I'm in Range: it shows only while you have its buff.")
+		items[#items + 1] = SEP
+		items[#items + 1] = { text = "Appearance", label = true }
+		items[#items + 1] = Menu.Group("Appearance", function()
+			local t = {
+				Slider("Icon Size", 20, 60, 1, Get(id, "iconSize"), function(v) SP:SetSPRangeIconOpt(id, "iconSize", v) end),
+				Slider("Opacity", 0.1, 1, 0.05, Get(id, "opacity"), function(v) SP:SetSPRangeIconOpt(id, "opacity", v) end, nil, true),
+				Menu.OnOff("Show Name", Get(id, "showName"), Put(id, "showName"), "The totem's short name under its icon."),
+				Menu.OnOff("Show Out of Range and Missing Text", Get(id, "statusText"), Put(id, "statusText"),
+					"OUT OF RANGE or MISSING written over the icon."),
+			}
+			t[#t + 1] = SEP
+			return Join(t, CopyRows(id, "Appearance"))
+		end, nil, nil, "size, opacity, name")
+		items[#items + 1] = SEP
+		items[#items + 1] = { text = "Effects", label = true }
+		items[#items + 1] = Menu.Group("When In Range", function()
+			local t = EffectRows(id, name, "inEffect", "inGlowColor", "while you have its buff", "inGlowShape")
+			t[#t + 1] = SEP
+			return Join(t, CopyRows(id, "When In Range"))
+		end, nil, nil, "while you have its buff")
+		items[#items + 1] = Menu.Group("When Out of Range", function()
+			local t = { Choice("Look", OOR_LOOKS, Get(id, "oorLook"), Put(id, "oorLook"),
+				"How the icon looks while the totem is down but you're out of its range. Red is the overlay's look as it always was.") }
+			Join(t, EffectRows(id, name, "oorEffect", "oorGlowColor", "while you're out of its range", "oorGlowShape"))
+			t[#t + 1] = SEP
+			return Join(t, CopyRows(id, "When Out of Range"))
+		end, nil, nil, "the totem is down, you're out of its range")
+		items[#items + 1] = Menu.Group("When Missing", function()
+			local t = { Choice("Look", MISS_LOOKS, Get(id, "missingLook"), Put(id, "missingLook"),
+				"How the icon looks while no one has the totem down. Gray is the overlay's look as it always was.") }
+			t[#t + 1] = SEP
+			return Join(t, CopyRows(id, "When Missing"))
+		end, nil, nil, "no one has it down")
+		items[#items + 1] = SEP
+		items[#items + 1] = { text = "Copy & Reset", label = true }
+		items[#items + 1] = { text = "Copy Settings To...", subMaxHeight = 420, sub = function()
+			local list, all = {}, {}
+			for _, t in ipairs(Others(id)) do
+				all[#all + 1] = t.id
+				list[#list + 1] = { text = t.name or t.id, icon = SP.TrackableTotemIcon and SP:TrackableTotemIcon(t) or QUESTION,
+					onClick = function() CopyKeys(id, { t.id }, ALL_KEYS) end }
+			end
+			list[#list + 1] = SEP
+			list[#list + 1] = { text = "All Icons", onClick = function() CopyKeys(id, all, ALL_KEYS) end }
+			return list
+		end }
+		items[#items + 1] = { text = "Reset This Totem", disabled = OwnOf(id) == nil, onClick = function()
+			local rt = SP.opt and SP.opt.rangeTracker
+			if rt and type(rt.icons) == "table" then rt.icons[id] = nil end
+			SP:SPRangeRefreshLook()
+			Range:Changed(false)
+		end }
+		return items
+	end
+
 	Range = ns.IconRow.New({
-		caption = B .. "CLICK" .. E .. " a totem to track it or stop tracking it. A blue corner: it's on the overlay."
-			.. " The overlay watches the other shamans in your group, so every totem is here, learned or not.",
-		hint = "Click: track it or stop tracking it",
+		caption = B .. "CLICK" .. E .. " a totem to track it or stop tracking it. " .. B .. "RIGHT-CLICK" .. E .. " it for its look on the overlay."
+			.. " A blue corner: it's on the overlay. The overlay watches the other shamans in your group, so every totem is here, learned or not.",
+		hint = "Click: track it or stop tracking it. Right-click: its look",
 		list = function(out)
 			if not SP.SPRangeLoaded then return end
 			for _, t in ipairs(SP.TrackableTotems or {}) do
@@ -662,11 +839,11 @@ do
 		shown = function(item) return Tracked(item.key) end,
 		hasOwn = function(item) return Tracked(item.key) end,   -- (A18 Q2: the corner says it's on the overlay)
 		tooltip = function(item)
-			if Tracked(item.key) then return "It's on the overlay." end
-			return "It's not on the overlay."
+			if Tracked(item.key) then return "It's on the overlay. Right-click for its look." end
+			return "It's not on the overlay. Right-click for its look."
 		end,
 		toggle = function(item) SetTracked(item.key, not Tracked(item.key)) end,
-		-- no menu: a totem has nothing of its own to set here (A18 Q5)
+		menu = function(item) return RangeMenu(item) end,
 	})
 	ns.CustomRows.rangeIcons = Range
 
@@ -679,6 +856,8 @@ do
 		sp:InitSPRange()
 		local t = ShamanPower_RangeTracker.tracked
 		for _, totem in ipairs(sp.TrackableTotems or {}) do t[totem.id] = def[totem.id] and true or false end
+		if sp.opt and sp.opt.rangeTracker then sp.opt.rangeTracker.icons = nil end   -- (3.0.9.2) each totem's own look too
+		if sp.SPRangeRefreshLook then sp:SPRangeRefreshLook() end
 		if sp.UpdateSPRangeConfigButtons then sp:UpdateSPRangeConfigButtons() end
 		if sp.UpdateSPRangeFrame then sp:UpdateSPRangeFrame() end
 	end

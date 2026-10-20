@@ -68,9 +68,23 @@ local function isSecret(v) return issecretvalue and issecretvalue(v) or false en
 local function secretNow()
 	return SPCompat and SPCompat.secretsRegime and SPCompat.AnyRestrictionActive and SPCompat.AnyRestrictionActive() or false
 end
+-- (3.0.9.2) each temporary totem's own reminder settings, from its menu on Totem Bar > Bar
+-- (ShamanPowerCues.lua SP:TotemCueOpt: its own, else the bar's). On: the bar's switch, or any
+-- totem's own Remind Me.
 local function on()
 	local o = SP.opt
-	return o and o.usualTotemReminder == true and not SP:IsOff() or false
+	if not o or SP:IsOff() then return false end
+	if o.usualTotemReminder == true then return true end
+	if type(o.totemOwn) == "table" then
+		for _, t in pairs(o.totemOwn) do if type(t) == "table" and t.usualTotemReminder == true then return true end end
+	end
+	return false
+end
+-- a setting of the temporary totem a reminder is for (s.temp: its index; none: the bar's own)
+local function tempOpt(e, s, key)
+	local base = s and s.temp and SP.Totems and SP.Totems[e] and SP.Totems[e][s.temp]
+	if SP.TotemCueOpt then return SP:TotemCueOpt(base, key) end
+	return SP.opt and SP.opt[key]
 end
 
 -- ---------------------------------------------------------------------------
@@ -299,7 +313,7 @@ local function paintLabel(ov, host, e, s, isMain)
 	labelParts(ov)
 	hideLabel(ov)
 	-- Write BACK on the Button off: the glow alone (the Dynamic Mode corner is its BACK)
-	if SP.opt.usualTotemLabel == false then return end
+	if tempOpt(e, s, "usualTotemLabel") == false then return end
 	local fs = ov.label
 	local c = host.compact
 	if c and host.compactLayoutOn and SP:CompactActive() then
@@ -449,7 +463,7 @@ local function paint(e, s)
 	local fx = SP.CueFx
 	if not fx then return end
 	local hosts = hostsFor(e, s.usual, hostList)
-	local style = SP.opt.usualTotemStyle == "pulse" and "pulse" or "glow"
+	local style = tempOpt(e, s, "usualTotemStyle") == "pulse" and "pulse" or "glow"
 	-- Totem Rows with the bar hidden: the row's totem carries the label
 	local labelOnRow = SP.RowsHideBar and SP:RowsHideBar()
 	local labelled = false
@@ -521,7 +535,7 @@ local function arm(e, temp, usual)
 end
 
 local function alert(e, s)
-	if not SP.opt.usualTotemAlert then return end
+	if not tempOpt(e, s, "usualTotemAlert") then return end
 	local db = rawget(_G, "ShamanPowerExpiringAlertsDB")
 	if not (SP.ShowExpiringAlert and type(db) == "table" and db.enabled) then return end
 	local color = SP.ExpiringAlertElementColor and SP:ExpiringAlertElementColor(e) or nil
@@ -531,6 +545,7 @@ end
 local function show(e)
 	local s = st[e]
 	if s.phase ~= "armed" then return end
+	if tempOpt(e, s, "usualTotemReminder") ~= true then clear(e) return end   -- (this totem's own Remind Me off)
 	if not (SP.Totems[e] and SP.Totems[e][s.usual]) then clear(e) return end
 	s.phase, s.goneAt = "showing", nil
 	recount()
@@ -754,19 +769,25 @@ end
 
 -- The Test button: the look (and the text alert, when on) on one element for a few
 -- seconds, on Air if it has an assigned totem, else the first element that does.
-function SP:TestUsualTotemReminder()
+function SP:TestUsualTotemReminder(base)
 	local o = self.opt
 	if not o then return end
 	local busy = false
-	for _, e in ipairs({ 4, 3, 1, 2 }) do
+	-- (3.0.9.2) from a totem's menu: that totem's element and its own settings
+	local only, onlyIndex
+	if base then
+		local t = totemOf(base)
+		if t then only, onlyIndex = t.element, t.index end
+	end
+	for _, e in ipairs(only and { only } or { 4, 3, 1, 2 }) do
 		local usual = usualFor(e)
 		if usual > 0 and self:IsElementShown(e) and st[e].phase then busy = true end
 		if usual > 0 and self:IsElementShown(e) and not st[e].phase then
 			local fake = testState[e]
-			fake.usual = usual
+			fake.usual, fake.temp = usual, (only == e) and onlyIndex or nil
 			testUntil[e] = GetTime() + TEST_SECONDS
 			paint(e, fake)
-			if o.usualTotemAlert then alert(e, fake) end
+			alert(e, fake)
 			C_Timer.After(TEST_SECONDS, function()
 				if testUntil[e] and testUntil[e] <= GetTime() + 0.05 then
 					testUntil[e] = nil

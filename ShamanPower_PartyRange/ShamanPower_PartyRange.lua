@@ -296,8 +296,8 @@ function SP:SetupPartyRangeDots()
 	if not self.updateSystem.subsystems["partyRange"] then
 		local rangeState = {}
 		local function rangePass()
-			-- Always update player's own totem range (greying out when out of range)
-			SP:UpdatePlayerTotemRange()
+			-- the player's own totem range (the totem bar's gray): its own pass in the core now (3.0.9.2)
+			if not SP.SetupPlayerTotemRange then SP:UpdatePlayerTotemRange() end
 			-- Only update party range dots/counters if those features are enabled
 			if SP.opt.showPartyRangeDots or (SP.opt.rangeCounter and SP.opt.rangeCounter.enabled) then   -- was a key nothing ever wrote: "Numbers Only" never refreshed
 				SP:UpdatePartyRangeDots()

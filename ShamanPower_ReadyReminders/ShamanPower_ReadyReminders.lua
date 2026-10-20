@@ -39,6 +39,7 @@ local DEFAULTS = {
 	buffSide = "above",    -- own icon: above | below | left | right | spot (In Its Own Spot)
 	buffOwnSize = 1.0,     -- own icon: its size, a share of the icon's (30% to 100%)
 	buffTime = true,       -- the time it has left, in whole seconds
+	buffTimeSize = 0,      -- its size (0 = automatic, as the buff's look sizes it; 3.0.9.2)
 	buffGoldUnder = 3,     -- seconds: the time turns WoW's gold under this (0 = never)
 	-- edge: WoW's mana-bar blue (PowerBarColor.MANA, read from the game; 0, 0, 1 on both)
 	buffEdgeColor = (function()
@@ -96,8 +97,15 @@ local DEFAULTS = {
 	stackShow = "stacks",  -- stacks: while you have any | five: only at 5 | always: 0 too, dimmed
 	stackNumber = false,   -- the count on the looks that are not Icon + Stack Number
 	stackLeft = "off",     -- the buff's time left: off | number | drain (the look grays from the top)
+	stackBarHeight = 0,    -- Charge Bar Only's height (0: a third of Size)
 	stackColor = { r = 0.35, g = 0.65, b = 1.0 },   -- the stacks below 5: the Charge Bar, the Storm Glow
 	stackColor5 = { r = 1, g = 0.82, b = 0 },       -- at 5: the number and the Charge Bar (WoW's gold)
+	-- (3.0.9.2) When Out of Mana: the tint and the effect, off to start; ShamanPower's out-of-mana
+	-- blue (the totem bar's Low-Mana Tint's) for both colors
+	oomTint = false,
+	oomEffect = "none",    -- none | glow | pulse | both
+	oomColor = { r = 0.45, g = 0.45, b = 1.0 },
+	oomGlowColor = { r = 0.45, g = 0.45, b = 1.0 },
 	-- flashPos = { anchor, x, y }: its spot (nil = the default, a little above the middle)
 	flashPositions = {},   -- [key] = { point, x, y }: a spell's own flash spot (none: the shared one)
 	layout = "row",        -- row | column: arrangement used by Reset Positions
@@ -140,6 +148,8 @@ SP.ReadyReminderSpells = {
 	{ key = "shamrage",     name = "Shamanistic Rage",    ids = { 30823 },                def = false },
 	{ key = "elemastery",   name = "Elemental Mastery",   ids = { 16166 },                def = false },
 	{ key = "earthbind",    name = "Earthbind Totem",     ids = { 2484 },                 def = false },
+	{ key = "stoneclaw",    name = "Stoneclaw Totem",     ids = { 5730 },                 def = false },   -- (3.0.9.2, a reviewer's ask)
+	{ key = "reincarnation", name = "Reincarnation",      ids = { 20608 },                def = false },   -- (3.0.9.2) its long cooldown
 	{ key = "chainlightning", name = "Chain Lightning",   ids = { 421 },                  def = false },   -- 6 s cooldown on both clients
 	-- Lightning Bolt has no cooldown: an always-ready icon whose Out of Range tint checks the
 	-- target's range, as the shocks do, until Chain Lightning is learned (a reviewer's ask, 3.0.9.1)
@@ -187,9 +197,9 @@ end
 -- Ready Reminder", below). One table for all of it (this file is near Lua's 200 locals).
 local Buff = { of = {}, list = {}, formatters = {}, proxies = {},
 	KEY = { buffLook = true, buffCorner = true, buffSize = true, buffSide = true, buffOwnSize = true, buffTime = true,
-		buffGoldUnder = true, buffEdgeColor = true },
+		buffTimeSize = true, buffGoldUnder = true, buffEdgeColor = true },
 	-- (3.0.9.2) Maelstrom Weapon's own settings
-	STACK = { stackLook = true, stackShow = true, stackNumber = true, stackLeft = true, stackColor = true, stackColor5 = true } }
+	STACK = { stackLook = true, stackShow = true, stackNumber = true, stackLeft = true, stackColor = true, stackColor5 = true, stackBarHeight = true } }
 -- a buff setting copied or pasted onto an icon whose spell puts no buff on you here: left out
 -- (and a stacks setting onto an icon that shows no stacks)
 function Buff.Skip(key, opt)
@@ -260,7 +270,7 @@ local function SV()
 	local now = GetTime()
 	if sv == filledFor and now - filledAt < 1 and sv.borderColor ~= nil and sv.glowColor ~= nil and sv.barColor ~= nil
 		and sv.rangeColor ~= nil and sv.buffEdgeColor ~= nil and sv.resetColor ~= nil
-		and sv.stackColor ~= nil and sv.stackColor5 ~= nil then
+		and sv.stackColor ~= nil and sv.stackColor5 ~= nil and sv.oomColor ~= nil and sv.oomGlowColor ~= nil then
 		return sv
 	end
 	local changed = sv ~= filledFor
@@ -302,13 +312,15 @@ local ICON_KEYS = { "mode", "outOfRange", "readyEffect", "glowColor", "glowShape
 	-- D51: Fade Instead of Hide (with Only In Combat) and its Faded Opacity
 	"fadeInsteadOfHide", "fadeOpacity",
 	-- D52: the buff the spell puts on you, on its icon
-	"buffLook", "buffCorner", "buffSize", "buffSide", "buffOwnSize", "buffTime", "buffGoldUnder", "buffEdgeColor",
+	"buffLook", "buffCorner", "buffSize", "buffSide", "buffOwnSize", "buffTime", "buffTimeSize", "buffGoldUnder", "buffEdgeColor",
 	-- A25: When The Cooldown Resets (Stormstrike on WoW: Forever)
 	"resetVisual", "resetColor", "resetLength", "resetFlash", "resetFlashWord", "resetSound", "resetSoundName", "resetVolume",
 	-- A28: Weapon Set (the word under the icon, the set that glows, the swap switches)
 	"wsWord", "wsGlow", "wsSound", "wsFlash",
 	-- (3.0.9.2, A55) Maelstrom Weapon's stacks
-	"stackLook", "stackShow", "stackNumber", "stackLeft", "stackColor", "stackColor5" }
+	"stackLook", "stackShow", "stackNumber", "stackLeft", "stackColor", "stackColor5", "stackBarHeight",
+	-- (3.0.9.2) When Out of Mana
+	"oomTint", "oomColor", "oomEffect", "oomGlowShape", "oomGlowColor" }
 local ICON_KEY = {}
 for _, k in ipairs(ICON_KEYS) do ICON_KEY[k] = true end
 local resolved = {}   -- [catalog key] = { gen = n, <setting> = value }: one table per icon, made once
@@ -548,7 +560,13 @@ local function rowOf(key)
 	end
 end
 -- on screen at all: in Rows placement only a spell on a row is
-local function placed(entry) return not rowsOn() or rowOf(entry.key) ~= nil or R.own(entry) end
+-- (3.0.9.2) Rows placement: Wings / Fill / Charge Bar Only dragged down to Not On A Row are off your
+-- screen (sv.ownOff[key]); dragged back up, or a click there, they're on their own spot again
+function R.ownOff(entry)
+	local o = rowsOn() and SV().ownOff
+	return type(o) == "table" and o[entry.key] == true or false
+end
+local function placed(entry) return not rowsOn() or rowOf(entry.key) ~= nil or (R.own(entry) and not R.ownOff(entry)) end
 
 local function defaultPos(entry)
 	local sv = SV()
@@ -917,6 +935,21 @@ function SP:ReadyRowDelete(i)
 	for _, f in pairs(frames) do f.gridAnchored = nil end   -- every icon finds its row again
 	R.changed()
 end
+function SP:ReadyOwnOff(key)
+	local e = catalogByKey[key]
+	return e ~= nil and R.ownOff(e)
+end
+function SP:ReadySetOwnOff(key, off)
+	local sv = SV()
+	if off then
+		if type(sv.ownOff) ~= "table" then sv.ownOff = {} end
+		sv.ownOff[key] = true
+	elseif type(sv.ownOff) == "table" then
+		sv.ownOff[key] = nil
+		if next(sv.ownOff) == nil then sv.ownOff = nil end
+	end
+	R.changed()
+end
 function SP:ReadyRowRemove(key)
 	local i, j = rowOf(key)
 	if not i then return end
@@ -1047,7 +1080,13 @@ function SP:CreateReadyReminderFrame(entry)
 	if bar.SetIgnoreParentAlpha then bar:SetIgnoreParentAlpha(true) end   -- the dim is for the icon, not the bar
 	local barBg = bar:CreateTexture(nil, "BACKGROUND"); barBg:SetAllPoints(bar); barBg:SetColorTexture(0, 0, 0, 0.6)
 	f.bar = bar
-	local count = f:CreateFontString(nil, "OVERLAY")
+	-- the number sits on a frame above the cooldown widget (f+3 at most, styleEngine) and the
+	-- drain bar: on the icon frame itself the sweep covered it (3.0.9.2)
+	local countHost = CreateFrame("Frame", nil, f)
+	countHost:SetAllPoints(f)
+	countHost:SetFrameLevel(f:GetFrameLevel() + 4)
+	f.countHost = countHost
+	local count = countHost:CreateFontString(nil, "OVERLAY")
 	SP:SetSPFont(count, "alerts", math.max(10, math.floor(size * 0.34)), "OUTLINE")
 	count:SetPoint("CENTER", f, "CENTER", 0, 0)
 	count:SetTextColor(1, 1, 1)
@@ -1210,6 +1249,7 @@ local function paintIcon(f)
 	if f.slices then
 		for i = 2, 3 do if f.slices[i] then lookOn(f, f.slices[i]) end end
 	end
+	if f.oomSet and R.Oom then R.Oom.tint(f) end   -- (3.0.9.2) When Out of Mana's tint, over the look just painted
 end
 local function setDesat(f, on)
 	f.desatCool = on and true or false
@@ -1612,6 +1652,166 @@ end
 end
 
 -- ---------------------------------------------------------------------------
+-- When Out of Mana (3.0.9.2; each icon's menu, under Effects & Sound): while you can't
+-- afford the spell, the icon takes the Out of Mana Color (ShamanPower's out-of-mana blue
+-- to start) and/or plays an effect of its own: a glow in its own shape and color, a pulse,
+-- or both. The game says when a spell's usability changes (SPELL_UPDATE_USABLE). In a fight
+-- on WoW: Forever the answer can be hidden: it then goes straight to the icon's color and
+-- the effect's opacity (SetVertexColorFromBoolean / SetAlphaFromBoolean), never looked at.
+-- Out of Range's look wins over the tint while the target is out of range. Only icons with
+-- one of the two on are asked; with none, nothing listens.
+-- ---------------------------------------------------------------------------
+R.Oom = { n = 0 }
+function R.Oom.on(e)
+	if e.weaponSet or e.stacks then return false end
+	return IconOpt(e, "oomTint") == true or (IconOpt(e, "oomEffect") or "none") ~= "none"
+end
+-- true / false, a hidden value in a fight, or nil (no answer)
+function R.Oom.read(e)
+	local id = clientSpellID(e)
+	local fn = (C_Spell and C_Spell.IsSpellUsable) or rawget(_G, "IsUsableSpell")
+	if not (id and fn) then return nil end
+	local ok, _, noMana = pcall(fn, SPCompat.SpellName(id) or id)   -- (by name: the highest rank you know)
+	if not ok then return nil end
+	return noMana
+end
+function R.Oom.paintTex(tex, v, r, g, b)
+	if not tex then return end
+	if issecretvalue and issecretvalue(v) then
+		if tex.SetVertexColorFromBoolean and CreateColor then
+			local O = R.Oom
+			O.cTrue = O.cTrue or CreateColor(1, 1, 1, 1)
+			O.cFalse = O.cFalse or CreateColor(1, 1, 1, 1)   -- (no Out of Range look here: the icon's own white)
+			O.cTrue:SetRGBA(r, g, b, 1)
+			pcall(tex.SetVertexColorFromBoolean, tex, v, O.cTrue, O.cFalse)
+		end
+	elseif v == true then
+		tex:SetVertexColor(r, g, b)
+	end
+end
+-- the tint, over the look paintIcon just painted (it calls this)
+function R.Oom.tint(f)
+	if f.oorLook or IconOpt(f.entry, "oomTint") ~= true then return end
+	local r, g, b = color(IconOpt(f.entry, "oomColor"), 0.45, 0.45, 1.0)
+	R.Oom.paintTex(f.icon, f.oomV, r, g, b)
+	if f.icon2 then R.Oom.paintTex(f.icon2, f.oomV, r, g, b) end
+	-- Combined Shocks' split picture: its slices over the icon take it too
+	if f.slices then
+		for i = 2, 3 do
+			local sl = f.slices[i]
+			if sl and sl:IsShown() then R.Oom.paintTex(sl, f.oomV, r, g, b) end
+		end
+	end
+end
+-- the effect's own frame: a glow like the Ready Effect's, and a copy of the icon that pulses
+function R.Oom.fx(f)
+	local h = f.oomFx
+	if h then return h end
+	h = CreateFrame("Frame", nil, f)
+	h:SetAllPoints(f)
+	h:SetFrameLevel(f:GetFrameLevel() + 2)
+	local g = h:CreateTexture(nil, "OVERLAY", nil, 1)
+	g:SetPoint("TOPLEFT", -10, 10); g:SetPoint("BOTTOMRIGHT", 10, -10)
+	g:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
+	g:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
+	if SP.ShapeGlow then SP:ShapeGlow(g, "alert") end   -- Glow Shape
+	g:SetBlendMode("ADD"); g:Hide()
+	local ag = g:CreateAnimationGroup(); ag:SetLooping("REPEAT")
+	local a1 = ag:CreateAnimation("Alpha"); a1:SetFromAlpha(0.15); a1:SetToAlpha(0.8); a1:SetDuration(0.5); a1:SetOrder(1)
+	local a2 = ag:CreateAnimation("Alpha"); a2:SetFromAlpha(0.8); a2:SetToAlpha(0.15); a2:SetDuration(0.5); a2:SetOrder(2)
+	local p = h:CreateTexture(nil, "ARTWORK")
+	p:SetAllPoints(f.icon); p:Hide()
+	local pg = p:CreateAnimationGroup(); pg:SetLooping("REPEAT")
+	local p1 = pg:CreateAnimation("Scale"); p1:SetScale(1.12, 1.12); p1:SetDuration(0.45); p1:SetOrder(1)
+	local p2 = pg:CreateAnimation("Scale"); p2:SetScale(1 / 1.12, 1 / 1.12); p2:SetDuration(0.45); p2:SetOrder(2)
+	h.glow, h.glowAnim, h.copy, h.pulseAnim = g, ag, p, pg
+	h:Hide()
+	f.oomFx = h
+	return h
+end
+function R.Oom.fxOff(f)
+	local h = f.oomFx
+	if not (h and h.spOn) then return end
+	h.glow:Hide(); h.glowAnim:Stop(); h.copy:Hide(); h.pulseAnim:Stop()
+	if h.spProc and SP.ProcGlow_Stop then SP.ProcGlow_Stop(h, "oom") end
+	h.spProc, h.spOn = nil, nil
+	h:Hide()
+end
+-- the effect on (its settings as they are now), its opacity from the answer
+function R.Oom.effect(f, v)
+	local e = f.entry
+	local fx = IconOpt(e, "oomEffect") or "none"
+	local hidden = issecretvalue and issecretvalue(v)
+	if fx == "none" or not (hidden or v == true) or (f.fade or 1) < 1 then R.Oom.fxOff(f) return end   -- (a faded icon stays quiet)
+	local h = R.Oom.fx(f)
+	if not h.spOn or h.spFx ~= fx or h.spGen ~= optGen then
+		R.Oom.fxOff(f)
+		local r, g, b = color(IconOpt(e, "oomGlowColor"), 0.45, 0.45, 1.0)
+		if fx == "glow" or fx == "both" then
+			local shape = IconOpt(e, "oomGlowShape") or glowShapeOf(e)
+			if shape == "proc" and SP.ProcGlow_Start then
+				SP.ProcGlow_Start(h, SP:ProcGlowOptions(h, { r, g, b, 1 }, "oom", false, IconOpt(e, "glowThick") or SP.PROC_GLOW_OUT or 0.2))
+				h.spProc = true
+			else
+				if SP.PaintGlowShape then SP:PaintGlowShape(h.glow, shape) end
+				h.glow:SetVertexColor(r, g, b)
+				h.glow:Show(); h.glowAnim:Play()
+			end
+		end
+		if fx == "pulse" or fx == "both" then
+			h.copy:SetTexture(f.icon:GetTexture())
+			h.copy:SetTexCoord(f.icon:GetTexCoord())
+			if SP.SetIconShapeOwn then SP:SetIconShapeOwn(h.copy, IconOpt(e, "iconShape")) end   -- (Icon Shape)
+			if IconOpt(e, "oomTint") == true then h.copy:SetVertexColor(color(IconOpt(e, "oomColor"), 0.45, 0.45, 1.0))
+			else h.copy:SetVertexColor(1, 1, 1) end
+			h.copy:Show(); h.pulseAnim:Play()
+		end
+		h.spOn, h.spFx, h.spGen = true, fx, optGen
+		h:Show()
+	end
+	if hidden then
+		if h.SetAlphaFromBoolean then pcall(h.SetAlphaFromBoolean, h, v) else h:SetAlpha(0) end   -- (true: shown, false: clear)
+	else
+		h:SetAlpha(1)
+	end
+end
+-- one icon: asked again, painted again
+function R.Oom.apply(f)
+	if not (f:IsShown() and R.Oom.on(f.entry)) or SP.readyPositioning or SP.readyDemoActive then
+		if f.oomSet then f.oomSet, f.oomV = nil, nil; f.lkG = nil; paintIcon(f) end
+		R.Oom.fxOff(f)
+		return false
+	end
+	local v = R.Oom.read(f.entry)
+	if v == nil then return true end   -- (no answer: as it was until the game says more)
+	f.oomSet, f.oomV = true, v
+	f.lkG = nil; paintIcon(f)   -- the look, then the tint (paintIcon ends with it)
+	R.Oom.effect(f, v)
+	return true
+end
+function R.Oom.onEvent()
+	for _, f in pairs(frames) do if f.oomSet or f.oomFx then R.Oom.apply(f) end end
+end
+-- every icon, at the end of an update pass; the event only while an icon wants it
+function R.Oom.sync()
+	local n = 0
+	for _, f in pairs(frames) do if R.Oom.apply(f) then n = n + 1 end end
+	local ev = R.Oom.ev
+	if n > 0 and not (ev and ev.spOn) then
+		if not ev then
+			ev = CreateFrame("Frame")
+			ev:SetScript("OnEvent", R.Oom.onEvent)
+			R.Oom.ev = ev
+		end
+		ev:RegisterEvent("SPELL_UPDATE_USABLE")
+		ev.spOn = true
+	elseif n == 0 and ev and ev.spOn then
+		ev:UnregisterAllEvents()
+		ev.spOn = nil
+	end
+end
+
+-- ---------------------------------------------------------------------------
 -- Fade Instead of Hide (D51, a Discord request): out of combat an icon with Only In
 -- Combat on stays on screen at its Faded Opacity instead of hiding, so the player
 -- still sees which spells are ready. f.fade is that opacity out of combat, and 1 in a
@@ -1847,6 +2047,8 @@ function Buff.Paint(B)
 	if not P then return end
 	local entry, look, s = B.entry, B.look, B.size or 24
 	local ownShape = IconOpt(entry, "iconShape")   -- (Icon Shape: the spell's own, else the shared one)
+	local tsz = tonumber(IconOpt(entry, "buffTimeSize")) or 0   -- Time Left Size (0: each look's own size)
+	local function timeSize(auto) if tsz > 0 then return tsz end return auto end
 	Buff.Shape(P, ownShape)
 	if look == "swap" then
 		-- Replaces The Icon: the buff's own icon over this icon's picture while it is on (the
@@ -1857,7 +2059,7 @@ function Buff.Paint(B)
 		P.icon:SetPoint("TOPLEFT", P.art, "TOPLEFT", 2, -2); P.icon:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 2)
 		P.icon:Show()
 		Buff.Edges(P, 2, 2, 0, 0, 0, false, ownShape)
-		SP:SetSPFont(P.time, "alerts", math.max(10, math.floor(s * 0.30)), "OUTLINE")
+		SP:SetSPFont(P.time, "alerts", timeSize(math.max(10, math.floor(s * 0.30))), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 3)
 	elseif look == "edge" then
@@ -1865,7 +2067,7 @@ function Buff.Paint(B)
 		P.bg:Hide(); P.icon:Hide()
 		local r, g, b = color(IconOpt(entry, "buffEdgeColor"), 0, 0, 1)
 		Buff.Edges(P, 2, 2, r, g, b, true, ownShape)
-		SP:SetSPFont(P.time, "alerts", math.max(10, math.floor(s * 0.30)), "OUTLINE")
+		SP:SetSPFont(P.time, "alerts", timeSize(math.max(10, math.floor(s * 0.30))), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("BOTTOMRIGHT", P.art, "BOTTOMRIGHT", -2, 3)
 	elseif look == "corner" then
@@ -1876,7 +2078,7 @@ function Buff.Paint(B)
 		P.icon:Show()
 		local r, g, b = color(IconOpt(entry, "borderColor"), 0.2, 0.7, 1.0)
 		Buff.Edges(P, 1, 1, r, g, b, true, ownShape)
-		SP:SetSPFont(P.time, "alerts", math.max(8, math.floor(s * 0.55 + 0.5)), "OUTLINE")
+		SP:SetSPFont(P.time, "alerts", timeSize(math.max(8, math.floor(s * 0.55 + 0.5))), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("CENTER", P.art, "CENTER", 1, 0)
 	else
@@ -1889,7 +2091,7 @@ function Buff.Paint(B)
 		P.icon:Show()
 		local r, g, b = color(IconOpt(entry, "borderColor"), 0.2, 0.7, 1.0)
 		Buff.Edges(P, e, e, r, g, b, not hideBg and not IconOpt(entry, "hideBorder"), ownShape)
-		SP:SetSPFont(P.time, "alerts", math.max(8, math.floor(s * 0.34 + 0.5)), "OUTLINE")
+		SP:SetSPFont(P.time, "alerts", timeSize(math.max(8, math.floor(s * 0.34 + 0.5))), "OUTLINE")
 		P.time:ClearAllPoints()
 		P.time:SetPoint("CENTER", P.art, "CENTER", 0, 0)
 	end
@@ -3032,6 +3234,32 @@ function Reset.check(f)
 end
 
 -- the menu's Test: the reset's effects once, as a reset would play them
+-- (3.0.9.2) Maelstrom Weapon's Test Icon (its right-click menu): the look you picked on the icon's
+-- spot, the stacks counting up 1 to 5 and holding, then the icon goes back to your real stacks.
+-- Out of a fight only (in one the game draws the stacks); a fight starting ends it.
+function SP:ReadyReminderStacksTest(key)
+	if InCombatLockdown() or not SP.ReadyStacks then return false end
+	local entry
+	for _, e in ipairs(self.ReadyReminderSpells) do if e.key == key then entry = e break end end
+	if not (entry and entry.stacks) then return false end
+	local f = frames[key] or self:CreateReadyReminderFrame(entry)
+	if f.spStacksTest then f.spStacksTest:Cancel() end
+	local t0 = GetTime()
+	f:Show()
+	SP.ReadyStacks.Demo(f, 0)
+	f.spStacksTest = C_Timer.NewTicker(0.05, function(tk)
+		local t = GetTime() - t0
+		if t >= 6.35 or InCombatLockdown() then   -- (1 to 5, then 5 held: the demo's 8 steps of 0.8 s)
+			tk:Cancel()
+			f.spStacksTest = nil
+			self:UpdateReadyReminders()
+			return
+		end
+		SP.ReadyStacks.Demo(f, t)
+	end)
+	return true
+end
+
 function SP:ReadyReminderResetTest(key)
 	local f = key and frames[key]
 	if f then Reset.play(f) end
@@ -3902,7 +4130,7 @@ local function readyPass(self)
 			if not f then f = self:CreateReadyReminderFrame(entry) end
 			f.inUse = false   -- (no cooldown flags to read)
 			setFade(f, faded and (townFade or fadedOpacity(entry)) or 1)
-			if SP.ReadyStacks then SP.ReadyStacks.Pass(f, inCombat) end
+			if SP.ReadyStacks and not f.spStacksTest then SP.ReadyStacks.Pass(f, inCombat) end   -- (Test Icon running: it draws)
 			if f.fadeGlide then fadeGlideNow(f) end
 		elseif want then
 			if not f then f = self:CreateReadyReminderFrame(entry); f.inUse = true end
@@ -4028,7 +4256,7 @@ local function readyPass(self)
 				end
 			end
 			if f.fadeGlide then fadeGlideNow(f) end   -- (D51) a fight ended: down to faded
-		elseif f then
+		elseif f and not f.spStacksTest then   -- (Maelstrom's Test Icon shows it whatever Show says)
 			-- not on screen now (switched off, or Only In Combat out of combat): it is
 			-- first sight again when it comes back, as when every icon was hidden
 			-- (a cooldown that ended meanwhile makes no sound at the next pull)
@@ -4040,6 +4268,7 @@ local function readyPass(self)
 	end
 	layoutGrid(false); layoutRows(false)
 	rangeSync()
+	R.Oom.sync()   -- (3.0.9.2) When Out of Mana
 	-- (D52) each spell's buff on or off as its icon allows; a buff whose time this pass writes
 	-- (a client with no duration binding) keeps the passes coming, as a countdown does
 	local buffTicks = Buff.Pass(inCombat)
@@ -4235,7 +4464,7 @@ end
 -- (3.0.9.2) the reminders on their own spot (Maelstrom Weapon's Wings / Fill), added to `out`
 function R.ownFrames(out)
 	for _, entry in ipairs(SP.ReadyReminderSpells) do
-		if R.own(entry) and spellOn(entry) and usable(entry) then
+		if R.own(entry) and not R.ownOff(entry) and spellOn(entry) and usable(entry) then
 			out[#out + 1] = frames[entry.key] or SP:CreateReadyReminderFrame(entry)
 		end
 	end
@@ -4529,14 +4758,17 @@ function SP.ReadyReminderPasteSnapshot(_, key, snap)
 	refreshIcons()
 end
 -- Copy <Group> To All Icons: these settings of this icon, on every other icon; the
--- rest of their settings stay as they are
-function SP.ReadyReminderCopyGroup(_, fromKey, opts)
+-- rest of their settings stay as they are. targets (a list of keys): only those icons
+-- (3.0.9.2: Copy Appearance To... one icon, and To This Row)
+function SP.ReadyReminderCopyGroup(_, fromKey, opts, targets)
 	local icons = iconTable()
 	local src = icons[fromKey]
 	if type(src) ~= "table" then src = nil end
+	local only
+	if type(targets) == "table" then only = {}; for _, k in ipairs(targets) do only[k] = true end end
 	for _, entry in ipairs(SP.ReadyReminderSpells) do
 		local key = entry.key
-		if key ~= fromKey and usable(entry) then
+		if key ~= fromKey and usable(entry) and (not only or only[key]) then
 			local own = icons[key]
 			if type(own) ~= "table" then own = {}; icons[key] = own end
 			for _, opt in ipairs(opts) do
@@ -5142,6 +5374,11 @@ if SP.ThemeSpotSettings then
 			entries[#entries + 1] = R.themeColor(key, "stackColor", entry.name .. " Stack Color")
 			entries[#entries + 1] = R.themeColor(key, "stackColor5", entry.name .. " Color At 5 Stacks")
 		end
+		-- (3.0.9.2) When Out of Mana's two colors, the same way ("default" = the shared out-of-mana blue)
+		if not (entry.weaponSet or entry.stacks) then
+			entries[#entries + 1] = R.themeColor(key, "oomColor", entry.name .. " Out of Mana Color")
+			entries[#entries + 1] = R.themeColor(key, "oomGlowColor", entry.name .. " Out of Mana Glow Color")
+		end
 		-- (D52) the buff's Edge Color, picked in the icon's menu: the same way ("default" = the
 		-- shared one, WoW's mana-bar blue; a color = this icon's own). Only a spell with a buff here.
 		if entry.buff then
@@ -5174,11 +5411,14 @@ if SP.ResetAllColorsToDefault and hooksecurefunc then
 		if type(sv) == "table" then
 			sv.rangeColor = nil
 			sv.stackColor, sv.stackColor5 = nil, nil   -- (3.0.9.2) back to the stack blue and WoW's gold on the next read
+			sv.oomColor, sv.oomGlowColor = nil, nil     -- (3.0.9.2) back to the out-of-mana blue
 			if type(sv.icons) == "table" then
 				for k, own in pairs(sv.icons) do
-					if type(own) == "table" and (own.buffEdgeColor ~= nil or own.resetColor ~= nil or own.stackColor ~= nil or own.stackColor5 ~= nil) then
+					if type(own) == "table" and (own.buffEdgeColor ~= nil or own.resetColor ~= nil or own.stackColor ~= nil or own.stackColor5 ~= nil
+						or own.oomColor ~= nil or own.oomGlowColor ~= nil) then
 						own.buffEdgeColor, own.resetColor = nil, nil   -- (A25: the burst back to the shared gold too)
 						own.stackColor, own.stackColor5 = nil, nil     -- (3.0.9.2: Maelstrom Weapon's two colors)
+						own.oomColor, own.oomGlowColor = nil, nil      -- (3.0.9.2: When Out of Mana's)
 						if next(own) == nil then sv.icons[k] = nil end
 					end
 				end

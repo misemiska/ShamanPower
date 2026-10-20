@@ -1,15 +1,15 @@
 -- client: both
--- Unlock UI: Snap to Grid is its own switch. With Show Grid on and Snap to Grid off the grid only
--- shows and a dropped box stays where it lands (a reviewer: turning Snapping off still snapped to
--- the grid). The switch shows only while the grid does.
+-- Unlock UI (3.0.9.2): Snap to Boxes and Snap to Grid are one or the other (the owner): Snap to Boxes
+-- on to start; turning either on turns the other off; both can be off (a box stays where it lands).
+-- Snap to Grid shows only while the grid does.
 local SP = ShamanPower
 local o = SP.opt
 local keep = { o.unlockGrid, o.unlockGridSnap, o.unlockSnap }
 
-o.unlockGrid, o.unlockGridSnap = true, nil
+o.unlockGrid, o.unlockGridSnap, o.unlockSnap = true, nil, nil
 SP:SetMasterUnlock(true)
 __sim.advance(0.6)
-check("grid step with Show Grid on (Snap to Grid on by default)", SP:UnlockGridStep() ~= nil)
+check("to start: Snap to Boxes, no grid snapping", SP:UnlockGridStep() == nil)
 
 local function findSwitch(label)
 	local function walk(f)
@@ -23,26 +23,22 @@ local function findSwitch(label)
 	end
 	return ShamanPowerUnlockBar and walk(ShamanPowerUnlockBar)
 end
-local sw = findSwitch("Snap to Grid")
-check("Snap to Grid switch exists", sw ~= nil)
-check("Snap to Grid shows while the grid does", sw and sw:IsShown())
-
-o.unlockSnap = false
-o.unlockGridSnap = false
-check("no grid step with Snap to Grid off", SP:UnlockGridStep() == nil)
-o.unlockGridSnap = nil
-
-if sw then
-	sw:Click()
-	checkEq("clicking it off saves false", o.unlockGridSnap, false)
-	sw:Click()
-	checkEq("clicking it on saves nil (the default)", o.unlockGridSnap, nil)
+local grid, boxes = findSwitch("Snap to Grid"), findSwitch("Snap to Boxes")
+check("both switches exist", grid ~= nil and boxes ~= nil)
+check("Snap to Grid shows while the grid does", grid and grid:IsShown())
+check("Snap to Boxes on, Snap to Grid off to start", boxes and boxes:GetChecked() and not grid:GetChecked())
+if grid and boxes then
+	grid:Click()
+	check("Snap to Grid on: grid snapping", SP:UnlockGridStep() ~= nil)
+	check("and Snap to Boxes went off", o.unlockSnap == false and not boxes:GetChecked())
+	boxes:Click()
+	check("Snap to Boxes on: Snap to Grid went off", SP:UnlockGridStep() == nil and not grid:GetChecked())
+	boxes:Click()
+	check("both off", o.unlockSnap == false and SP:UnlockGridStep() == nil)
 end
-
 o.unlockGrid = nil
 if ShamanPowerUnlockBar and ShamanPowerUnlockBar.Refresh then ShamanPowerUnlockBar:Refresh() end
-check("Snap to Grid hides with the grid off", sw and not sw:IsShown())
-check("no grid step with the grid off", SP:UnlockGridStep() == nil)
+check("Snap to Grid hides with the grid off", grid and not grid:IsShown())
 
 SP:SetMasterUnlock(false)
 o.unlockGrid, o.unlockGridSnap, o.unlockSnap = keep[1], keep[2], keep[3]
