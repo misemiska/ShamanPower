@@ -11152,6 +11152,85 @@ do
 	for _, a in ipairs(SP.FONT_AREAS) do SP.OptionHoverFont[args["font_" .. a.key]] = a.key end
 end
 
+-- (3.0.9.3) Appearance > Fonts & Textures: Number Sizes, every cooldown number and
+-- time left in one place. The totem bar's cooldown numbers and Ready Reminders' page
+-- sizes live here only; the time left texts are the same settings as on their own
+-- pages (one setting, two places). An icon's own size (its right-click menu) wins.
+do
+	local SP = ShamanPower
+	local args = SP.options.args.settings.args.settings_fonts.args
+	local F = SP.options.args.fluffy.args
+	local function node(section, key) local g = F[section]; return g and g.args and g.args[key] end
+	local function call(f, ...) if type(f) == "function" then return f(...) end return f end
+	local function auto(v) if (tonumber(v) or 0) <= 0 then return "Auto" end return tostring(math.floor(v + 0.5)) end
+	SP.OptionSliderFormat = SP.OptionSliderFormat or {}
+
+	args.sizes_header = { order = 30, type = "header", name = "Number Sizes", hidden = not isShaman }
+	args.sizes_desc = {
+		order = 30.1, type = "description", width = "full", hidden = not isShaman,
+		name = "The size of every cooldown number and time left, in one place. Auto keeps each one's usual size."
+			.. " A size picked in an icon's own right-click menu wins over these.",
+	}
+	args.size_totem_cd = {
+		order = 31, type = "range", name = "Totem Bar Cooldown Numbers", width = 1.5,
+		desc = "The number on a totem's button while its cooldown runs: on the totem bar, its flyouts and Totem Rows.",
+		min = 0, max = 32, step = 1, hidden = not isShaman,
+		get = function() return tonumber(SP.opt.totemCooldownTextSize) or 0 end,
+		set = function(_, v)
+			SP.opt.totemCooldownTextSize = ((tonumber(v) or 0) > 0) and v or nil
+			SP:ApplyTotemCooldownTextSize()
+		end,
+	}
+	SP.OptionSliderFormat[args.size_totem_cd] = auto
+	-- the page's own slider, here too: grayed while its text is hidden there
+	local function mirror(key, order, name, src, desc)
+		if not src then return end
+		args[key] = {
+			order = order, type = "range", name = name, width = 1.5, desc = desc,
+			min = src.min, max = src.max, step = src.step, hidden = not isShaman,
+			disabled = function(info) return (call(src.hidden, info) or call(src.disabled, info)) and true or false end,
+			get = src.get, set = src.set,
+		}
+	end
+	mirror("size_totem_time", 32, "Totem Bar Time Left", node("totembar_duration_section", "duration_text_size"),
+		"The time left on the totem bar's duration bars. The same setting as Time Left Text Size on Totem Bar > Duration Bars;"
+			.. " grayed while Time Left Position is None there.")
+	mirror("size_totem_pulse", 33, "Totem Bar Pulse Time", node("totembar_duration_section", "pulse_text_size"),
+		"The time to a totem's next pulse. The same setting as Pulse Time Text Size on Totem Bar > Duration Bars;"
+			.. " grayed while Pulse Time Position is None there.")
+	mirror("size_cdbar_time", 34, "Cooldown Bar Time Text", node("cooldown_display_section", "cdbar_duration_text_size"),
+		"The time left on the cooldown bar's items. The same setting as the cooldown bar's Time Text Size;"
+			.. " grayed while its time text is turned off.")
+	local function ready(key, order, name, opt, desc)
+		args[key] = {
+			order = order, type = "range", name = name, width = 1.5, desc = desc,
+			min = 0, max = 40, step = 1,
+			hidden = function() return not isShaman or not SP.ReadyReminderSetPageOpt end,   -- (its module is off)
+			get = function() return tonumber(SP.ReadyReminderPageOpt and SP:ReadyReminderPageOpt(opt)) or 0 end,
+			set = function(_, v) SP:ReadyReminderSetPageOpt(opt, v) end,
+		}
+		SP.OptionSliderFormat[args[key]] = auto
+	end
+	ready("size_ready_cd", 35, "Ready Reminders Countdown", "textSize",
+		"The cooldown number on every Ready Reminders icon. An icon's own Countdown Text Size (its right-click menu) wins.")
+	ready("size_ready_time", 36, "Ready Reminders Time Left", "buffTimeSize",
+		"A buff's time left on every Ready Reminders icon. An icon's own Time Left Size (its right-click menu) wins.")
+	args.sizes_reset = {
+		order = 39, type = "execute", name = "Reset Number Sizes", width = "full", hidden = not isShaman,
+		desc = "Every size above back to its usual size. Sizes picked in icons' own right-click menus stay.",
+		func = function()
+			args.size_totem_cd.set(nil, 0)
+			for _, k in ipairs({ "size_totem_time", "size_totem_pulse", "size_cdbar_time" }) do
+				if args[k] then args[k].set(nil, 8) end   -- (their usual size)
+			end
+			if SP.ReadyReminderSetPageOpt then
+				SP:ReadyReminderSetPageOpt("textSize", 0)
+				SP:ReadyReminderSetPageOpt("buffTimeSize", 0)
+			end
+		end,
+	}
+end
+
 -- Appearance > Fonts & Textures, second half: the bar fills' texture
 -- (ShamanPowerTextures.lua), and one button to apply the chosen look everywhere.
 do

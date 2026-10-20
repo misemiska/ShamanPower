@@ -1433,6 +1433,7 @@ function ShamanPower:OnProfileChanged()
 	if self.CueMarkCarryOver then self:CueMarkCarryOver() end
 	self:ClearTwistingOnForever()
 	if self.RefreshFonts then self:RefreshFonts() end   -- the new profile may pick other fonts
+	if self.ApplyTotemCooldownTextSize then self:ApplyTotemCooldownTextSize() end   -- and its own Number Sizes
 	if self.RefreshTextures then self:RefreshTextures() end   -- and other bar textures
 	if self.UpdateAnnounceEvents then self:UpdateAnnounceEvents() end   -- announce settings live in the profile
 	MigrateMiniBarProfile(self.db, self.opt)
@@ -4592,6 +4593,7 @@ function ShamanPower:StyleEngineCooldown(cd)
 	local ok, fs = pcall(cd.GetCountdownFontString, cd)
 	if ok and fs then
 		self:AdoptSPFont(fs, "timers")   -- the game's countdown follows the Fonts settings too
+		self:SizeTotemCooldownText(fs)   -- and Number Sizes' Totem Bar Cooldown Numbers
 		local c = self.opt.totemCooldownTextColor
 		fs:SetTextColor(c and c.r or 1, c and c.g or 1, c and c.b or 1)
 		fs:SetShadowOffset(1, -1)
@@ -7485,6 +7487,7 @@ function ShamanPower:CreateTotemButtons()
 		self:KeepAboveCooldown(btn, cdTextFrame, 2)
 		local cdText = cdTextFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		ShamanPower:AdoptSPFont(cdText, "timers")   -- template font = the design; follows the Fonts settings
+		ShamanPower:SizeTotemCooldownText(cdText)   -- (Number Sizes)
 		cdText:SetPoint("CENTER", btn, "CENTER", 0, 0)
 		local cdColor = self.opt.totemCooldownTextColor
 		cdText:SetTextColor(cdColor and cdColor.r or 1, cdColor and cdColor.g or 1, cdColor and cdColor.b or 1)
@@ -8882,6 +8885,7 @@ function ShamanPower:CreateTotemFlyout(element)
 			self:KeepAboveCooldown(btn, cdTextFrame, 2)
 			local cdText = cdTextFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			ShamanPower:AdoptSPFont(cdText, "timers")   -- template font = the design; follows the Fonts settings
+			ShamanPower:SizeTotemCooldownText(cdText)   -- (Number Sizes)
 			cdText:SetPoint("CENTER", btn, "CENTER", 0, 0)
 			local cdColor = self.opt.totemCooldownTextColor
 			cdText:SetTextColor(cdColor and cdColor.r or 1, cdColor and cdColor.g or 1, cdColor and cdColor.b or 1)

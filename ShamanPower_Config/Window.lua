@@ -2493,6 +2493,9 @@ local function RenderPageInner(self, entry, query, keepScroll)
 				opts.max  = Tree:EvalPlain(e.node.max, e.info) or 100
 				opts.step = Tree:EvalPlain(e.node.step, e.info) or 1
 				opts.isPercent = e.node.isPercent and true or false
+				-- a value's own words (Number Sizes' 0 = "Auto"): ShamanPower.OptionSliderFormat[node]
+				local fmts = _G.ShamanPower and _G.ShamanPower.OptionSliderFormat
+				opts.format = fmts and fmts[e.node] or nil
 				f, h = Widgets:Slider(body, opts)
 
 			elseif e.type == "select" then

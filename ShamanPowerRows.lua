@@ -517,6 +517,7 @@ local function copyButton(r, src)
 		if SP.KeepAboveCooldown then SP:KeepAboveCooldown(b, tf, 2) end   -- above the sweep, whatever lifts it (3.0.9.2)
 		local t = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 		if SP.AdoptSPFont then SP:AdoptSPFont(t, "timers") end
+		if SP.SizeTotemCooldownText then SP:SizeTotemCooldownText(t) end   -- (Number Sizes)
 		t:SetPoint("CENTER", b, "CENTER", 0, 0)
 		t:SetShadowOffset(1, -1)
 		t:Hide()

@@ -213,6 +213,55 @@ function SP:AdoptSPFont(fs, area)
 	apply(fs, wantPath, size, wantFlags, path, flags)
 end
 
+-- (3.0.9.3) A size of its own for a string whose design came from a template
+-- (AdoptSPFont): Appearance > Fonts & Textures' Number Sizes. size nil: back to
+-- the template's own size and font object, following the Fonts settings again.
+-- The design is remembered the first time, before anything changes it.
+local designOf = setmetatable({}, { __mode = "k" })
+function SP:ResizeSPFont(fs, area, size)
+	if not fs then return end
+	local d = designOf[fs]
+	if not d then
+		if not size then return end   -- never resized: it is already its design
+		local rec = registry[fs]
+		local path, s, flags = fs:GetFont()
+		d = { object = (rec and rec.fontObject) or fs:GetFontObject(), size = (rec and rec.size) or s or 12,
+			flags = (rec and rec.flags) or flags or "", path = (rec and rec.path) or path }
+		designOf[fs] = d
+	end
+	if size then
+		local rec = registry[fs]
+		if rec then rec.gen = nil end   -- always applied: the game may have put its template back since
+		self:SetSPFont(fs, area, size, d.flags, d.path)
+		return
+	end
+	designOf[fs] = nil
+	registry[fs] = nil
+	if d.object then reattach(fs, { fontObject = d.object }) elseif d.path then fs:SetFont(d.path, d.size, d.flags) end
+	self:AdoptSPFont(fs, area)
+end
+
+-- Totem Bar Cooldown Numbers' size (opt.totemCooldownTextSize; 0 or nil: the design's)
+function SP:SizeTotemCooldownText(fs)
+	if not fs then return end
+	local size = tonumber(self.opt and self.opt.totemCooldownTextSize) or 0
+	self:ResizeSPFont(fs, "timers", size > 0 and size or nil)
+end
+function SP:ApplyTotemCooldownTextSize()
+	for element = 1, 4 do
+		local btn = self.totemButtons and self.totemButtons[element]
+		if btn then self:SizeTotemCooldownText(btn.cooldownText) end
+		local flyout = self.totemFlyouts and self.totemFlyouts[element]
+		if flyout and flyout.buttons then
+			for _, b in ipairs(flyout.buttons) do self:SizeTotemCooldownText(b.cooldownText) end
+		end
+		-- Totem Rows' copies (Keep Flyouts on Main Totem Bar)
+		local copies = self.RowsCopies and self:RowsCopies(element)
+		if copies then for i = 1, #copies do self:SizeTotemCooldownText(copies[i].cooldownText) end end
+	end
+	if self.RestyleEngineCooldowns then self:RestyleEngineCooldowns() end   -- the game's own numbers (WoW: Forever)
+end
+
 -- Re-apply every remembered font string: called when a font setting changes.
 -- A string in use hangs off UIParent (or WorldFrame: nameplates). Settings previews
 -- are rebuilt and their old frames detached (WoW never frees them); a refresh skips

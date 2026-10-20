@@ -4654,6 +4654,13 @@ function SP.ReadyReminderIconOpt(_, key, opt)   -- what the icon uses now: its o
 	return entry and IconOpt(entry, opt)
 end
 function SP.ReadyReminderPageOpt(_, opt) return SV()[opt] end
+-- (3.0.9.3) the page's own value (Appearance > Fonts & Textures' Number Sizes): every icon
+-- without its own uses it; an icon's own (its right-click menu) still wins
+function SP.ReadyReminderSetPageOpt(_, opt, value)
+	if not ICON_KEY[opt] then return end
+	SV()[opt] = copyValue(value)
+	refreshIcons()
+end
 function SP.ReadyReminderOwnOpt(_, key, opt)    -- nil: the icon follows the page
 	local own = iconTable()[key]
 	if type(own) ~= "table" then return nil end
