@@ -2,6 +2,12 @@
 
 ## v3.0.9.2 (in progress)
 
+### After updating
+- After updating, fully close and restart the game once: 3.0.9.2 adds a new file (the Maelstrom Weapon reminder), and a /reload alone does not load it.
+
+### New
+- **Maelstrom Weapon Ready Reminder** (WoW: Forever; Settings > Alerts & Reminders > Ready Reminders): Maelstrom Weapon is in the Spells row (off until you click it). It shows your stacks of the buff instead of a cooldown, in the Look you pick from its right-click menu: **Icon + Stack Number** (the count over the icon, gold at 5), **Charge Bar** (the icon with a 5-part bar under it, as Shield Charges draws it), **Wings** (Blizzard's own Maelstrom picture, a piece more per stack, the whole emblem at 5), **Fill** (that emblem lighting up from the bottom a fifth per stack), **Fill The Icon** (the same on the spell's icon) or **Storm Glow** (the icon's glow brighter with every stack). Show: While You Have Stacks, Only At 5 Stacks, or Always (0 too, dimmed). The Stacks group adds the count to any look, Time Left (the buff's time as a number, or Drain: the look going gray from the top as it runs out), Stack Color and Color At 5 Stacks (both carried by your themes). At 5 Stacks plays its Effect (Glow, Pulse or both; on Wings and Fill the emblem itself glows or pulses) and can play a sound. Everything works in a fight. Wings and Fill are three icons wide, so in Grid and Rows placement they keep a spot of their own (Move the Icons boxes it). Not on TBC Anniversary, which has no Maelstrom Weapon.
+
 ### Changes
 - **Minimap menu:** the eight Totem Bar Style rows are gone, so the menu is short again: Open Settings, your loadouts, Totem Assignments, Unlock UI, Keybind Mode and What's New. Pick your style in Settings > Bars > Totem Bar > Style.
 - **Totemic Recall (Settings > Bars):** its icon and all of its settings are on the page of the bar it sits on: Totem Bar > Bar (after Drop All) when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar. Switching its Bar takes you to the other page with its settings still open. The settings search follows it too.

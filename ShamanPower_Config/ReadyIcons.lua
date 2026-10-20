@@ -64,6 +64,11 @@ local SHOW_CHOICES = {
 	{ "always_bright", "Always" }, { "always", "Always (Dim on Cooldown)" },
 }
 local EFFECT_CHOICES = { { "glow", "Glow" }, { "pulse", "Pulse" }, { "both", "Glow + Pulse" }, { "none", "None" } }
+-- (3.0.9.2, A55) Maelstrom Weapon: its stacks' look, when it shows, its time left
+local STACK_LOOKS = { { "number", "Icon + Stack Number" }, { "bar", "Charge Bar" }, { "wings", "Wings" }, { "fill", "Fill" },
+	{ "iconfill", "Fill The Icon" }, { "storm", "Storm Glow" } }
+local STACK_SHOWS = { { "stacks", "While You Have Stacks" }, { "five", "Only At 5 Stacks" }, { "always", "Always (0 Too, Dimmed)" } }
+local STACK_LEFTS = { { "off", "Off" }, { "number", "Number" }, { "drain", "Drain" } }
 local SWEEP_CHOICES = {
 	{ "radial", "Clock Sweep", nil, Pic.SWEEP },
 	{ "vertical", "Color Fills In", nil, Pic.NONE },   -- (the sweep picture is the radial one)
@@ -99,6 +104,8 @@ end
 
 -- what the icon uses now (its own value, else the saved default)
 local function Opt(key, opt) return SP:ReadyReminderIconOpt(key, opt) end
+-- (3.0.9.2) Maelstrom Weapon in Wings or Fill: three icons wide, on a spot of its own
+local function Wide(entry) return entry ~= nil and entry.stacks ~= nil and SP.ReadyStacks ~= nil and SP.ReadyStacks.Wide(entry) end
 
 -- ---------------------------------------------------------------------------
 -- The icons
@@ -290,7 +297,7 @@ local function SharedRow(text, values, getter, setter, scope)
 	}
 end
 -- the last line of a group: these settings of this spell on every other spell
-local COPY_NAMES = { ["When Ready"] = "Ready Effects", ["While Holding"] = "Weapon Effects", ["When It's Gone"] = "Missing Imbue Effects",
+local COPY_NAMES = { ["When Ready"] = "Ready Effects", ["At 5 Stacks"] = "Ready Effects", ["While Holding"] = "Weapon Effects", ["When It's Gone"] = "Missing Imbue Effects",
 	["While On Cooldown"] = "Cooldown Appearance" }
 local function CopyGroupRow(key, group, opts)
 	return { text = "Copy " .. (COPY_NAMES[group] or group) .. " To All Icons", onClick = function()
@@ -317,9 +324,15 @@ local function AppearanceRows(key, entry)
 		SliderRow(key, "Size", "iconSize", 24, 96, 2, 48, nil, nil, Pic.SIZE),
 		SliderRow(key, "Opacity", "opacity", 0.2, 1, 0.05, 1, nil, true, Pic.OPACITY),
 	}
+	-- (3.0.9.2) Wings and Fill: Blizzard's picture alone, no icon, backing or border to set
+	local wide = Wide(entry)
+	if wide then
+		t[#t + 1] = { text = "Wings and Fill have no icon, background or border", disabled = true,
+			tip = "These looks are Blizzard's own Maelstrom picture alone. Size and Opacity still apply; pick another Look for the icon's settings." }
+	end
 	-- Icon Shape (3.0.9): this icon's own (a circle Earth Shock beside a square Stormstrike), else
 	-- the shape every icon shares (Appearance > Themes); the first choice puts it back on the shared one
-	if SP.IconShapeValues and SP.IconShapeOf then
+	if SP.IconShapeValues and SP.IconShapeOf and not wide then
 		local function plain(label) return (label or ""):gsub(" %(default%)$", "") end
 		t[#t + 1] = {
 			text = "Icon Shape", pic = Pic.NONE,
@@ -346,7 +359,7 @@ local function AppearanceRows(key, entry)
 			end,
 		}
 	end
-	t[#t + 1] = {
+	if not wide then t[#t + 1] = {
 		text = "Background",
 		value = function() if Opt(key, "hideBackground") then return "Hide", false end return "Show", false end,
 		sub = function()
@@ -358,8 +371,8 @@ local function AppearanceRows(key, entry)
 				  onClick = function() return Set(key, "hideBackground", true) end },
 			}
 		end,
-	}
-	local bg = not Opt(key, "hideBackground")
+	} end
+	local bg = not Opt(key, "hideBackground") and not wide
 	if bg then
 		t[#t + 1] = {
 			text = "Border",
@@ -398,7 +411,7 @@ local function AppearanceRows(key, entry)
 	t[#t + 1] = { separator = true }
 	local fx = Opt(key, "readyEffect") or "glow"
 	if fx == "glow" or fx == "both" then
-		if SP.GlowShapeValues then
+		if SP.GlowShapeValues and not wide then   -- (Wings / Fill: the emblem itself glows)
 			local map, order = SP:GlowShapeValues()
 			local choices = {}
 			for _, k in ipairs(order or {}) do choices[#choices + 1] = { k, map[k], nil, Pic.Glow(key, k) } end
@@ -406,14 +419,14 @@ local function AppearanceRows(key, entry)
 			t[#t + 1] = ChoiceRow(key, "Glow Shape", "glowShape", choices, shared)
 		end
 		t[#t + 1] = ColorRow(key, entry, "Glow Color", "glowColor", 0.3, 0.8, 1.0, { kind = "glow", shape = Pic.Shape(key) })
-		if SP.GlowShapeValues and (Opt(key, "glowShape") or (SP.opt and SP.opt.glowShape) or "default") == "proc" and SP.ProcGlowOut then
+		if SP.GlowShapeValues and not wide and (Opt(key, "glowShape") or (SP.opt and SP.opt.glowShape) or "default") == "proc" and SP.ProcGlowOut then
 			local row = SliderRow(key, "Glow Thickness", "glowThick", 0, 0.6, 0.01, SP.PROC_GLOW_OUT or 0.2, nil, true,
 				{ kind = "thick", shape = "proc", color = Pic.Color(key, "glowColor", 0.3, 0.8, 1.0) })
 			row.tip = "How thick the Proc Glow ring is. It grows outward from the icon's edge."
 			t[#t + 1] = row
 		end
 	else
-		local moment = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or "When Ready"
+		local moment = entry.weaponSet and "While Holding" or entry.imbue and "When It's Gone" or entry.stacks and "At 5 Stacks" or "When Ready"
 		t[#t + 1] = { text = "No glow yet: pick one under " .. moment .. " > Effect", disabled = true,
 			tip = "This icon's effect has no glow, so there is no glow look to set. Pick Glow or Glow + Pulse under " .. moment .. " > Effect." }
 	end
@@ -435,6 +448,9 @@ local function ReadyRows(key, entry, groupName)
 	local t = { ChoiceRow(key, "Effect", "readyEffect", Pic.With(EFFECT_CHOICES,
 		{ glow = Pic.Glow(key), pulse = Pic.PULSE, both = Pic.Glow(key, nil, true), none = Pic.PLAIN }), "glow") }
 	t[1].tip = "What the icon does at that moment: a glow (its shape and color are under Appearance), a pulse, both, or nothing."
+	if entry.stacks then
+		t[1].tip = "What it does at 5 stacks, while they last: a glow, a pulse, both, or nothing. On Wings and Fill the emblem itself glows or pulses."
+	end
 	if entry.weaponSet then   -- (A28) the set whose hold plays the effect
 		local g = ChoiceRow(key, "Glow While Holding", "wsGlow", HOLD_CHOICES, "never")
 		g.tip = "Use this effect while these weapons are equipped."
@@ -593,14 +609,55 @@ local function SoundRows(key, entry)
 				return items
 			end,
 		}
-		t[#t + 1] = SliderRow(key, "Volume", "soundVolume", 0, 100, 1, 100, function(v) return string.format("%d%%", v or 0) end)
+		if entry and entry.stacks and SPCompat and SPCompat.FOREVER then
+			t[#t + 1] = { text = "Volume: the game plays this sound", disabled = true,
+				tip = "At 5 stacks the game plays it, in a fight too, at your game's sound volume (it has no volume of its own)." }
+		else
+			t[#t + 1] = SliderRow(key, "Volume", "soundVolume", 0, 100, 1, 100, function(v) return string.format("%d%%", v or 0) end)
+		end
 		-- a sound turned on in this menu always plays: the minimum only filters the old default
-		if not Opt(key, "ownSound") and not ws then
+		if not Opt(key, "ownSound") and not ws and not (entry and entry.stacks) then
 			t[#t + 1] = SliderRow(key, "Minimum Cooldown (Seconds)", "soundMinCooldown", 0, 300, 5, 20, function(v) return Secs(v, "Always") end)
 		end
 	end
 	t[#t + 1] = { separator = true }
 	t[#t + 1] = CopyGroupRow(key, "Sound", SOUND_KEYS)
+	return t
+end
+
+-- (3.0.9.2, A55) Maelstrom Weapon: the count on any look, the time left, the two colors. A row that
+-- does nothing in this look stays, grayed, and says which looks it is for.
+local function StackRows(key, entry)
+	local look = Opt(key, "stackLook") or "number"
+	local t = {}
+	if look == "number" then
+		t[#t + 1] = { text = "Stack Number: always on in this look", disabled = true,
+			tip = "Icon + Stack Number always shows the count. Turn Stack Number on here for the other looks." }
+	else
+		local n = OnOffRow(key, "Stack Number", "stackNumber")
+		n.tip = "The count over the look, as Icon + Stack Number shows it: white, in Color At 5 Stacks at 5."
+		t[#t + 1] = n
+	end
+	local left = ChoiceRow(key, "Time Left", "stackLeft", STACK_LEFTS, "off")
+	left.tip = "The buff's time left: a number, or Drain: the look goes gray from the top as the time runs out."
+	t[#t + 1] = left
+	t[#t + 1] = { separator = true }
+	if look == "bar" or look == "storm" then
+		local c = ColorRow(key, entry, "Stack Color", "stackColor", 0.35, 0.65, 1.0)
+		c.tip = (look == "bar") and "The Charge Bar's color below 5 stacks." or "The Storm Glow's color below 5 stacks."
+		t[#t + 1] = c
+	else
+		t[#t + 1] = { text = "Stack Color: Charge Bar and Storm Glow only", disabled = true,
+			tip = "Only the Charge Bar and the Storm Glow color the stacks below 5. The other looks show the spell's own picture." }
+	end
+	if look == "number" or look == "bar" or Opt(key, "stackNumber") then
+		local c5 = ColorRow(key, entry, "Color At 5 Stacks", "stackColor5", 1, 0.82, 0)
+		c5.tip = "At 5 stacks the number turns this color" .. ((look == "bar") and ", and so does the Charge Bar." or ".")
+		t[#t + 1] = c5
+	else
+		t[#t + 1] = { text = "Color At 5 Stacks: the number and the Charge Bar", disabled = true,
+			tip = "It colors the number at 5 stacks (Icon + Stack Number, or Stack Number on) and the Charge Bar." }
+	end
 	return t
 end
 
@@ -846,7 +903,13 @@ local function MenuItems(key)
 	items[#items + 1] = { text = on and "Hide This Icon" or "Show This Icon",
 		onClick = function() SP:ReadyReminderSetSpell(key, not on); Row:Changed(false) end }
 	-- when it shows
-	items[#items + 1] = entry.weaponSet and { text = "Show", words = "always on screen: it shows what you hold",
+	local stackShow
+	if entry.stacks then   -- (3.0.9.2) Maelstrom Weapon: by its stacks
+		stackShow = ChoiceRow(key, "Show", "stackShow", STACK_SHOWS, "stacks")
+		stackShow.words = "when its stacks are on screen"
+		stackShow.tip = "While You Have Stacks: from the first stack until you spend them. Only At 5 Stacks: only when your next spell is instant. Always: 0 stacks too, dimmed."
+	end
+	items[#items + 1] = stackShow or entry.weaponSet and { text = "Show", words = "always on screen: it shows what you hold",
 		  value = function() return "Always", false end,
 		  tip = "Weapon Set is always on screen: it shows what you hold. Only In Combat below hides it out of a fight." }
 		or entry.imbue and { text = "Show", words = "only while an imbue is missing",
@@ -883,6 +946,13 @@ local function MenuItems(key)
 	items[#items + 1] = { separator = true }
 	-- how it looks
 	items[#items + 1] = { text = "Appearance", label = true }
+	if entry.stacks then   -- (3.0.9.2) Maelstrom Weapon: its stacks' look
+		local look = ChoiceRow(key, "Look", "stackLook", STACK_LOOKS, "number")
+		look.words = "how the stacks show"
+		look.tip = "How your stacks show: a number on the icon, a Charge Bar like Shield Charges, Blizzard's wings building up, the emblem or the icon filling a fifth per stack, or the icon's glow growing."
+		items[#items + 1] = look
+		items[#items + 1] = Group("Stacks", function() return StackRows(key, entry) end, "the number, the time left, the colors")
+	end
 	items[#items + 1] = Group("Appearance", function() return AppearanceRows(key, entry) end,
 		"size, opacity, shape, background, border, name, the glow's look")
 	-- the cooling settings only do something while it shows on cooldown
@@ -896,9 +966,10 @@ local function MenuItems(key)
 	items[#items + 1] = { separator = true }
 	-- what it does at its moments
 	items[#items + 1] = { text = "Effects & Sound", label = true }
-	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "While Imbue Is Missing" or "When Ready"
+	local readyName = entry.weaponSet and "While Holding" or entry.imbue and "While Imbue Is Missing" or entry.stacks and "At 5 Stacks" or "When Ready"
 	items[#items + 1] = Group(readyName, function() return ReadyRows(key, entry, readyName) end,
-		entry.weaponSet and "the effect while you hold a set" or entry.imbue and "the effect while an imbue is missing" or "the effect the moment it's ready")
+		entry.weaponSet and "the effect while you hold a set" or entry.imbue and "the effect while an imbue is missing"
+		or entry.stacks and "the effect at 5 stacks" or "the effect the moment it's ready")
 	if entry.weaponSet then   -- (A28)
 		items[#items + 1] = Group("On A Weapon Swap", function() return SwapRows(key, entry) end, "a sound, the Ready Flash")
 	end
@@ -907,16 +978,20 @@ local function MenuItems(key)
 		items[#items + 1] = Group("When The Cooldown Resets", function() return ResetRows(key, entry) end,
 			"a tank's dodge or parry resets it: burst, word, flash, sound")
 	end
-	if not entry.imbue and not entry.weaponSet then
+	if not entry.imbue and not entry.weaponSet and not entry.stacks then
 		items[#items + 1] = Group("Out of Range", function() return RangeRows(key, entry) end,
 			"how it looks when your target is out of range")
 	end
 	items[#items + 1] = Group("Sound", function() return SoundRows(key, entry) end,
 		entry.weaponSet and "the sound a swap plays" or entry.imbue and "the sound when an imbue goes missing"
-		or "the sound the moment it's ready")
+		or entry.stacks and "the sound at 5 stacks" or "the sound the moment it's ready")
 	items[#items + 1] = { separator = true }
 	-- where it sits (Rows placement: the row it is on; Not On A Row: off your screen)
-	if rowsOn then
+	if rowsOn and Wide(entry) then   -- (3.0.9.2) Wings / Fill: never on a row
+		items[#items + 1] = { text = "On Row: its own spot", disabled = true, words = "Wings and Fill sit on a spot of their own",
+			tip = "Wings and Fill are three icons wide, so they sit on a spot of their own. Move the Icons moves it." }
+		items[#items + 1] = { separator = true }
+	elseif rowsOn then
 		items[#items + 1] = { text = "On Row", pic = Pic.NONE, words = "the row this icon sits on",
 			value = function()
 				local i = SP:ReadyRowOf(key)
@@ -1092,7 +1167,7 @@ local function RowMenu(i, holder)
 	ns.ContextMenu:Open(holder, { header = { text = RowName(i) }, items = function() return RowMenuItems(i) end })
 end
 
-local LABELS = { off = "NOT SHOWN", none = "NOT ON A ROW" }
+local LABELS = { off = "NOT SHOWN", none = "NOT ON A ROW", own = "OWN SPOT" }
 local ROW_TIP = "This row's own settings: its spacing, direction, spot and name."
 local function GroupLabel(holder, key)
 	if not holder.text then
@@ -1132,11 +1207,14 @@ local function ListItems(out)
 		local gap = max(0, (tonumber(SP:ReadyReminderPageOpt("spacing")) or 8) - (PITCH - PLATE))
 		local i = 0
 		for _, e in ipairs(known) do
-			if SP.ReadyReminderOn(e) then
+			if SP.ReadyReminderOn(e) and not Wide(e) then
 				i = i + 1
 				out[#out + 1] = e
 				meta[e.key] = { group = "g" .. ceil(i / per), gap = ((i - 1) % per ~= 0) and gap or 0 }
 			end
+		end
+		for _, e in ipairs(known) do   -- (3.0.9.2) Wings / Fill: its own spot, never in the grid
+			if SP.ReadyReminderOn(e) and Wide(e) then out[#out + 1] = e; meta[e.key] = { group = "own" } end
 		end
 		for _, e in ipairs(known) do
 			if not SP.ReadyReminderOn(e) then out[#out + 1] = e; meta[e.key] = { group = "off" } end
@@ -1150,7 +1228,7 @@ local function ListItems(out)
 		local j = 0
 		for _, key in ipairs(r.spells) do
 			local e = byKey[key]
-			if e then
+			if e and not Wide(e) then
 				j = j + 1
 				out[#out + 1] = e
 				meta[key] = { group = "row" .. i, gap = (j > 1) and gap or 0 }
@@ -1163,6 +1241,9 @@ local function ListItems(out)
 			out[#out + 1] = ph
 			meta[ph.key] = { group = "row" .. i }
 		end
+	end
+	for _, e in ipairs(known) do   -- (3.0.9.2) Wings / Fill: its own spot, on no row
+		if Wide(e) then out[#out + 1] = e; meta[e.key] = { group = "own" } end
 	end
 end
 
@@ -1226,7 +1307,7 @@ Row = ns.IconRow.New({
 	toggle = function(e) if e.empty then return end SP:ReadyReminderSetSpell(e.key, not SP.ReadyReminderOn(e)) end,
 	menu = function(e) if e.empty then return RowMenuItems(e.row) end return MenuItems(e.key) end,
 	move = Move,
-	movable = function(e) return not e.empty end,
+	movable = function(e) return not e.empty and not (Wide(e) and Mode() ~= "free") end,   -- (Wings / Fill: its own spot)
 	crossGroups = true,   -- (a spell drags from one row to another; the line follows the cursor's row)
 	-- Rows: a spell dragged down onto the Not On A Row row comes off its row (off your screen)
 	dropTargets = function() if Mode() == "rows" and Unplaced then return { Unplaced } end end,
@@ -1245,6 +1326,7 @@ Row = ns.IconRow.New({
 	},
 })
 ns.CustomRows.readyIcons = Row
+SP.ReadyIconsRow = Row   -- (the sp-ci tests open an icon's menu through it)
 
 -- ===========================================================================
 -- The Ready Flash tab's Spells row (A26): click a spell to flash it when ready (whether or
@@ -1303,7 +1385,7 @@ end
 FlashRow = ns.IconRow.New({
 	caption = "|cff3FA9F5CLICK|r a spell to flash it when it is ready. |cff3FA9F5RIGHT-CLICK|r it for its own spot, its size there and Flash Early. |cff3FA9F5Dark|r spells aren't learned yet.",
 	hint = "Click: flash it when ready\nRight-click: its own spot and more",
-	list = function(out) for _, e in ipairs(Known(flashList)) do out[#out + 1] = e end end,
+	list = function(out) for _, e in ipairs(Known(flashList)) do if not e.stacks then out[#out + 1] = e end end end,
 	textures = function(e, out) return SP:ReadyReminderIconTextures(e.key, out) end,
 	shown = function(e) return Opt(e.key, "flash") == true end,
 	learned = function(e) return SP.ReadyReminderKnown(e) and true or false end,
@@ -1326,7 +1408,7 @@ Unplaced = ns.IconRow.New({
 	list = function(out)
 		if Mode() ~= "rows" then return end
 		for _, e in ipairs(Known(unplacedList)) do
-			if not SP:ReadyRowOf(e.key) then out[#out + 1] = e end
+			if not SP:ReadyRowOf(e.key) and not Wide(e) then out[#out + 1] = e end
 		end
 	end,
 	textures = function(e, out) return SP:ReadyReminderIconTextures(e.key, out) end,

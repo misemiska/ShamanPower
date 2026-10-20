@@ -91,6 +91,13 @@ local DEFAULTS = {
 	resetSound = false,    -- its own sound (the Ready sound stays quiet for a reset)
 	resetSoundName = "ShamanPower: Ready Ping",
 	resetVolume = 100,
+	-- (3.0.9.2, A55) Maelstrom Weapon: how its stacks show (ShamanPower_ReadyStacks.lua)
+	stackLook = "number",  -- number (Icon + Stack Number) | bar (Charge Bar) | wings | fill | iconfill (Fill The Icon) | storm (Storm Glow)
+	stackShow = "stacks",  -- stacks: while you have any | five: only at 5 | always: 0 too, dimmed
+	stackNumber = false,   -- the count on the looks that are not Icon + Stack Number
+	stackLeft = "off",     -- the buff's time left: off | number | drain (the look grays from the top)
+	stackColor = { r = 0.35, g = 0.65, b = 1.0 },   -- the stacks below 5: the Charge Bar, the Storm Glow
+	stackColor5 = { r = 1, g = 0.82, b = 0 },       -- at 5: the number and the Charge Bar (WoW's gold)
 	-- flashPos = { anchor, x, y }: its spot (nil = the default, a little above the middle)
 	flashPositions = {},   -- [key] = { point, x, y }: a spell's own flash spot (none: the shared one)
 	layout = "row",        -- row | column: arrangement used by Reset Positions
@@ -137,6 +144,12 @@ SP.ReadyReminderSpells = {
 	-- Lightning Bolt has no cooldown: an always-ready icon whose Out of Range tint checks the
 	-- target's range, as the shocks do, until Chain Lightning is learned (a reviewer's ask, 3.0.9.1)
 	{ key = "lightningbolt", name = "Lightning Bolt",     ids = { 403 },                  def = false },
+	-- Maelstrom Weapon (3.0.9.2, A55; WoW: Forever only, TBC has none): your stacks of its buff (1 to 5)
+	-- instead of a cooldown, in the look picked in its menu (ShamanPower_ReadyStacks.lua). Learned with
+	-- the talent 408498 (node 104741); the buff 408505 stacks to 5 and "Maelstrom Ready!" 408501 comes on
+	-- at 5 (Forever's own spell data)
+	{ key = "maelstrom", name = "Maelstrom Weapon", ids = { 408498 }, def = false,
+		stacks = { buff = 408505, max = 5, ready = 408501, talent = 408498, node = 104741 } },
 	-- Weapon Imbue (3.0.8, a shaman tank's ask): shows while an imbue is missing (the main hand;
 	-- with an off-hand weapon, either hand) with the icon of the imbue last on, and counts the
 	-- shorter one down while both are on. ids: Rockbiter, Flametongue, Windfury, Frostbrand.
@@ -174,10 +187,15 @@ end
 -- Ready Reminder", below). One table for all of it (this file is near Lua's 200 locals).
 local Buff = { of = {}, list = {}, formatters = {}, proxies = {},
 	KEY = { buffLook = true, buffCorner = true, buffSize = true, buffSide = true, buffOwnSize = true, buffTime = true,
-		buffGoldUnder = true, buffEdgeColor = true } }
+		buffGoldUnder = true, buffEdgeColor = true },
+	-- (3.0.9.2) Maelstrom Weapon's own settings
+	STACK = { stackLook = true, stackShow = true, stackNumber = true, stackLeft = true, stackColor = true, stackColor5 = true } }
 -- a buff setting copied or pasted onto an icon whose spell puts no buff on you here: left out
+-- (and a stacks setting onto an icon that shows no stacks)
 function Buff.Skip(key, opt)
-	return Buff.KEY[opt] == true and not (catalogByKey[key] and catalogByKey[key].buff)
+	local e = catalogByKey[key]
+	if Buff.STACK[opt] then return not (e and e.stacks) end
+	return Buff.KEY[opt] == true and not (e and e.buff)
 end
 do
 	-- Every buff by spell ID, from each game's own data (SpellName / SpellEffect /
@@ -241,7 +259,8 @@ local function SV()
 	local sv = ShamanPower_ReadyReminders
 	local now = GetTime()
 	if sv == filledFor and now - filledAt < 1 and sv.borderColor ~= nil and sv.glowColor ~= nil and sv.barColor ~= nil
-		and sv.rangeColor ~= nil and sv.buffEdgeColor ~= nil and sv.resetColor ~= nil then
+		and sv.rangeColor ~= nil and sv.buffEdgeColor ~= nil and sv.resetColor ~= nil
+		and sv.stackColor ~= nil and sv.stackColor5 ~= nil then
 		return sv
 	end
 	local changed = sv ~= filledFor
@@ -287,12 +306,14 @@ local ICON_KEYS = { "mode", "outOfRange", "readyEffect", "glowColor", "glowShape
 	-- A25: When The Cooldown Resets (Stormstrike on WoW: Forever)
 	"resetVisual", "resetColor", "resetLength", "resetFlash", "resetFlashWord", "resetSound", "resetSoundName", "resetVolume",
 	-- A28: Weapon Set (the word under the icon, the set that glows, the swap switches)
-	"wsWord", "wsGlow", "wsSound", "wsFlash" }
+	"wsWord", "wsGlow", "wsSound", "wsFlash",
+	-- (3.0.9.2, A55) Maelstrom Weapon's stacks
+	"stackLook", "stackShow", "stackNumber", "stackLeft", "stackColor", "stackColor5" }
 local ICON_KEY = {}
 for _, k in ipairs(ICON_KEYS) do ICON_KEY[k] = true end
 local resolved = {}   -- [catalog key] = { gen = n, <setting> = value }: one table per icon, made once
 local function IconOpt(entry, key)
-	if key == "mode" and entry and (entry.imbue or entry.weaponSet) then return "ready" end   -- Weapon Imbue: only while it is missing; Weapon Set: always (always ready)
+	if key == "mode" and entry and (entry.imbue or entry.weaponSet or entry.stacks) then return "ready" end   -- (Maelstrom Weapon: its stacks)   -- Weapon Imbue: only while it is missing; Weapon Set: always (always ready)
 	local r = resolved[entry.key]
 	if not r then r = {}; resolved[entry.key] = r end
 	if r.gen ~= optGen or ShamanPower_ReadyReminders ~= filledFor then   -- (a new saved table: SV() moves optGen)
@@ -391,7 +412,9 @@ local function playerKnows(entry)
 	if c ~= nil then return c end
 	local id = clientSpellID(entry)
 	local known = false
-	if id then
+	if id and entry.stacks then
+		known = Buff.KnowsTalent(entry.stacks) and true or false   -- (Maelstrom Weapon: a talent)
+	elseif id then
 		known = SPCompat.KnowsSpellID(id)
 	end
 	knownCache[entry.key] = known
@@ -451,6 +474,7 @@ end
 local SHOCK_FAMILY = { "earthshock", "flameshock", "frostshock" }
 local isShock = { earthshock = true, flameshock = true, frostshock = true }
 local function cooldownOf(entry, ownOnly)
+	if entry.stacks then return nil, nil end   -- (Maelstrom Weapon: stacks, no cooldown)
 	if entry.imbue then return imbueCooldown() end
 	if entry.weaponSet then return 0, 0 end   -- (A28) always ready: always on screen
 	if entry.combo then
@@ -508,6 +532,9 @@ local function rankOf(entry)
 	return R.orderIndex[entry.key] or (10000 + (entry.order or 0))
 end
 local function rankBefore(a, b) return rankOf(a) < rankOf(b) end
+-- (3.0.9.2) Maelstrom Weapon's Wings and Fill are three icons wide: a spot of their own, never
+-- in the grid or on a row (Free placement keeps them as any icon)
+function R.own(entry) return entry ~= nil and entry.stacks ~= nil and SP.ReadyStacks ~= nil and SP.ReadyStacks.Wide(entry) end
 local function rowsOn() return SV().arrange == "rows" end
 local function freeOn() local a = SV().arrange; return a == nil or a == "free" end
 local function rowsList()
@@ -521,10 +548,11 @@ local function rowOf(key)
 	end
 end
 -- on screen at all: in Rows placement only a spell on a row is
-local function placed(entry) return not rowsOn() or rowOf(entry.key) ~= nil end
+local function placed(entry) return not rowsOn() or rowOf(entry.key) ~= nil or R.own(entry) end
 
 local function defaultPos(entry)
 	local sv = SV()
+	if R.own(entry) then return { point = "CENTER", x = 0, y = -70 } end   -- (above the default row)
 	local gap = sv.spacing or 8
 	if entry.combo then
 		-- Earth Shock's spot when its own reminder is off (the three singles hidden),
@@ -646,15 +674,16 @@ local function layoutGrid(byCatalog)
 	wipe(gridList)
 	local enabled, nVis, biggest = 0, 0, 0
 	for _, entry in ipairs(SP.ReadyReminderSpells) do
+		local own = R.own(entry)   -- (its own spot)
 		local on = spells[entry.key]   -- spellOn(), without its SV() call
 		if on == nil then on = entry.def end
-		if on and usable(entry) then
+		if on and usable(entry) and not own then
 			enabled = enabled + 1
 			local sz = IconOpt(entry, "iconSize") or 48
 			if sz > biggest then biggest = sz end
 		end
 		local f = frames[entry.key]
-		if f then
+		if f and not own then
 			local mode = IconOpt(entry, "mode") or "ready"
 			local inList = f:IsShown() and f:GetParent() == UIParent   -- not while the settings preview has it
 			local vis = false
@@ -787,7 +816,7 @@ local function layoutRows(byCatalog)
 	local changed = gridDirty or byCatalog ~= gridByCatalog
 	for _, entry in ipairs(SP.ReadyReminderSpells) do
 		local f = frames[entry.key]
-		if f then
+		if f and not R.own(entry) then
 			local mode = IconOpt(entry, "mode") or "ready"
 			local inList = f:IsShown() and f:GetParent() == UIParent   -- not while the settings preview has it
 			local vis = false
@@ -816,7 +845,7 @@ local function layoutRows(byCatalog)
 		wipe(list)
 		for j, key in ipairs(r.spells) do
 			local f = frames[key]
-			if f and f.gridIn then f.rowAt = j; list[#list + 1] = f end
+			if f and f.gridIn and not R.own(f.entry) then f.rowAt = j; list[#list + 1] = f end
 		end
 		table.sort(list, R.rowBefore)
 		local x, y, W, H, nVis = 0, 0, 0, 0, 0
@@ -945,7 +974,8 @@ function SP:ReadyOrderedSpells(out)
 end
 
 local function applyPos(frame)
-	if gridOn() then
+	local own = R.own(frame.entry)   -- (its own spot, whatever the placement)
+	if gridOn() and not own then
 		-- the grid places it (layoutGrid); until then it waits on the first slot
 		local a = ensureGridAnchor()
 		if frame.gridAnchored ~= a then
@@ -955,7 +985,7 @@ local function applyPos(frame)
 		end
 		return
 	end
-	if rowsOn() then
+	if rowsOn() and not own then
 		local i = rowOf(frame.entry.key)
 		if i then   -- (on no row: off screen, left where it is)
 			local a = R.ensureRowAnchor(i)
@@ -1056,11 +1086,12 @@ function SP:CreateReadyReminderFrame(entry)
 	f:SetScript("OnMouseDown", function(self, button)
 		-- icons move only while positions are unlocked
 		if button == "LeftButton" and SP.readyPositioning then
-			local ri = rowsOn() and rowOf(self.entry.key) or nil
+			local own = R.own(self.entry)   -- (its own spot: it moves alone)
+			local ri = rowsOn() and not own and rowOf(self.entry.key) or nil
 			if ri then   -- Rows: an icon drags its row
 				local a = R.ensureRowAnchor(ri)
 				a:StartMoving(); a.isMoving = true; self.movesRow = ri
-			elseif gridOn() then   -- one block: any icon drags the whole grid
+			elseif gridOn() and not own then   -- one block: any icon drags the whole grid
 				local a = ensureGridAnchor()
 				a:StartMoving(); a.isMoving = true; self.movesGrid = true
 			else
@@ -1405,6 +1436,7 @@ function SP:UpdateReadyReminderAppearance(key)
 		f.icon:SetTexture(tex or 136024)
 	end
 	f:SetAlpha((IconOpt(e, "opacity") or 1) * (f.fade or 1))   -- (D51: below 1 only while faded)
+	if e.stacks and SP.ReadyStacks then SP.ReadyStacks.Appearance(f) end   -- (3.0.9.2) its stacks draw it
 	applyPos(f)
 	styleEngine(f)
 end
@@ -3419,7 +3451,7 @@ local function flagsAtEvent(latch)
 	eventSerial = eventSerial + 1
 	for _, entry in ipairs(SP.ReadyReminderSpells) do
 		local f = frames[entry.key]
-		if f and f.inUse then
+		if f and f.inUse and not entry.stacks then
 			readFlags(entry, true, latch, true)
 			f.flagRecheck = nil
 		end
@@ -3463,6 +3495,7 @@ local rangeEventSeen, rangeWaiting = false, false
 local function rangeIDOf(entry)
 	local id = rangeIDs[entry.key]
 	if id ~= nil then return id or nil end
+	if entry.stacks then rangeIDs[entry.key] = false return nil end   -- (Maelstrom Weapon: no target)
 	id = false
 	if RANGE_API then
 		local cand
@@ -3827,6 +3860,7 @@ local function readyPass(self)
 		for _, f in pairs(frames) do
 			if f:IsShown() then f:Hide() end; f.wasReady = nil; f.gridVis = nil   -- gridVis: they appear anew
 			setFade(f, 1)   -- (D51) a hidden icon is never faded
+			if f.stack and SP.ReadyStacks then SP.ReadyStacks.Idle() end   -- (3.0.9.2) nothing to read
 		end
 		Buff.Pass(false, true)   -- (D52) their buffs too
 		self.readyCooling = false   -- nothing to draw: sleep until an event wakes the ticker
@@ -3849,7 +3883,7 @@ local function readyPass(self)
 		local want = can and spellOn(entry) and placed(entry)
 		-- (A26) off on the Icons tab, on in Ready Flash: timed like the rest, never on screen
 		local flashOnly = false
-		if not want and can and R.FlashTab.on(entry) then want = true; flashOnly = true end
+		if not want and can and R.FlashTab.on(entry) and not entry.stacks then want = true; flashOnly = true end
 		if f then f.inUse = want end   -- its flags are read on the cooldown events (Forever)
 		-- Only In Combat (the icon's own, else the page's): hidden out of combat, or faded
 		-- with Fade Instead of Hide (D51; not in "never", where it is never on screen)
@@ -3863,7 +3897,14 @@ local function readyPass(self)
 		if want and not flashOnly and SP.TownHides and SP:TownHides("rr") then
 			if SP:TownFades() then faded = true; townFade = SP:TownFadeAlpha() else want = false end
 		end
-		if want then
+		if want and entry.stacks then
+			-- (3.0.9.2) Maelstrom Weapon: its stacks, drawn by ShamanPower_ReadyStacks.lua
+			if not f then f = self:CreateReadyReminderFrame(entry) end
+			f.inUse = false   -- (no cooldown flags to read)
+			setFade(f, faded and (townFade or fadedOpacity(entry)) or 1)
+			if SP.ReadyStacks then SP.ReadyStacks.Pass(f, inCombat) end
+			if f.fadeGlide then fadeGlideNow(f) end
+		elseif want then
 			if not f then f = self:CreateReadyReminderFrame(entry); f.inUse = true end
 			local mode = flashOnly and "flash" or (IconOpt(entry, "mode") or "ready")
 			setFade(f, faded and (townFade or fadedOpacity(entry)) or 1)   -- before any alpha this pass (in a fight: 1)
@@ -3994,6 +4035,7 @@ local function readyPass(self)
 			if f:IsShown() then f:Hide() end
 			f.wasReady, f.flashedEarly = nil, nil
 			setFade(f, 1)   -- (D51) a hidden icon is never faded
+			if entry.stacks and SP.ReadyStacks then SP.ReadyStacks.Idle() end   -- (3.0.9.2) nothing to read
 		end
 	end
 	layoutGrid(false); layoutRows(false)
@@ -4032,6 +4074,7 @@ function SP:ShowAllReadyReminders()
 			f.cooldown:Hide(); f.overlay:Hide(); f.bar:Hide(); SP:ReadyUnbindCount(f); f.count:SetText(""); f.countShown = nil
 			setDesat(f, false); f:SetAlpha(IconOpt(entry, "opacity") or 1)
 			f.label:SetShown(entry.weaponSet and IconOpt(entry, "wsWord") ~= false or (not entry.weaponSet and IconOpt(entry, "showNames") == true)); f:Show()
+			if entry.stacks and SP.ReadyStacks then SP.ReadyStacks.Demo(f, nil) end   -- (3.0.9.2) its whole look, at 5 stacks
 		end
 	end
 	layoutGrid(true); layoutRows(true)
@@ -4080,6 +4123,11 @@ function SP:ResetReadyReminderPosition(frame)
 		layoutRows(self.readyPositioning)
 		return
 	end
+	if (gridOn() or rowsOn()) and frame and frame.entry and R.own(frame.entry) then   -- (3.0.9.2) its own spot
+		SV().positions[frame.entry.key] = nil
+		applyPos(frame)
+		return
+	end
 	if gridOn() or rowsOn() or not (frame and frame.entry) then return self:ResetReadyReminderPositions() end
 	SV().positions[frame.entry.key] = nil
 	applyPos(frame)
@@ -4123,7 +4171,12 @@ function SP:ReadyRemindersDemo(on)
 					local t = (now - t0 + idx * 1.7) % cycle
 					local mode = IconOpt(entry, "mode") or "ready"
 					f.gridReady = t >= DEMO_CD
-					if t < DEMO_CD then
+					if entry.stacks then
+						-- (3.0.9.2) Maelstrom Weapon: its stacks count up 1 to 5 and hold, the time running down
+						readyCount = readyCount + 1
+						if not f:IsShown() then f:Show() end
+						if SP.ReadyStacks then SP.ReadyStacks.Demo(f, now - t0 + idx * 1.7) end
+					elseif t < DEMO_CD then
 						if mode == "always" or mode == "cooldown" then
 							if not f:IsShown() then f:Show() end
 							drawCooldown(f, now - t, DEMO_CD, DEMO_CD - t)
@@ -4179,6 +4232,15 @@ function SP:ReadyReminderEnabledFrames()
 	return out
 end
 
+-- (3.0.9.2) the reminders on their own spot (Maelstrom Weapon's Wings / Fill), added to `out`
+function R.ownFrames(out)
+	for _, entry in ipairs(SP.ReadyReminderSpells) do
+		if R.own(entry) and spellOn(entry) and usable(entry) then
+			out[#out + 1] = frames[entry.key] or SP:CreateReadyReminderFrame(entry)
+		end
+	end
+	return out
+end
 -- What Unlock UI boxes: the icons one by one, or in Grid placement the one block
 -- (sized for every enabled icon; the demo fills and empties it meanwhile).
 function SP:ReadyReminderMoverFrames()
@@ -4191,14 +4253,18 @@ function SP:ReadyReminderMoverFrames()
 		for i in ipairs(rowsList()) do
 			if only == nil or only == i then out[#out + 1] = R.ensureRowAnchor(i) end
 		end
+		if only == nil then R.ownFrames(out) end   -- (3.0.9.2) Wings / Fill: a box of its own
 		layoutRows(self.readyPositioning)
 		return out
 	end
 	if not gridOn() then return self:ReadyReminderEnabledFrames() end
-	if #self:ReadyReminderEnabledFrames() == 0 then return {} end   -- (makes the frames the block lays out)
-	local a = ensureGridAnchor()
+	local enabled = self:ReadyReminderEnabledFrames()   -- (makes the frames the block lays out)
+	if #enabled == 0 then return {} end
+	local out = {}
+	for _, f in ipairs(enabled) do if not R.own(f.entry) then out[1] = ensureGridAnchor() break end end
+	R.ownFrames(out)   -- (3.0.9.2) Wings / Fill: a box of its own
 	layoutGrid(self.readyPositioning); layoutRows(self.readyPositioning)
-	return { a }
+	return out
 end
 
 if SP.RegisterPreview then
@@ -4264,6 +4330,10 @@ function SP:ReadyRemindersDiag()
 		local start, duration = cooldownOf(entry)
 		out[#out + 1] = string.format("%-20s on=%-5s clientID=%-7s known=%-5s cd start=%s dur=%s shown=%s", entry.name, tostring(spellOn(entry)),
 			tostring(id), tostring(id and playerKnows(entry)), tostring(start), tostring(duration), tostring(frames[entry.key] and frames[entry.key]:IsShown()))
+	end
+	-- (3.0.9.2) Maelstrom Weapon: how its stacks are drawn
+	if SP.ReadyStacks and catalogByKey.maelstrom and usable(catalogByKey.maelstrom) then
+		out[#out + 1] = SP.ReadyStacks.Diag(frames.maelstrom)
 	end
 	-- (D52) each buff's display: its look, how the game draws it, on / off (never what the buff reads)
 	for _, entry in ipairs(Buff.list) do
@@ -4768,7 +4838,11 @@ local function InjectOptions()
 					-- (D52) the buff a spell puts on you, in that spell's menu (this game's buffs only)
 					.. " Your buff on its icon (" .. Buff.Names() .. "): Show The Buff In The Icon's Corner,"
 					.. " As Its Own Icon (Side: Above, Below, Left, Right or In Its Own Spot) or As An Edge Around The Icon;"
-					.. " Time Left, Time Turns Gold Under, Edge Color." },
+					.. " Time Left, Time Turns Gold Under, Edge Color."
+					-- (3.0.9.2) Maelstrom Weapon (WoW: Forever)
+					.. (catalogByKey.maelstrom and usable(catalogByKey.maelstrom) and (" Maelstrom Weapon: Look (Icon + Stack Number, Charge Bar,"
+						.. " Wings, Fill, Fill The Icon, Storm Glow), Show While You Have Stacks or Only At 5 Stacks, Stacks: Stack Number,"
+						.. " Time Left (Number or Drain), Stack Color, Color At 5 Stacks, At 5 Stacks.") or "") },
 
 			-- Rows placement: the spells on no row (ShamanPower_Config ReadyIcons.lua, the unplaced row)
 			yourUnplaced = { order = 0.21, type = "description", width = "full", name = " " },
@@ -4888,6 +4962,29 @@ local function InjectOptions()
 	R.FlashTab.migrate()   -- (A26) once: the icons' flash settings become the tab's
 	R.FlashTab.inject(root)
 end
+
+-- (3.0.9.2) a color an icon picks in its menu, as a theme entry: "default" = the shared one, a
+-- color = this icon's own (a function on R: this file's main chunk is at Lua's limit on locals)
+function R.themeColor(key, opt, label)
+	return { key = opt .. "." .. key, label = label,
+		mayBeColor = true,   -- (a theme may hold a color here while the icon has none)
+		get = function()
+			local c = SP:ReadyReminderOwnOpt(key, opt)
+			if type(c) ~= "table" then return "default" end
+			local r, g, b = color(c, 1, 1, 1)
+			return { r = r, g = g, b = b }
+		end,
+		set = function(v)
+			if v == "default" then SP:ReadyReminderSetIconOpt(key, opt, nil)
+			elseif type(v) == "table" then
+				SP:ReadyReminderSetIconOpt(key, opt, { r = v.r or v[1], g = v.g or v[2], b = v.b or v[3] })
+			end
+		end }
+end
+
+-- (3.0.9.2) Maelstrom Weapon's stacks (ShamanPower_ReadyStacks.lua, loaded next): what it uses from here
+SP.ReadyStacksAPI = { IconOpt = IconOpt, SV = SV, Buff = Buff, color = color, spellOn = spellOn, usable = usable,
+	knows = playerKnows, mouseOff = curveMouseOff, mouseBack = curveMouseBack }
 
 -- ---------------------------------------------------------------------------
 -- Slash + events
@@ -5039,6 +5136,12 @@ if SP.ThemeSpotSettings then
 					end
 				end }
 		end
+		-- (3.0.9.2) Maelstrom Weapon's Stack Color and Color At 5 Stacks: the same way ("default" =
+		-- the shared ones, the stack blue and WoW's gold)
+		if entry.stacks then
+			entries[#entries + 1] = R.themeColor(key, "stackColor", entry.name .. " Stack Color")
+			entries[#entries + 1] = R.themeColor(key, "stackColor5", entry.name .. " Color At 5 Stacks")
+		end
 		-- (D52) the buff's Edge Color, picked in the icon's menu: the same way ("default" = the
 		-- shared one, WoW's mana-bar blue; a color = this icon's own). Only a spell with a buff here.
 		if entry.buff then
@@ -5070,10 +5173,12 @@ if SP.ResetAllColorsToDefault and hooksecurefunc then
 		local sv = rawget(_G, "ShamanPower_ReadyReminders")
 		if type(sv) == "table" then
 			sv.rangeColor = nil
+			sv.stackColor, sv.stackColor5 = nil, nil   -- (3.0.9.2) back to the stack blue and WoW's gold on the next read
 			if type(sv.icons) == "table" then
 				for k, own in pairs(sv.icons) do
-					if type(own) == "table" and (own.buffEdgeColor ~= nil or own.resetColor ~= nil) then
+					if type(own) == "table" and (own.buffEdgeColor ~= nil or own.resetColor ~= nil or own.stackColor ~= nil or own.stackColor5 ~= nil) then
 						own.buffEdgeColor, own.resetColor = nil, nil   -- (A25: the burst back to the shared gold too)
+						own.stackColor, own.stackColor5 = nil, nil     -- (3.0.9.2: Maelstrom Weapon's two colors)
 						if next(own) == nil then sv.icons[k] = nil end
 					end
 				end

@@ -10,3 +10,4 @@
 ## SavedVariablesPerCharacter: ShamanPower_ReadyReminders
 
 ShamanPower_ReadyReminders.lua
+ShamanPower_ReadyStacks.lua

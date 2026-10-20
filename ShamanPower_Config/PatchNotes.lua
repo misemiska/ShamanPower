@@ -10,9 +10,15 @@ ns.PATCH_NOTES = {
 	{
 		v = "3.0.9.2",
 		date = "in progress",
-		headline = "Profile copy and delete work again, Dropped Totems plays its Effects, and every totem shows its cooldown in a fight",
-		new = {},
+		headline = "Maelstrom Weapon on your Ready Reminders, profile copy and delete work again, and every totem shows its cooldown in a fight",
+		new = {
+			{ h = "Maelstrom Weapon Ready Reminder", icon = "Interface\\Icons\\Spell_Shaman_MaelstromWeapon", client = "forever",
+			  b = "Your Maelstrom Weapon stacks, in the look you pick from its right-click menu: Icon + Stack Number, Charge Bar, Wings (Blizzard's own Maelstrom picture, a piece more per stack), Fill, Fill The Icon or Storm Glow. At 5 stacks it plays its Effect and can play a sound, and Time Left shows the buff's time as a number or as the look going gray from the top. It works in a fight. Click Maelstrom Weapon in the Spells row to turn it on.",
+			  path = "Settings > Alerts & Reminders > Ready Reminders", open = { "fluffy", "readyreminders_section" },
+			  card = true, s = "Maelstrom Weapon: your stacks on a Ready Reminder, in six looks." },
+		},
 		changes = {
+			"After updating, fully close and restart the game once: 3.0.9.2 adds a new file that a /reload does not load.",
 			"Minimap menu: the Totem Bar Style rows are gone. Pick your style in Totem Bar > Style.",
 			"Totemic Recall: its icon and settings are on the page of the bar it sits on: Totem Bar > Bar when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar.",
 		},

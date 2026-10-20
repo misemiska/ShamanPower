@@ -1606,7 +1606,8 @@ function LOOK.CaptureColors(o)
 	local rr = ShamanPower_ReadyReminders
 	if type(rr) == "table" then
 		c.rr = { borderColor = Copy(rr.borderColor), glowColor = Copy(rr.glowColor), barColor = Copy(rr.barColor),
-			buffEdgeColor = Copy(rr.buffEdgeColor), resetColor = Copy(rr.resetColor) }   -- (D52: the buff's Edge Color; A25: the reset burst's)
+			buffEdgeColor = Copy(rr.buffEdgeColor), resetColor = Copy(rr.resetColor),   -- (D52: the buff's Edge Color; A25: the reset burst's)
+			stackColor = Copy(rr.stackColor), stackColor5 = Copy(rr.stackColor5) }   -- (3.0.9.2: Maelstrom Weapon's two colors)
 	end
 	local tr = ShamanPowerTremorReminderDB
 	if type(tr) == "table" then c.tremor = Copy(tr.glowColor) end
@@ -1622,6 +1623,7 @@ function LOOK.RestoreColors(c)
 		rr.borderColor, rr.glowColor, rr.barColor = Copy(c.rr.borderColor), Copy(c.rr.glowColor), Copy(c.rr.barColor)
 		rr.buffEdgeColor = Copy(c.rr.buffEdgeColor)   -- (D52; a look kept before it existed: the default again)
 		rr.resetColor = Copy(c.rr.resetColor)   -- (A25; the same)
+		rr.stackColor, rr.stackColor5 = Copy(c.rr.stackColor), Copy(c.rr.stackColor5)   -- (3.0.9.2; the same)
 	end
 	local tr = ShamanPowerTremorReminderDB
 	if type(tr) == "table" and c.tremor ~= nil then tr.glowColor = Copy(c.tremor) end
@@ -1635,9 +1637,10 @@ function LOOK.ColorsDiffer(c)
 	if type(o.rangeCounter) == "table" and o.rangeCounter.useElementColors ~= c.rangeElem then return true end
 	local rr = ShamanPower_ReadyReminders
 	if type(rr) == "table" and type(c.rr) == "table" then
-		for _, k in ipairs({ "borderColor", "glowColor", "barColor", "buffEdgeColor", "resetColor" }) do
-			-- (D52, A25) a look kept before the buff's Edge Color / the reset burst's color existed has none: nothing to load for it
-			if not ((k == "buffEdgeColor" or k == "resetColor") and c.rr[k] == nil) and not Near(rr[k], c.rr[k]) then return true end
+		for _, k in ipairs({ "borderColor", "glowColor", "barColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5" }) do
+			-- (D52, A25, 3.0.9.2) a look kept before the buff's Edge Color / the reset burst's color / the stack colors existed has none: nothing to load for it
+			if not ((k == "buffEdgeColor" or k == "resetColor" or k == "stackColor" or k == "stackColor5") and c.rr[k] == nil)
+				and not Near(rr[k], c.rr[k]) then return true end
 		end
 	end
 	local tr = ShamanPowerTremorReminderDB
@@ -1766,6 +1769,8 @@ function SP:ResetAllColorsToDefault(everything)
 		ShamanPower_ReadyReminders.barColor = nil
 		ShamanPower_ReadyReminders.buffEdgeColor = nil   -- (D52) back to WoW's mana-bar blue on the next read
 		ShamanPower_ReadyReminders.resetColor = nil   -- (A25) back to WoW's gold on the next read
+		ShamanPower_ReadyReminders.stackColor = nil   -- (3.0.9.2) Maelstrom Weapon: back to the stack blue
+		ShamanPower_ReadyReminders.stackColor5 = nil  -- (3.0.9.2) and WoW's gold at 5 stacks
 	end
 	if type(ShamanPowerTremorReminderDB) == "table" then
 		ShamanPowerTremorReminderDB.glowColor = { r = 1, g = 0.8, b = 0 }
@@ -1825,13 +1830,15 @@ end
 -- ===========================================================================
 Cards.THEME_KEYS = { "palette", "shield", "custom" }       -- (plus global, spots and LOOK.theme)
 Cards.MODULES = { "ShamanPower_ReadyReminders", "ShamanPowerTremorReminderDB", "ShamanPower_TargetTracker", "ShamanPower_ReactiveTotems" }
-Cards.RR = { "borderColor", "glowColor", "barColor", "rangeColor", "buffEdgeColor", "resetColor" }
+Cards.RR = { "borderColor", "glowColor", "barColor", "rangeColor", "buffEdgeColor", "resetColor", "stackColor", "stackColor5" }
 -- flat keys an update added, with their defaults (see Cards.Migrate)
 function Cards.InheritedSweepDirection() return "default" end
 Cards.ADDED = {
 	["rr.rangeColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").rangeColor end,
 	["rr.buffEdgeColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").buffEdgeColor end,   -- (D52)
 	["rr.resetColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").resetColor end,   -- (A25)
+	["rr.stackColor"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").stackColor end,   -- (3.0.9.2)
+	["rr.stackColor5"] = function() return Cards.ModuleDefault("ShamanPower_ReadyReminders").stackColor5 end,   -- (3.0.9.2)
 	["e.mod.readyreminders.sweepDirection"] = function() return "bottom" end,
 	["e.mod.targettracker.sweepDirection.fs"] = Cards.InheritedSweepDirection,
 	["e.mod.targettracker.sweepDirection.frs"] = Cards.InheritedSweepDirection,
@@ -2221,6 +2228,11 @@ function Cards.Migrate()
 			if entry.buff then Cards.ADDED["e.mod.readyreminders.buffEdgeColor." .. entry.key] = Cards.InheritedSweepDirection end
 			-- (A25) the reset burst's color, the same way
 			if entry.reset then Cards.ADDED["e.mod.readyreminders.resetColor." .. entry.key] = Cards.InheritedSweepDirection end
+			-- (3.0.9.2) Maelstrom Weapon's two colors, the same way
+			if entry.stacks then
+				Cards.ADDED["e.mod.readyreminders.stackColor." .. entry.key] = Cards.InheritedSweepDirection
+				Cards.ADDED["e.mod.readyreminders.stackColor5." .. entry.key] = Cards.InheritedSweepDirection
+			end
 		end
 		Cards.addedReadyDirections = true
 	end
@@ -2602,6 +2614,8 @@ Cards.LABEL = {
 	["rr.rangeColor"] = "Ready Reminders Out of Range Color",
 	["rr.buffEdgeColor"] = "Ready Reminders Buff Edge Color",
 	["rr.resetColor"] = "Ready Reminders Reset Burst Color",
+	["rr.stackColor"] = "Ready Reminders Stack Color",
+	["rr.stackColor5"] = "Ready Reminders Color At 5 Stacks",
 }
 for sh, nm in pairs({ LS = "Lightning Shield", WS = "Water Shield", ES = "Earth Shield" }) do   -- each shield's own gradient (3.0.8)
 	for _, part in ipairs({ "", "Direction", "Color1", "Color2", "Fade" }) do
