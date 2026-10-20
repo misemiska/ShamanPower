@@ -1,5 +1,10 @@
 # ShamanPower Changelog
 
+## v3.0.9.3 (2026-10-20)
+
+### New
+- **Number Sizes** (Settings > Appearance > Fonts & Textures): one place to size every cooldown number and time left, each with its own slider. **Totem Bar Cooldown Numbers** is new: the number on a totem's button while its cooldown runs, on the bar, its flyouts and Totem Rows, had no size setting before (Auto keeps its usual size). **Totem Bar Time Left**, **Totem Bar Pulse Time** and **Cooldown Bar Time Text** are the same settings as on their own pages, here too (grayed while that text is turned off there). **Ready Reminders Countdown** and **Ready Reminders Time Left** size every icon at once (Auto keeps each look's own size); a size picked in an icon's own right-click menu still wins. **Reset Number Sizes** puts them all back.
+
 ## v3.0.9.2 (2026-10-20)
 
 ### After updating

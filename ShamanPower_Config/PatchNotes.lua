@@ -8,6 +8,16 @@ local _, ns = ...
 -- line at the bottom of the version's Patch Notes (never on the card).
 ns.PATCH_NOTES = {
 	{
+		v = "3.0.9.3",
+		date = "2026-10-20",
+		headline = "Number Sizes: every cooldown number and time left, sized in one place",
+		new = {
+			{ h = "Number Sizes", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01",
+			  b = "One place to size every cooldown number and time left: the totem bar's cooldown numbers (new, they had no size setting before), its time left and pulse time, the cooldown bar's time text, and every Ready Reminders icon's countdown and time left. A size you pick in an icon's own right-click menu still wins.",
+			  path = "Settings > Appearance > Fonts & Textures", open = { "settings", "settings_fonts" } },
+		},
+	},
+	{
 		v = "3.0.9.2",
 		date = "2026-10-20",
 		headline = "Each totem its own effects, Maelstrom Weapon on your Ready Reminders, When Out of Mana, and the Totem Range Tracker your way",
