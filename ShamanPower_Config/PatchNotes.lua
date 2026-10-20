@@ -9,8 +9,8 @@ local _, ns = ...
 ns.PATCH_NOTES = {
 	{
 		v = "3.0.9.2",
-		date = "in progress",
-		headline = "Maelstrom Weapon on your Ready Reminders, profile copy and delete work again, and every totem shows its cooldown in a fight",
+		date = "2026-10-20",
+		headline = "Each totem its own effects, Maelstrom Weapon on your Ready Reminders, When Out of Mana, and the Totem Range Tracker your way",
 		new = {
 			{ h = "Maelstrom Weapon Ready Reminder", icon = "Interface\\Icons\\Spell_Shaman_MaelstromWeapon", client = "forever",
 			  b = "Your Maelstrom Weapon stacks, in the look you pick from its right-click menu: Icon + Stack Number, Charge Bar, Charge Bar Only (five parts, no icon), Wings (Blizzard's own Maelstrom picture, a piece more per stack), Fill, Fill The Icon or Storm Glow. At 5 stacks it plays its Effect and can play a sound, and Time Left shows the buff's time as a number or as the look going gray from the top. It works in a fight. Click Maelstrom Weapon in the Spells row to turn it on.",
@@ -48,7 +48,7 @@ ns.PATCH_NOTES = {
 			"TotemTimers Style, Single Totem and Dynamic (PvP): a totem you drop that takes over its button shows its own cooldown there now, not the assigned totem's.",
 			"Totem Bar: with party dots, range counters and Raid Coverage off, a totem's button didn't gray out when you walked out of its range. It does now.",
 			"Cooldown numbers: the sweep, the progress bar and the pulse bar no longer cover the cooldown number or the time texts on the Totem Bar, the Cooldown Bar and the Ready Reminders.",
-			"Dropped Totems: Totem Destroyed, Totem Expired and the Red X play now. With Keep the Red X Until Recast, the X stays until the fight ends (Totem Bar > Effects).",
+			"Dropped Totems: Totem Destroyed, Totem Expired and the Red X play now. With Keep the Red X Until Recast, the X stays until the fight ends (each totem's menu on Totem Bar > Bar).",
 			"Totem cooldowns (WoW: Forever): in a fight, a totem that wasn't the one on your bar showed no cooldown on its flyout or Totem Rows. Every totem shows it now.",
 		},
 		thanks = "Thanks to Miska for three fixes in this release, and to interslice for the totem cooldown report and the Totemic Recall question.",

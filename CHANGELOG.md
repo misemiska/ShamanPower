@@ -1,6 +1,6 @@
 # ShamanPower Changelog
 
-## v3.0.9.2 (in progress)
+## v3.0.9.2 (2026-10-20)
 
 ### After updating
 - After updating, fully close and restart the game once: 3.0.9.2 adds a new file (the Maelstrom Weapon reminder), and a /reload alone does not load it.
@@ -29,7 +29,7 @@
 - **Totem Bar: the out-of-range gray** (Totem Bar > Bar): with party dots, range counters and Raid Coverage all off, a totem's button never grayed out when you walked out of its range: it only caught up when something else redrew the bar. It updates on its own now, twice a second while a totem is down.
 - **TotemTimers Style, Single Totem and Dynamic (PvP)** (Settings > Bars > Totem Bar > Style): when the totem you dropped took over its button (Earthbind cast from the flyout with Stoneskin assigned), the button showed the assigned totem's cooldown, so Earthbind's never showed there. The button now shows the cooldown of the totem on it (a reviewer's report).
 - **Set Up The Cooldown Manager** (WoW: Forever; Settings > Alerts & Reminders > Shield Charges, and the shield popup): it could leave the game's other icons showing. With your shield already tracked the switch only hid the shield icon, a ShamanPower layout made before kept whatever was in it, and a spell learned after the setup showed up in the game's bars. The setup now always leaves ShamanPower's layout tracking only Lightning Shield and Water Shield, with everything else out of sight (spells you learn later too), and turning the switch on sets it up again whenever that layout isn't whole (a reviewer's report).
-- **Dropped Totems (Settings > Bars > Totem Bar > Effects):** Totem Destroyed, Totem Expired and the Red X never showed with the Dropped Totems style, because the totem's picture left the bar with the totem. The picture now stays up for its effect. With Keep the Red X Until Recast on, the X and its picture stay until the fight ends, then a few seconds more, or until you drop that element again; out of a fight the X fades after 5 seconds as usual.
+- **Dropped Totems (each totem's menu on Settings > Bars > Totem Bar > Bar):** Totem Destroyed, Totem Expired and the Red X never showed with the Dropped Totems style, because the totem's picture left the bar with the totem. The picture now stays up for its effect. With Keep the Red X Until Recast on, the X and its picture stay until the fight ends, then a few seconds more, or until you drop that element again; out of a fight the X fades after 5 seconds as usual.
 - **Totem cooldowns (WoW: Forever):** in a fight, a totem you cast that wasn't the one on your bar showed no cooldown on its flyout or on Totem Rows; only the totem on the bar did. Every totem shows its cooldown now, wherever you cast it from.
 
 ### Thanks
