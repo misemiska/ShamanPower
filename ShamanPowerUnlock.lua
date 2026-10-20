@@ -385,14 +385,16 @@ local GRID_DEFAULT = 16
 
 local function SnapOn() return not (SP.opt and SP.opt.unlockSnap == false) end
 local function GridOn() return ACTIVE and SP.opt and SP.opt.unlockGrid and true or false end
+local function GridSnapOn() return not (SP.opt and SP.opt.unlockGridSnap == false) end
 local function GridSize()
 	local g = tonumber(SP.opt and SP.opt.unlockGridSize) or GRID_DEFAULT
 	return math.min(math.max(g, 8), 128)
 end
 
--- Snap step in UIParent pixels while Unlock UI's grid is on, else nil.
+-- Snap step in UIParent pixels while Unlock UI's grid is on and Snap to Grid too, else nil.
 function SP:UnlockGridStep()
-	return GridOn() and GridSize() or nil
+	if GridOn() and GridSnapOn() then return GridSize() end
+	return nil
 end
 
 -- The grid: lines every Grid Size pixels from the screen center (the two center
@@ -2243,12 +2245,21 @@ local function EnsureDoneBar()
 	row:SetHeight(26)
 	local snap = MakeSwitch(row, "Snapping", SnapOn,
 		function(v) if v then SP.opt.unlockSnap = nil else SP.opt.unlockSnap = false end end,
-		"Line up dragged boxes with other boxes' edges and centers, or the screen center. Boxes snap within 8 pixels. Gold lines show the alignment. This choice is saved.")
+		"Line up dragged boxes with other boxes' edges and centers, or the screen center. Boxes snap within 8 pixels. Gold lines show the alignment. The grid has its own switch, Snap to Grid. This choice is saved.")
 	snap:SetPoint("LEFT", row, "LEFT", 0, 0)
 	local grid = MakeSwitch(row, "Show Grid", function() return SP.opt.unlockGrid end,
 		function(v) if v then SP.opt.unlockGrid = true else SP.opt.unlockGrid = nil end; ApplyGrid() end,
-		"Show a grid to help line up your bars and panels. Away from other boxes, a dropped box lines up with the grid. This choice is saved.")
+		"Show a grid to help line up your bars and panels. With Snap to Grid on, a box dropped away from other boxes lines up with the grid. This choice is saved.")
 	grid:SetPoint("LEFT", snap.label, "RIGHT", 20, 0)
+	-- Snap to Grid, beside Show Grid: only while the grid shows (it does nothing without it); the
+	-- grid size buttons follow it (placeGridSnap, below)
+	local gridSnap = MakeSwitch(row, "Snap to Grid", GridSnapOn,
+		function(v) if v then SP.opt.unlockGridSnap = nil else SP.opt.unlockGridSnap = false end end,
+		"A box dropped away from other boxes lines up with the grid. Off: the grid only shows,"
+		.. " and boxes stay exactly where you drop them. Snapping to other boxes and the screen"
+		.. " center is the Snapping switch. This choice is saved.")
+	gridSnap:SetPoint("LEFT", grid.label, "RIGHT", 20, 0)
+	f:SetWidth(1180 + math.ceil(gridSnap:GetWidth()) + 8 + gridSnap.labelW + 20)   -- room for it, the bar the same width either way
 	local function stepGrid(d)
 		local g = math.min(math.max(GridSize() + d, 8), 128)
 		if g == GRID_DEFAULT then SP.opt.unlockGridSize = nil else SP.opt.unlockGridSize = g end
@@ -2263,7 +2274,6 @@ local function EnsureDoneBar()
 	end
 	local minus = BarButton(row, "-", 22, false)
 	minus:SetHeight(22)
-	minus:SetPoint("LEFT", grid.label, "RIGHT", 10, 0)
 	minus:SetScript("OnClick", function() stepGrid(-4) end)
 	local value = row:CreateFontString(nil, "OVERLAY")
 	value:SetFontObject(F.text)
@@ -2274,6 +2284,13 @@ local function EnsureDoneBar()
 	plus:SetHeight(22)
 	plus:SetPoint("LEFT", value, "RIGHT", 2, 0)
 	plus:SetScript("OnClick", function() stepGrid(4) end)
+	local function placeGridSnap()
+		local on = SP.opt.unlockGrid and true or false
+		gridSnap:SetShown(on)
+		minus:ClearAllPoints()
+		if on then minus:SetPoint("LEFT", gridSnap.label, "RIGHT", 10, 0) else minus:SetPoint("LEFT", grid.label, "RIGHT", 10, 0) end
+	end
+	placeGridSnap()
 	for _, b in ipairs({ minus, plus }) do
 		b:HookScript("OnEnter", gridTip)
 		b:HookScript("OnLeave", function() (SP.Tooltip or GameTooltip):Hide() end)
@@ -2343,7 +2360,9 @@ local function EnsureDoneBar()
 	function f:Refresh()
 		snap:Refresh()
 		grid:Refresh()
+		gridSnap:Refresh()
 		tuck:Refresh()
+		placeGridSnap()
 		value:SetText(GridSize())
 		HookSettingsWindow()
 	end

@@ -21,6 +21,7 @@ ns.PATCH_NOTES = {
 			"After updating, fully close and restart the game once: 3.0.9.2 adds a new file that a /reload does not load.",
 			"Minimap menu: the Totem Bar Style rows are gone. Pick your style in Totem Bar > Style.",
 			"Totemic Recall: its icon and settings are on the page of the bar it sits on: Totem Bar > Bar when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar.",
+			"Unlock UI: Snap to Grid is its own switch beside Show Grid. Turn it off and the grid is only a guide; Snapping is for other boxes and the screen center.",
 		},
 		fixes = {
 			"Profiles: Copy Settings to This Profile and Delete Selected Profile showed an error and did nothing. Both work again.",

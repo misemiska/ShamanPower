@@ -11,6 +11,7 @@
 ### Changes
 - **Minimap menu:** the eight Totem Bar Style rows are gone, so the menu is short again: Open Settings, your loadouts, Totem Assignments, Unlock UI, Keybind Mode and What's New. Pick your style in Settings > Bars > Totem Bar > Style.
 - **Totemic Recall (Settings > Bars):** its icon and all of its settings are on the page of the bar it sits on: Totem Bar > Bar (after Drop All) when its Bar setting is Totem Bar, the Cooldown Bar page when it's Cooldown Bar. Switching its Bar takes you to the other page with its settings still open. The settings search follows it too.
+- **Unlock UI: Snap to Grid** (on the Unlock UI bar, beside Show Grid; a reviewer's ask): turning Snapping off still lined dropped boxes up with the grid while it showed. Snapping is for other boxes and the screen center; Snap to Grid is the grid's own switch, shown while the grid is. Turn it off and the grid is only a guide: a box stays exactly where you drop it. On to start, so nothing changes until you turn it off.
 
 ### Fixes
 - **Profiles (Settings > Profiles):** Copy Settings to This Profile and Delete Selected Profile showed a Lua error and did nothing. Both work again.
