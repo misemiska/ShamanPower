@@ -18,6 +18,12 @@ ns.PATCH_NOTES = {
 			{ h = "Grounding Totem", icon = "Interface\\Icons\\Spell_Nature_GroundingTotem", client = "forever",
 			  b = "Tracked like the other buff totems: its Out of Range look on the Totem Bar, the Totem Range Tracker, party dots and counters, Party Coverage, the Party Strip and its minimap ring.",
 			  path = "Settings > Group Tools > Totem Range Tracker", open = { "fluffy", "sprange_section" } },
+			{ h = "Supporters", icon = "Interface\\Icons\\INV_Misc_Gift_01",
+			  b = "The people who support ShamanPower on Patreon: Earthen Ring first, their names in gold, then every supporter. The Support on Patreon button there, and the new Patreon button at the bottom of the settings window, copy the link. ShamanPower stays free for everyone.",
+			  path = "Settings > General > Supporters", open = { "settings", "settings_supporters" } },
+		},
+		changes = {
+			"After updating, fully close and restart the game once: 3.0.9.4 adds a new file that a /reload does not load.",
 		},
 	},
 	{

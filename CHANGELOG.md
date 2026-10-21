@@ -2,9 +2,14 @@
 
 ## v3.0.9.4 (in progress)
 
+### After updating
+- After updating, fully close and restart the game once: 3.0.9.4 adds a new file (the Supporters page), and a /reload alone does not load it.
+
 ### New
 - **Out of range in fights, dungeons and raids too** (WoW: Forever; Totem Bar and Totem Range Tracker): in a fight a totem's button now grays out when you leave its range and comes back in color when you return, in dungeons and raids as well, for every totem whose buff lands on you (Strength of Earth, Stoneskin, Flametongue, Frost Resistance, Fire Resistance, Mana Spring, Healing Stream, Mana Tide, Windfury, Grace of Air, Grounding, Nature Resistance, Windwall). Before, it kept what it showed when the fight started. The Totem Range Tracker's icons do the same.
 - **Grounding Totem** is tracked like the other buff totems (WoW: Forever): its Out of Range look on the Totem Bar, the Totem Range Tracker, party dots and counters, Party Coverage, the Party Strip and its minimap ring.
+- **Supporters** (Settings > General > Supporters): the people who support ShamanPower on Patreon. Earthen Ring supporters come first, their names in gold, then every supporter. The page's Support on Patreon button copies the link.
+- **Patreon button** at the bottom of the settings window, beside Discord, CurseForge and GitHub: it copies the link to ShamanPower's Patreon.
 
 ## v3.0.9.3 (2026-10-20)
 

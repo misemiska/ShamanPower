@@ -18,6 +18,7 @@ Tree.lua
 Themes.lua
 PatchNotes.lua
 PatchNotesPage.lua
+SupportersPage.lua
 Window.lua
 IconRow.lua
 ReadyIcons.lua

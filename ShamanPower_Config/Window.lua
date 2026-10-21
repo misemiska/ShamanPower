@@ -288,6 +288,9 @@ local NAV = {
 		{ label = "Patch Notes", custom = "patchnotes", path = P("settings", "settings_patchnotes"),
 			desc = "What changed in each version, newest first. Click a version to open or close it.",
 			newTag = function() local sp = ShamanPower; return sp and sp.PatchNotesUnseen and sp:PatchNotesUnseen() end },
+		-- the people who support ShamanPower on Patreon (SupportersPage.lua draws the page)
+		{ label = "Supporters", custom = "supporters", path = P("settings", "settings_supporters"),
+			desc = "The people who support ShamanPower on Patreon." },
 	}},
 	{ group = "Bars", power = true, entries = {
 		-- Bar first (A15): the icon page (TotemBarIcons.lua: the Buttons row and the Totems rows; Items,
@@ -1151,6 +1154,9 @@ do
 			url = "https://www.curseforge.com/wow/addons/shamanpower", color = { 0xF1 / 255, 0x64 / 255, 0x36 / 255 } },
 		{ name = "GitHub", key = "githubLink", mark = "SP_Link_GitHub", title = "ShamanPower on GitHub",
 			url = "https://github.com/taubut/ShamanPower", color = { 1, 1, 1 } },
+		-- Patreon: a link like the others, nothing more (the add-on stays free; nothing in it asks)
+		{ name = "Patreon", key = "patreonLink", mark = "SP_Link_Patreon", title = "Support ShamanPower on Patreon",
+			url = "https://www.patreon.com/cw/ShamanPower", color = { 0xFF / 255, 0x42 / 255, 0x4D / 255 } },
 	}
 
 	local function LinkButton(parent, link)
@@ -1187,7 +1193,7 @@ do
 		return b
 	end
 
-	-- the three in a row on the footer, from x (its left edge), 14 up
+	-- the four in a row on the footer, from x (its left edge), 14 up
 	LinkButtons = function(footer, x)
 		for _, link in ipairs(LINKS) do
 			local b = LinkButton(footer, link)
@@ -1976,6 +1982,7 @@ local function ClearPage()
 	wipe(pageWidgets)
 	if ns.ThemesPage then ns.ThemesPage:Release() end
 	if ns.PatchNotesPage then ns.PatchNotesPage:Release() end
+	if ns.SupportersPage then ns.SupportersPage:Release() end
 	if ns.ListLook then ns.ListLook:Release() end
 	if ns.IconScreen then ns.IconScreen:Release() end
 	for _, row in pairs(ns.CustomRows) do
@@ -2203,7 +2210,8 @@ local function RenderPageInner(self, entry, query, keepScroll)
 	frame.title:SetText(Tree:StripColor(entry.label))
 	frame.subtitle:SetText(Tree:StripColor(entry.desc or Tree:GetDesc(node, info) or ""))
 
-	local patchNotes = entry.custom == "patchnotes" and ns.PatchNotesPage or nil
+	-- (a page that draws itself: Patch Notes, Supporters)
+	local patchNotes = (entry.custom == "patchnotes" and ns.PatchNotesPage) or (entry.custom == "supporters" and ns.SupportersPage) or nil
 	local list, groups = ResolvePageList(entry, (not patchNotes) and query or nil, true)
 	-- What's New sits on General's Main tab only (elsewhere it covers the page description)
 	if frame.whatsNewBtn then frame.whatsNewBtn:SetShown(entry.label == "General" and frame._activeTab == "Main") end
@@ -3607,7 +3615,7 @@ do
 	-- the button shows where there is something to reset: not on the Themes tab or
 	-- Patch Notes, not on Profiles (it switches profiles), not on a page of buttons
 	ResetShown = function(entry)
-		if entry.custom == "patchnotes" or (entry.path and entry.path[1] == "profiles") then return false end
+		if entry.custom == "patchnotes" or entry.custom == "supporters" or (entry.path and entry.path[1] == "profiles") then return false end
 		-- a page whose parts each reset on their own (Target Tracker: Reset This Spell, a rule's x,
 		-- Reset Position), its settings in a module's own saved table
 		if entry.noReset then return false end
