@@ -436,7 +436,7 @@ function SP:ShowShareCode()
 	self:ShowSPDialog({
 		key = "sharecode",
 		title = "Your ShamanPower setup code",
-		text = "Press |cffFFD100Ctrl+C|r, then paste it in #setup-stats on the ShamanPower Discord (discord.gg/eCtNeBqE8U). It lists which features you use - nothing personal.",
+		text = "Press |cffFFD100Ctrl+C|r, then paste it in #setup-stats on the ShamanPower Discord (discord.gg/shamanpower). It lists which features you use - nothing personal.",
 		editText = code,
 	})
 end

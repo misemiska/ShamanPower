@@ -1,6 +1,6 @@
 # ShamanPower
 
-[![Discord](https://img.shields.io/discord/1552365678751653928?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/eCtNeBqE8U)
+[![Discord](https://img.shields.io/discord/1552365678751653928?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/shamanpower)
 
 All-in-one totem management, cooldown tracking and raid coordination for Shamans in **World of Warcraft: TBC Anniversary** — with a guided setup that shows you every feature working before you decide.
 
@@ -110,7 +110,7 @@ Settings > Profiles can export the current profile — every setting, position a
 
 ## Issues and feedback
 
-Chat, help and testing: [ShamanPower Discord](https://discord.gg/eCtNeBqE8U). Bugs and requests: [GitHub Issues](https://github.com/taubut/ShamanPower/issues) or the Discord's bug-reports forum. If a preview or feature misbehaves, enable `/console scriptErrors 1` (or BugSack) and include the error text.
+Chat, help and testing: [ShamanPower Discord](https://discord.gg/shamanpower). Bugs and requests: [GitHub Issues](https://github.com/taubut/ShamanPower/issues) or the Discord's bug-reports forum. If a preview or feature misbehaves, enable `/console scriptErrors 1` (or BugSack) and include the error text.
 
 ## Credits
 
@@ -121,4 +121,4 @@ Chat, help and testing: [ShamanPower Discord](https://discord.gg/eCtNeBqE8U). Bu
 
 All Rights Reserved — see [LICENSE.txt](LICENSE.txt).
 
-Please ask me before modifying the code for your own use. You can reach me on [GitHub](https://github.com/taubut/ShamanPower/issues) or in the [ShamanPower Discord](https://discord.gg/eCtNeBqE8U). Bundled libraries and fonts follow their own licenses.
+Please ask me before modifying the code for your own use. You can reach me on [GitHub](https://github.com/taubut/ShamanPower/issues) or in the [ShamanPower Discord](https://discord.gg/shamanpower). Bundled libraries and fonts follow their own licenses.

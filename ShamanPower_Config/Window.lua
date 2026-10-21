@@ -1149,7 +1149,7 @@ do
 	-- ---------------------------------------------------------------------------
 	local LINKS = {
 		{ name = "Discord", key = "discordLink", mark = "SP_Link_Discord", title = "ShamanPower Discord",
-			url = "https://discord.gg/eCtNeBqE8U", color = { 0x58 / 255, 0x65 / 255, 0xF2 / 255 } },
+			url = "https://discord.gg/shamanpower", color = { 0x58 / 255, 0x65 / 255, 0xF2 / 255 } },
 		{ name = "CurseForge", key = "curseforgeLink", mark = "SP_Link_CurseForge", title = "ShamanPower on CurseForge",
 			url = "https://www.curseforge.com/wow/addons/shamanpower", color = { 0xF1 / 255, 0x64 / 255, 0x36 / 255 } },
 		{ name = "GitHub", key = "githubLink", mark = "SP_Link_GitHub", title = "ShamanPower on GitHub",

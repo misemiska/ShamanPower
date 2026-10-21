@@ -5,7 +5,7 @@ Copyright (c) 2025-2026 Srumar. All Rights Reserved.
 Please ask me before modifying the code for your own use.
 
 You can reach me (Srumar) on GitHub (https://github.com/taubut/ShamanPower/issues)
-or in the ShamanPower Discord (https://discord.gg/eCtNeBqE8U).
+or in the ShamanPower Discord (https://discord.gg/shamanpower).
 
 The libraries and fonts bundled with ShamanPower (the Libs and
 Media/Fonts folders) follow their own licenses.

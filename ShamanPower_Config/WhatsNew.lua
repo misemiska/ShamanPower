@@ -15,7 +15,7 @@ if not SP then return end
 -- with no card items for this account shows nothing at all.
 local NOTES = { version = (ns.PATCH_NOTES and ns.PATCH_NOTES[1] and ns.PATCH_NOTES[1].v) or "3.0.0" }
 
-local DISCORD_INVITE = "https://discord.gg/eCtNeBqE8U"
+local DISCORD_INVITE = "https://discord.gg/shamanpower"
 local PATREON = "https://www.patreon.com/cw/ShamanPower"
 
 -- The gold banner's title (ui-style-guide 2.3 A) in Fira Sans SemiBold, the

@@ -11024,7 +11024,7 @@ end
 do
 	local SP = ShamanPower
 	local main = SP.options.args.settings.args.settings_show.args
-	local INVITE = "https://discord.gg/eCtNeBqE8U"
+	local INVITE = "https://discord.gg/shamanpower"
 	-- WoW gives addons no clipboard: "Copy Link" opens ShamanPower's own box with the
 	-- link already selected, so one Ctrl+C copies it (the usual way addons do this).
 	main.community = {

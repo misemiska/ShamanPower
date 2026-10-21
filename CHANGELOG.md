@@ -1,6 +1,6 @@
 # ShamanPower Changelog
 
-## v3.0.9.4 (in progress)
+## v3.0.9.4 (2026-10-21)
 
 ### After updating
 - After updating, fully close and restart the game once: 3.0.9.4 adds a new file (the Supporters page), and a /reload alone does not load it.
@@ -13,6 +13,7 @@
 
 ### Changes
 - ShamanPower's libraries are on their newest versions (Ace3, LibDBIcon-1.0, LibUIDropDownMenu, and LibSharedMedia-3.0 on WoW: Forever). A new profile's name can be up to 50 letters. Each character keeps the profile it uses.
+- Every Discord link in ShamanPower uses the server's own address now, discord.gg/shamanpower: the Discord buttons, General > Main, What's New, /sp share and /sp support.
 
 ### Fixes
 - **Profiles** (Settings > General > Profiles): with some other addons installed (ones carrying a newer Ace3), the page lost Export This Profile, Import as New Profile, Built-in Layouts and its plain wording. They stay now.

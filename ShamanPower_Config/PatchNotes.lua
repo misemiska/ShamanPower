@@ -10,7 +10,7 @@ local _, ns = ...
 ns.PATCH_NOTES = {
 	{
 		v = "3.0.9.4",
-		date = "in progress",
+		date = "2026-10-21",
 		headline = "Out of range in fights, dungeons and raids too",
 		new = {
 			{ h = "Out of Range in Every Fight", icon = "Interface\\Icons\\Spell_Nature_StoneSkinTotem", client = "forever",
@@ -29,6 +29,7 @@ ns.PATCH_NOTES = {
 		changes = {
 			"After updating, fully close and restart the game once: 3.0.9.4 adds a new file that a /reload does not load.",
 			"ShamanPower's libraries are on their newest versions. A new profile's name can be up to 50 letters.",
+			"Every Discord link in ShamanPower uses the server's own address now: discord.gg/shamanpower.",
 		},
 		fixes = {
 			"Profiles: with some other addons installed, the page lost Export This Profile, Import as New Profile and Built-in Layouts. They stay now.",

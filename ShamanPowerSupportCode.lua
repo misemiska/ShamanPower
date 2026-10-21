@@ -771,7 +771,7 @@ function SP:ShowSupportCode()
 		subtitle = "For the #help channel",
 		width = 460,
 		editScroll = true,
-		text = "Paste this in #help on the ShamanPower Discord (discord.gg/eCtNeBqE8U) with a few words about the problem. "
+		text = "Paste this in #help on the ShamanPower Discord (discord.gg/shamanpower) with a few words about the problem. "
 			.. "Copy it while the problem is on screen so it includes what is happening now.\n\n"
 			.. "Press |cffFFD100Ctrl+C|r to copy it.\n\n"
 			.. "|cff3FA9F5WHAT'S IN IT|r\n"

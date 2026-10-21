@@ -1698,9 +1698,9 @@ function ShamanPower:CreateInterfaceOptionsPanel()
 		if SP.ShowSPDialog then
 			SP:ShowSPDialog({ key = "discordLink", title = "ShamanPower Discord",
 				text = "The link is selected: press |cffFFD100Ctrl+C|r to copy it, then paste it into your browser.",
-				editText = "https://discord.gg/eCtNeBqE8U" })
+				editText = "https://discord.gg/shamanpower" })
 		else
-			print("|cff0070ddShamanPower|r: Discord: https://discord.gg/eCtNeBqE8U")
+			print("|cff0070ddShamanPower|r: Discord: https://discord.gg/shamanpower")
 		end
 	end)
 	news:SetPoint("TOP", open, "BOTTOM", 0, -14)
