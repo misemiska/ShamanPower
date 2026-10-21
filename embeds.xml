@@ -14,8 +14,6 @@
 	<Include file="Libs\AceEvent-3.0\AceEvent-3.0.xml"/>
 	<Include file="Libs\AceTimer-3.0\AceTimer-3.0.xml"/>
 	<Include file="Libs\AceBucket-3.0\AceBucket-3.0.xml"/>
-	<Include file="Libs\LibSharedMedia-3.0\lib.xml"/>
-	<Include file="Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml"/>
 	<Include file="Libs\LibClassicDurations\LibClassicDurations.xml"/>
 	<Include file="Libs\LibUIDropDownMenu\LibUIDropDownMenu\LibUIDropDownMenu.xml"/>
 	<Include file="Libs\LibSerialize\lib.xml"/>

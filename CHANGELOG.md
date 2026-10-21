@@ -11,6 +11,12 @@
 - **Supporters** (Settings > General > Supporters): the people who support ShamanPower on Patreon. Earthen Ring supporters come first, their names in gold, then every supporter. The page's Support on Patreon button copies the link.
 - **Patreon button** at the bottom of the settings window, beside Discord, CurseForge and GitHub: it copies the link to ShamanPower's Patreon.
 
+### Changes
+- ShamanPower's libraries are on their newest versions (Ace3, LibDBIcon-1.0, LibUIDropDownMenu, and LibSharedMedia-3.0 on WoW: Forever). A new profile's name can be up to 50 letters. Each character keeps the profile it uses.
+
+### Fixes
+- **Profiles** (Settings > General > Profiles): with some other addons installed (ones carrying a newer Ace3), the page lost Export This Profile, Import as New Profile, Built-in Layouts and its plain wording. They stay now.
+
 ## v3.0.9.3 (2026-10-20)
 
 ### New

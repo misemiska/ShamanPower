@@ -140,7 +140,19 @@ function Tree:MakeSetter(node, chain, info)
 	if setter == nil then
 		return function() end
 	end
+	-- AceConfig's validate: anything but true turns the value down, with its message (AceDBOptions-3.0 17
+	-- refuses a profile name of no text or over 50 letters, which AceDB-3.0 39 would throw an error on)
+	local validate = node.validate
+	if validate == nil then validate = self:Inherited(chain, "validate") end
 	return function(...)
+		if validate ~= nil then
+			local ok = self:Eval(validate, info, info.handler, ...)
+			if ok ~= true then
+				local msg = type(ok) == "string" and ok or self:EvalPlain(node.usage, info)
+				if type(msg) == "string" and msg ~= "" then print("|cff0070ddShamanPower|r: " .. msg) end
+				return
+			end
+		end
 		return self:Eval(setter, info, info.handler, ...)
 	end
 end

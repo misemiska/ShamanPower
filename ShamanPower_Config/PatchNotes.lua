@@ -24,6 +24,10 @@ ns.PATCH_NOTES = {
 		},
 		changes = {
 			"After updating, fully close and restart the game once: 3.0.9.4 adds a new file that a /reload does not load.",
+			"ShamanPower's libraries are on their newest versions. A new profile's name can be up to 50 letters.",
+		},
+		fixes = {
+			"Profiles: with some other addons installed, the page lost Export This Profile, Import as New Profile and Built-in Layouts. They stay now.",
 		},
 	},
 	{

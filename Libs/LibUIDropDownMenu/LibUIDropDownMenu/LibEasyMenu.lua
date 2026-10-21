@@ -1,4 +1,4 @@
---$Id: LibEasyMenu.lua 64 2020-11-18 13:13:15Z arithmandar $
+--$Id$
 -- //////////////////////////////////////////////////////////////
 -- Notes: 
 --      Functions have been moved to under LibUIDropDownMenu.lua
@@ -41,4 +41,4 @@ function EasyMenu_Initialize( frame, level, menuList )
 		end
 	end
 end
-]]
+]]

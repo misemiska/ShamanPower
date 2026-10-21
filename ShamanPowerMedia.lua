@@ -36,12 +36,12 @@ end
 -- WeakAuras registers them under, so a player running both sees each once.
 local TEXTURES = "Interface\\AddOns\\ShamanPower\\Media\\Textures\\"
 for name, file in pairs({
-	["Clean"]          = "Statusbar_Clean",
-	["Stripes"]        = "Statusbar_Stripes",
-	["Thick Stripes"]  = "Statusbar_Stripes_Thick",
-	["Thin Stripes"]   = "Statusbar_Stripes_Thin",
-	["Diagonal Stripes"] = "stripe-bar",
-	["Striped"]        = "StripedTexture",
+	["Clean"]          = "Statusbar_Clean.blp",
+	["Stripes"]        = "Statusbar_Stripes.blp",
+	["Thick Stripes"]  = "Statusbar_Stripes_Thick.blp",
+	["Thin Stripes"]   = "Statusbar_Stripes_Thin.blp",
+	["Diagonal Stripes"] = "stripe-bar.tga",
+	["Striped"]        = "StripedTexture.tga",
 }) do
 	LSM:Register("statusbar", name, TEXTURES .. file)
 end

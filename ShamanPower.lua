@@ -968,10 +968,13 @@ function ShamanPower:OnInitialize()
 	if select(2, UnitClass("player")) == "SHAMAN" then
 		self.db = LibStub("AceDB-3.0"):New("ShamanPowerDB", SHAMANPOWER_DEFAULT_VALUES, "Default")
 		self:KeepOldLookOnSavedProfiles()
+		self:KeepCharKey(true)   -- (see KeepCharKey) before anything reads the profile
 	else
 		self.db = LibStub("AceDB-3.0"):New("ShamanPowerDB", SHAMANPOWER_OTHER_VALUES, "Other")
 		self:KeepOldLookOnSavedProfiles()   -- before SetProfile lays the defaults into a profile
+		self:KeepCharKey(true)
 		self.db:SetProfile("Other")
+		self:SyncCharProfileKey()
 	end
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -1010,14 +1013,16 @@ function ShamanPower:OnInitialize()
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("ShamanPower", self.options)
 	self:CreateInterfaceOptionsPanel()
 
-	LSM3:Register("background", "None", "Interface\\Tooltips\\UI-Tooltip-Background")
-	LSM3:Register("background", "Banto", "Interface\\AddOns\\ShamanPower\\Skins\\Banto")
-	LSM3:Register("background", "BantoBarReverse", "Interface\\AddOns\\ShamanPower\\Skins\\BantoBarReverse")
-	LSM3:Register("background", "Glaze", "Interface\\AddOns\\ShamanPower\\Skins\\Glaze")
-	LSM3:Register("background", "Gloss", "Interface\\AddOns\\ShamanPower\\Skins\\Gloss")
-	LSM3:Register("background", "Healbot", "Interface\\AddOns\\ShamanPower\\Skins\\Healbot")
-	LSM3:Register("background", "oCB", "Interface\\AddOns\\ShamanPower\\Skins\\oCB")
-	LSM3:Register("background", "Smooth", "Interface\\AddOns\\ShamanPower\\Skins\\Smooth")
+	-- each file by its full name (or Blizzard's by its file ID): LibSharedMedia-3.0 12000004 checks every
+	-- file with C_UIFileAsset.IsKnownFile and reports one it can't find as an error
+	LSM3:Register("background", "None", 137056)   -- (Interface\Tooltips\UI-Tooltip-Background)
+	LSM3:Register("background", "Banto", "Interface\\AddOns\\ShamanPower\\Skins\\Banto.tga")
+	LSM3:Register("background", "BantoBarReverse", "Interface\\AddOns\\ShamanPower\\Skins\\BantoBarReverse.tga")
+	LSM3:Register("background", "Glaze", "Interface\\AddOns\\ShamanPower\\Skins\\Glaze.tga")
+	LSM3:Register("background", "Gloss", "Interface\\AddOns\\ShamanPower\\Skins\\Gloss.tga")
+	LSM3:Register("background", "Healbot", "Interface\\AddOns\\ShamanPower\\Skins\\Healbot.tga")
+	LSM3:Register("background", "oCB", "Interface\\AddOns\\ShamanPower\\Skins\\oCB.tga")
+	LSM3:Register("background", "Smooth", "Interface\\AddOns\\ShamanPower\\Skins\\Smooth.tga")
 
 	self.zone = GetRealZoneText()
 
@@ -1403,9 +1408,7 @@ function ShamanPower:OnDisable()
 end
 
 function ShamanPower:OnProfileChanged()
-	local fix = self.aceCharKeyFix
-	local pk = fix and self.db and rawget(self.db, "sv") and rawget(self.db, "sv").profileKeys
-	if pk then pk[fix.real], pk[fix.bad] = self.db:GetCurrentProfile(), nil end
+	self:SyncCharProfileKey()
 	-- Clean up all popped-out frames from the old profile first
 	if self.poppedOutFrames then
 		for key, frame in pairs(self.poppedOutFrames) do
@@ -2289,38 +2292,77 @@ function ShamanPower:FixPlayerIdentity()
 		if old and old ~= name then self.AllShamans[old] = nil end
 		if first ~= name then self.AllShamans[first] = nil end
 	end
-	-- AceDB took its character key when it loaded and never looks again
+	-- AceDB took its character key when it loaded and never looks again (KeepCharKey)
+	if self:KeepCharKey() == "moved" then
+		shadowDurationsSaved, shadowLearnedDuration = false, {}   -- rebind learned lengths to the real character
+	end
 	local db = self.db
 	local keys = db and rawget(db, "keys")
 	local sv = db and rawget(db, "sv")
 	if keys and sv and type(keys.char) == "string" then
-		local realKey = first .. " - " .. (GetRealmName() or "")
-		local badKey = keys.char
-		if badKey ~= realKey and not nameKnown((badKey:match("^(.-) %- "))) then
-			keys.char = realKey
-			rawset(db, "char", nil)   -- AceDB builds db.char from sv.char[keys.char] on its next use
-			if sv.char then sv.char[badKey] = nil end   -- mixed whichever characters logged in cold
-			shadowDurationsSaved, shadowLearnedDuration = false, {}   -- rebind learned lengths to the real character
-			self.aceCharKeyFix = { bad = badKey, real = realKey }
-			local pk = sv.profileKeys
-			if pk then
-				local current = db:GetCurrentProfile()
-				local want = pk[realKey] or current
-				pk[badKey], pk[realKey] = nil, want
-				-- this character has its own profile: switch to it once the addon is up
-				if want ~= current then C_Timer.After(0, function() self.db:SetProfile(want) end) end
-			end
-		end
-		-- "Unknown" leftovers from earlier cold logins, whoever they were: never read again
+		-- "Unknown" leftovers from earlier cold logins, whoever they were: never read again (a key
+		-- without " - " is AceDB-3.0 39's region-wide name: the whole key is the name)
 		for _, store in ipairs({ sv.char, sv.profileKeys }) do
 			if type(store) == "table" then
 				for key in pairs(store) do
-					if key ~= keys.char and type(key) == "string" and not nameKnown((key:match("^(.-) %- "))) then store[key] = nil end
+					if key ~= keys.char and type(key) == "string" and not nameKnown(key:match("^(.-) %- ") or key) then store[key] = nil end
 				end
 			end
 		end
 	end
 	return true
+end
+
+-- ShamanPower files each character under "Name - Realm": AceDB-3.0's character key up to MINOR 33, and
+-- the key every saved ShamanPower setting already uses. AceDB-3.0 39 (Ace3, 2026-09-25) keys WoW: Forever
+-- characters by their region-wide name instead ("Name" or "Name Surname"), and the newest AceDB copy
+-- among a player's addons is the one every addon gets: left alone, it would put each character on the
+-- Default profile and lose its own data (learned totem lengths). Right after the db opens (and again
+-- once a cold login's name is known) the character goes back to our key with the profile it had there.
+-- now: switch that profile at once (OnInitialize, before anything reads it), else on the next frame.
+-- Returns false while the game has no name yet, "moved" when the key changed.
+function ShamanPower:KeepCharKey(now)
+	local first = _G.UnitName("player")      -- AceDB-3.0 33 keys on the game's first return
+	if not nameKnown(first) then return false end
+	local db = self.db
+	local keys = db and rawget(db, "keys")
+	local sv = db and rawget(db, "sv")
+	if not (keys and sv and type(keys.char) == "string") then return true end
+	local ours, aceKey = first .. " - " .. (GetRealmName() or ""), keys.char
+	if aceKey == ours then return true end
+	keys.char = ours
+	rawset(db, "char", nil)   -- AceDB builds db.char from sv.char[keys.char] on its next use
+	-- this character's data under AceDB's key comes along; an "Unknown" one mixed whichever
+	-- characters logged in cold, so it goes
+	if sv.char and sv.char[aceKey] ~= nil then
+		if sv.char[ours] == nil and nameKnown(aceKey:match("^(.-) %- ") or aceKey) then sv.char[ours] = sv.char[aceKey] end
+		sv.char[aceKey] = nil
+	end
+	self.aceCharKeyFix = { bad = aceKey, real = ours }
+	local pk = sv.profileKeys
+	if pk then
+		local current = db:GetCurrentProfile()
+		local want = pk[ours] or current
+		pk[aceKey], pk[ours] = nil, want
+		-- this character has its own profile: switch to it (a name AceDB-3.0 39 refuses, over 50
+		-- letters, leaves it where it is)
+		if want ~= current then
+			local function switch()
+				if pcall(db.SetProfile, db, want) then self:SyncCharProfileKey() end
+			end
+			if now then switch() else C_Timer.After(0, switch) end
+		end
+	end
+	return "moved"
+end
+
+-- AceDB writes a profile pick under the key it loaded with (a local of its own), not db.keys.char:
+-- after KeepCharKey moved the character, every pick is kept under ours
+function ShamanPower:SyncCharProfileKey()
+	local fix = self.aceCharKeyFix
+	local sv = fix and self.db and rawget(self.db, "sv")
+	local pk = sv and sv.profileKeys
+	if pk then pk[fix.real], pk[fix.bad] = self.db:GetCurrentProfile(), nil end
 end
 
 local SHADOW_BIND_WINDOW = 0.5         -- seconds between a cast and its PLAYER_TOTEM_UPDATE
@@ -20619,18 +20661,33 @@ end
 -- and our Share, Built-in Layouts and Recovery rows and plain wording showed on theirs. ShamanPower keeps
 -- a copy of the library's own rows only (each row copied, so renaming one here changes nothing there).
 ShamanPower.ACEDBO_OWN_ROWS = { "desc", "descreset", "reset", "current", "choosedesc", "new", "choose",
-	"copydesc", "copyfrom", "deldesc", "delete" }   -- (AceDBOptions-3.0 MINOR 15's own keys)
+	"copydesc", "copyfrom", "deldesc", "delete" }   -- (AceDBOptions-3.0's own keys, MINOR 15 to 17)
 function ShamanPower:OwnProfileArgs(shared)
 	local own = {}
 	for _, key in ipairs(self.ACEDBO_OWN_ROWS) do
 		local row = shared and shared[key]
 		if type(row) == "table" then
 			local copy = {}
-			for k, v in pairs(row) do copy[k] = v end
+			-- not its width: AceDBOptions-3.0 17 widens four rows for AceConfigDialog, and our page lays
+			-- the rows out itself (two columns, A39)
+			for k, v in pairs(row) do if k ~= "width" then copy[k] = v end end
 			own[key] = copy
 		end
 	end
+	self.ownProfileArgs = own
 	return own
+end
+
+-- A newer AceDBOptions-3.0 loading after ours (another addon's copy) runs the library's upgrade, which
+-- sets every Profiles page's rows back to its one shared table: our copy and every row ShamanPower_Config
+-- adds to it (Share, Built-in Layouts, Recovery, the plain wording) were gone, and the page showed the
+-- library's own rows (a player's screenshot, 3.0.9.3 on WoW: Forever, 2026-10-21). This puts ours back:
+-- run as each addon finishes loading (ShamanPower_Config/Share.lua) and before its rows go in.
+function ShamanPower:KeepOwnProfileArgs()
+	local profiles = self.options and self.options.args and self.options.args.profiles
+	if profiles and self.ownProfileArgs and profiles.args ~= self.ownProfileArgs then
+		profiles.args = self.ownProfileArgs
+	end
 end
 
 -- Keybinds Still Work Even If Icon Is Turned Off (General > Keybinds, 3.0.9.1, the owner's ask): the main

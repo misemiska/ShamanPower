@@ -141,6 +141,14 @@ def changed_lines(tree, base):
             out[rel] = None   # every line is new
     return out
 
+def step_libs(tree):
+    """every bundled library the newest out there (lib_versions.py): against the installed addons' copies
+    on this machine (warnings), and with --release against each library's official source (fails)"""
+    sys.path.insert(0, ROOT)
+    sys.dont_write_bytecode = True   # no __pycache__ in the tree
+    import lib_versions
+    return lib_versions.check(tree, use_online=RELEASE, use_local=True)
+
 def step_lint(tree, base):
     """shamanpower-lint over the whole tree; the rule is that only NEW lines (changed against `base`) must be clean,
     the old findings are a count"""
@@ -320,15 +328,15 @@ def main():
     ap.add_argument("--client", default="both", choices=["both", "forever", "anniversary"])
     ap.add_argument("--skip-lint", action="store_true")
     ap.add_argument("--lint-base", default="main", help="git ref the lint's 'new lines' are measured against (default main)")
-    ap.add_argument("--only", default=None, help="comma list of steps (syntax,endings,andor,lint,changelog,sweep,tests) or test names")
+    ap.add_argument("--only", default=None, help="comma list of steps (syntax,endings,andor,lint,changelog,libs,sweep,tests) or test names")
     ap.add_argument("-v", "--verbose", action="store_true")
-    ap.add_argument("--release", action="store_true", help="strict: the CHANGELOG top section must match the TOC version")
+    ap.add_argument("--release", action="store_true", help="strict: the CHANGELOG top section must match the TOC version; every library checked against its official newest")
     a = ap.parse_args()
     global RELEASE
     RELEASE = a.release
     tree = os.path.abspath(a.tree or (os.getcwd() if os.path.exists("ShamanPower.toc") else os.path.expanduser("~/git-work/ShamanPower")))
     only = set(a.only.split(",")) if a.only else None
-    steps_named = {"syntax", "endings", "andor", "lint", "changelog", "sweep", "tests"}
+    steps_named = {"syntax", "endings", "andor", "lint", "changelog", "libs", "sweep", "tests"}
     test_only = only and not (only & steps_named)
     clients = ["forever", "anniversary"] if a.client == "both" else [a.client]
     print("sp-ci  tree %s  clients %s" % (tree, ", ".join(clients)))
@@ -341,7 +349,7 @@ def main():
                 print("      " + str(d))
         if not ok: failed.append(name)
     if not test_only:
-        for name, fn in (("syntax", step_syntax), ("endings", step_endings), ("andor", step_andor), ("shared tables", step_shared_tables), ("share code mirror", step_share_mirror), ("changelog", step_changelog)):
+        for name, fn in (("syntax", step_syntax), ("endings", step_endings), ("andor", step_andor), ("shared tables", step_shared_tables), ("share code mirror", step_share_mirror), ("changelog", step_changelog), ("libs", step_libs)):
             if only and name not in only: continue
             ok, d = fn(tree); report(name, ok, d)
         if (not only or "lint" in only) and not a.skip_lint:

@@ -15,6 +15,10 @@
 
 #@no-lib-strip@
 embeds.xml
+# LibSharedMedia-3.0 per client: the newest on WoW: Forever; on Anniversary the one 3.0.9.3 shipped
+# (12000004 reports a file an addon registers that isn't there, and WeakAuras 5.22.0 has one)
+Libs\LibSharedMedia-3.0\lib.xml
+Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 #@end-no-lib-strip@
 
 locale\enUS.lua

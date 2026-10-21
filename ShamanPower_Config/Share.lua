@@ -209,6 +209,7 @@ local function PlainProfileWords(args)
 	word("reset", "desc", "Restore this profile's default settings.")
 end
 local function InjectProfileButtons()
+	if SP.KeepOwnProfileArgs then SP:KeepOwnProfileArgs() end   -- our own rows, never the library's shared table
 	local root = SP.options
 	local profiles = root and root.args and root.args.profiles
 	if not (profiles and profiles.args) or profiles.args.spShareHeader then return end
@@ -302,6 +303,13 @@ local function InjectProfileButtons()
 	end
 end
 InjectProfileButtons()
+-- a newer AceDBOptions-3.0 in an addon that loads after this one swaps our rows for the library's
+-- (see SP:KeepOwnProfileArgs): each time an addon finishes loading, ours go back
+do
+	local keep = CreateFrame("Frame")
+	keep:RegisterEvent("ADDON_LOADED")
+	keep:SetScript("OnEvent", function() if SP.KeepOwnProfileArgs then SP:KeepOwnProfileArgs() end end)
+end
 
 -- ---------------------------------------------------------------------------
 -- Windfury Companion: its own page in Settings so a shaman can hand the
