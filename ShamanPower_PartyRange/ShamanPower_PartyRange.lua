@@ -147,6 +147,9 @@ if SPCompat.FOREVER then
 	-- "Rapid Cast", which broke the name match. There the entry is the totem
 	-- spell itself (its name matches) and its buffs are the effect auras.
 	SP.TotemBuffSpellIDs[2][5] = 8227
+	-- Grounding Totem: every party member in its range carries its aura (8178, measured 10-21),
+	-- tracked like Strength of Earth (WoW: Forever; TBC Anniversary shows its hits already)
+	SP.TotemBuffSpellIDs[4][5] = 8178
 else
 	-- TBC Anniversary: Flametongue Totem enchants weapons (like Windfury Totem)
 	-- and puts no buff on anyone, and no addon can see another player's weapon:
@@ -170,6 +173,7 @@ SP.TotemBuffRanks = {
 	[8836]  = { 8836, 10626, 25360 },                       -- Grace of Air
 	[2895]  = { 2895 },                                     -- Wrath of Air
 	[25909] = { 25909 },                                    -- Tranquil Air
+	[8178]  = { 8178 },                                     -- Grounding (WoW: Forever)
 	[10596] = { 10596, 10598, 10599 },                      -- Nature Resistance
 	[15108] = { 15108, 15109, 15110 },                      -- Windwall
 	[8515]  = { 8515, 10609, 10612 },                       -- Windfury Totem (Forever: a party buff)
@@ -281,6 +285,7 @@ function SP:RefreshPartyRangeHosts()
 		end
 	end
 	self:RebuildEnginePartyDots()
+	self:RebuildOwnRangeEngine()
 end
 
 -- Setup all party range dots for the mini totem bar
@@ -316,6 +321,7 @@ function SP:SetupPartyRangeDots()
 	if not self:IsOff() then self:EnableUpdateSubsystem("partyRange") end
 	engineDotsReady = true
 	self:RebuildEnginePartyDots()
+	self:RebuildOwnRangeEngine()   -- your own range on the bar, drawn by the game (below)
 end
 
 -- Get the buff name for the currently active totem of an element
@@ -790,6 +796,187 @@ engineDotEvents:SetScript("OnEvent", function(_, event)
 			C_Timer.After(0.3, rosterSettled)
 		end
 	end
+end)
+
+-- ============================================================================
+-- Your own range on the totem bar, drawn by the game (WoW: Forever, 10-21)
+-- ============================================================================
+-- In a fight on WoW: Forever your own buffs cannot be read, and in dungeons and raids the game
+-- gives out no positions either, so the bar's Out of Range gray kept the answer it had before the
+-- pull. The game still draws your totems' auras on you: over the icon that shows a totem (the bar
+-- button, or the active-totem overlay above it) sits one engine aura slot per totem of that element
+-- that puts an aura on you (every rank, yours only), its child that totem's picture in full color.
+-- In a fight the icon underneath takes its gray and the game covers it in full color while the aura
+-- is on you, as the 10-21 test icons did (Mana Spring, Healing Stream and Grounding, in and out of a
+-- fight and in a dungeon). Everything the bar had stays: out of a fight the buff reads, in one the
+-- drop spot and the last answer, which still drive the glow (the game only draws while the aura is
+-- there, never while it is missing). Built out of combat, at the latest as a fight starts; lit by
+-- alpha, only the slot of the totem that is down.
+SP.ownRangeEngine = {}   -- [element] = { main = rec, overlay = rec }
+local ownRangePending = false
+
+-- every totem of the element that puts an aura on you: [totemIndex] = { [auraID] = true } (every rank)
+local function OwnRangeFamilies(element)
+	local out, n = {}, 0
+	for idx, base in pairs(SP.TotemBuffSpellIDs[element] or {}) do
+		local ids = {}
+		for _, id in ipairs(SP.TotemBuffRanks[base] or { base }) do ids[id] = true end
+		for _, id in ipairs(SP.ExtraEngineAuraIDs[element] or {}) do ids[id] = true end
+		out[idx], n = ids, n + 1
+	end
+	return out, n
+end
+
+-- one totem's slot over `icon` on `host`: its picture in full color, cut and shaped as the icon
+local function NewOwnRangeSlot(host, icon, element, idx, ids)
+	local ok, c = pcall(CreateFrame, "AuraContainer", nil, host, "CustomAuraContainerTemplate")
+	if not ok or not c then return nil end
+	c:SetAllPoints(icon)
+	c:SetFrameLevel(host:GetFrameLevel() + 1)   -- right above the icon, under the bar's swipes and texts
+	local file = SP.GetTotemIcon and SP:GetTotemIcon(element, idx)
+	local a, b, cc, d, e, f, g, h = icon:GetTexCoord()
+	local okAdd, err = pcall(c.AddAuraSlot, c, "ownrange" .. element .. "_" .. idx, "HELPFUL|PLAYER", {   -- your totem's aura only
+		candidateFilters = { includeSpellIDs = ids },
+		initializeFrame = function(button)
+			if button.SetMouseClickEnabled then pcall(button.SetMouseClickEnabled, button, false) end
+			if button.SetMouseMotionEnabled then pcall(button.SetMouseMotionEnabled, button, false) end
+			button:ClearAllPoints()
+			button:SetAllPoints(c)
+			pcall(button.SetFrameLevel, button, c:GetFrameLevel())   -- (not a level above: the swipes sit there)
+			local t = button:CreateTexture(nil, "ARTWORK")
+			t:SetAllPoints(button)
+			if file then t:SetTexture(file) end
+			if h then t:SetTexCoord(a, b, cc, d, e, f, g, h) end
+			if SP.ShapeIconTexture then SP:ShapeIconTexture(t, icon, "totem") end   -- the bar's Icon Shape
+		end,
+	})
+	if not okAdd then
+		c:Hide()
+		if SPCompat.Trace then SPCompat.Trace("OWN RANGE AddAuraSlot %d/%d failed: %s", element, idx, tostring(err)) end
+		return nil
+	end
+	pcall(c.SetUnit, c, "player")
+	pcall(c.SetEnabled, c, false)
+	c:SetAlpha(0)
+	return c
+end
+
+-- the bar's own layers right above the icon (texts, the cooldown and GCD swipes) go one level up,
+-- so the game's picture sits between the icon and them; again as each fight starts
+local function OwnRangeMakeRoom(rec)
+	local host = rec.host
+	local lvl = host:GetFrameLevel() + 1
+	for _, ch in ipairs({ host:GetChildren() }) do
+		if not rec.mine[ch] and not (ch.IsForbidden and ch:IsForbidden()) and not (ch.IsProtected and ch:IsProtected())
+			and ch:GetFrameLevel() <= lvl then
+			ch:SetFrameLevel(lvl + 1)
+		end
+	end
+end
+
+local function RetireOwnRange(rec)
+	if not rec then return end
+	for _, c in pairs(rec.slots) do
+		pcall(c.SetEnabled, c, false)
+		c:SetAlpha(0)
+		if not InCombatLockdown() then c:Hide() end
+	end
+	rec.lit = nil
+end
+
+local function OwnRangeRecord(element, rec, host, icon)
+	if not (host and icon and icon.GetTexCoord) then RetireOwnRange(rec) return nil end
+	local fam, n = OwnRangeFamilies(element)
+	if n == 0 then RetireOwnRange(rec) return nil end
+	local a, b, c, d, e, f, g, h = icon:GetTexCoord()
+	local key = table.concat({ n, math.floor((icon:GetWidth() or 0) * 10), math.floor((icon:GetHeight() or 0) * 10),
+		a or 0, b or 0, c or 0, d or 0, e or 0, f or 0, g or 0, h or 0 }, "|")
+	if rec and rec.host == host and rec.key == key then OwnRangeMakeRoom(rec) return rec end
+	RetireOwnRange(rec)
+	-- a look this host had before: its slots again, no new ones
+	local kept = host.spOwnRangeKept
+	if not kept then kept = {}; host.spOwnRangeKept = kept end
+	local new = kept[key]
+	if new then
+		for _, cont in pairs(new.slots) do cont:Show() end
+	else
+		new = { host = host, key = key, slots = {}, mine = {} }
+		for idx, ids in pairs(fam) do
+			local cont = NewOwnRangeSlot(host, icon, element, idx, ids)
+			if cont then new.slots[idx] = cont; new.mine[cont] = true end
+		end
+		kept[key] = new
+	end
+	new.lit = nil
+	OwnRangeMakeRoom(new)
+	return new
+end
+
+local function RebuildOwnRange()
+	pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer")
+	local native = SP.UsingBlizzardTotemBar and SP:UsingBlizzardTotemBar()
+	for element = 1, 4 do
+		local e = SP.ownRangeEngine[element] or {}
+		local btn = not native and SP.totemButtons and SP.totemButtons[element] or nil
+		local overlay = not native and SP.activeTotemOverlays and SP.activeTotemOverlays[element] or nil
+		e.main = OwnRangeRecord(element, e.main, btn, btn and btn.icon)
+		e.overlay = OwnRangeRecord(element, e.overlay, overlay and overlay.frame, overlay and overlay.icon)
+		SP.ownRangeEngine[element] = e
+	end
+end
+
+-- Build only out of combat (a fight's start is the last moment); a failed build tries again after it.
+function SP:RebuildOwnRangeEngine()
+	if not (engineDotsReady and EngineDotsAvailable()) or self:IsOff() then return end
+	if InCombatLockdown() then ownRangePending = true return end
+	ownRangePending = false
+	local ok, err = pcall(RebuildOwnRange)
+	if not ok then
+		ownRangePending = true
+		if SPCompat.Trace then SPCompat.Trace("OWN RANGE rebuild failed: %s", tostring(err)) end
+	end
+end
+
+-- the slots over this host for the element (nil: none built there: the bar keeps its own answer)
+function SP:OwnRangeEngineFor(element, host)
+	local e = self.ownRangeEngine[element]
+	if not (e and host) then return nil end
+	if e.main and e.main.host == host then return e.main end
+	if e.overlay and e.overlay.host == host then return e.overlay end
+	return nil
+end
+
+-- By alpha and the container's own on / off (both allowed in a fight; a dark one costs nothing)
+local function LightOwnRange(rec, idx)
+	if not rec or rec.lit == idx then return end
+	for i, c in pairs(rec.slots) do
+		if i == idx or i == rec.lit then
+			local on = i == idx
+			pcall(c.SetEnabled, c, on)
+			if on then pcall(c.UpdateAllAuras, c) end
+			c:SetAlpha(on and 1 or 0)
+		end
+	end
+	rec.lit = idx
+end
+
+-- light the slot of the totem down (totemIndex) over `host`; every other one of the element dark
+function SP:OwnRangeEngineShow(element, host, totemIndex)
+	local e = self.ownRangeEngine[element]
+	if not e then return end
+	local m, o = e.main, e.overlay
+	LightOwnRange(m, (host and m and m.host == host) and totemIndex or nil)
+	LightOwnRange(o, (host and o and o.host == host) and totemIndex or nil)
+end
+
+local ownRangeEvents = CreateFrame("Frame")
+if SPCompat and SPCompat.StressRegister then SPCompat.StressRegister(ownRangeEvents, "Party Range") end
+ownRangeEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+ownRangeEvents:RegisterEvent("PLAYER_REGEN_DISABLED")   -- (before the lockdown: the bar's look caught up)
+ownRangeEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+ownRangeEvents:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_REGEN_ENABLED" and not ownRangePending then return end
+	SP:RebuildOwnRangeEngine()
 end)
 
 -- ============================================================================

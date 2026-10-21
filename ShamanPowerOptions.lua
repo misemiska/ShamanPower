@@ -10208,7 +10208,7 @@ do
 		order = 6, type = "description", width = "full", name = " ",
 		desc = "Totems to Track: Strength of Earth, Stoneskin, Totem of Wrath, Flametongue Totem, Frost Resistance,"
 			.. " Mana Spring, Healing Stream, Fire Resistance, Mana Tide Totem, Windfury Totem, Grace of Air, Wrath of Air,"
-			.. " Tranquil Air, Nature Resistance, Windwall. Click a totem to track it or stop tracking it: it comes onto the"
+			.. " Tranquil Air, Grounding, Nature Resistance, Windwall. Click a totem to track it or stop tracking it: it comes onto the"
 			.. " overlay, or leaves it.",
 		hidden = function() return not SP.SPRangeLoaded end,
 	}
@@ -11482,7 +11482,7 @@ do
 	cov.coverageIcons = {
 		type = "description", width = "full", name = " ",
 		desc = "Totems to Watch: Strength of Earth, Stoneskin, Flametongue Totem, Frost Resistance, Mana Spring, Healing"
-			.. " Stream, Mana Tide, Fire Resistance, Windfury Totem, Grace of Air, Tranquil Air, Nature Resistance, Windwall."
+			.. " Stream, Mana Tide, Fire Resistance, Windfury Totem, Grace of Air, Tranquil Air, Grounding, Nature Resistance, Windwall."
 			.. " Choose which totems appear in the coverage list: click a totem to watch it or stop watching it. Right-click"
 			.. " it for its own icon size: Per-Totem Icon Size, Icon Size, Choose a size for each totem while Place Each Totem"
 			.. " Freely is on, Copy Icon Size To, All Totems, Reset Icon Size, Watch This Totem, Stop Watching This Totem.",

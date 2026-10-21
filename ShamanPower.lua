@@ -10635,11 +10635,25 @@ function ShamanPower:UpdatePlayerTotemRange()
 		local updateMainIcon = not overlayActive or useActiveAsMain
 		local updateOverlayIcon = overlayActive and not useActiveAsMain
 
+		-- (10-21) WoW: Forever in a fight: the game draws your totem's aura over the icon showing that
+		-- totem (ShamanPower_PartyRange, OwnRangeEngine). The icon takes its gray underneath and the game
+		-- covers it in full color while the aura is on you, in dungeons too. The answer above still
+		-- drives the glow; nothing else changes. No slots built over this icon: as before.
+		local engineIdx, engineHost
+		if blindNow and haveTotem and buffNames[element] and self.OwnRangeEngineFor then
+			local host = (updateOverlayIcon and activeOverlay and activeOverlay.frame) or totemBtn
+			if self:OwnRangeEngineFor(element, host) and self:TotemRangeGrays(element) then
+				local _, idx = self:GetActiveTotemBuffName(element)
+				if idx then engineIdx, engineHost = idx, host end
+			end
+		end
+		if self.OwnRangeEngineShow then self:OwnRangeEngineShow(element, engineHost, engineIdx) end
+
 		-- Update the appropriate icon based on trackability
 		if updateOverlayIcon and activeOverlay and activeOverlay.icon then
 			if haveTotem then
 				if hasTrackableRange then
-					local grayO = not hasBuff and ShamanPower:TotemRangeGrays(element)   -- (3.0.9.2: the totem's own look)
+					local grayO = (engineIdx ~= nil) or (not hasBuff and ShamanPower:TotemRangeGrays(element))   -- (3.0.9.2: the totem's own look)
 					activeOverlay.icon:SetDesaturated(grayO)
 					activeOverlay.icon:SetVertexColor(grayO and 0.6 or 1, grayO and 0.6 or 1, grayO and 0.6 or 1)
 				else
@@ -10660,7 +10674,7 @@ function ShamanPower:UpdatePlayerTotemRange()
 			look = self:TotemCueOpt(spell, "totemRangeLook") or "gray"
 		end
 		local outOfRange = haveTotem and hasTrackableRange and not hasBuff
-		local gray = outOfRange and (look == "gray" or look == "both")
+		local gray = (outOfRange and (look == "gray" or look == "both")) or engineIdx ~= nil   -- (the game covers it while in range)
 
 		if updateMainIcon and iconTexture then
 			if haveTotem then

@@ -161,6 +161,15 @@ SP.TrackableTotems = {
 		icon = "Interface\\Icons\\Spell_Nature_Brilliance",
 	},
 	{
+		id = "grounding",
+		name = "Grounding",
+		element = 4,
+		index = 5,
+		spellID = 8177,
+		detection = "buff",
+		buffSpellID = 8178,   -- every party member in its range carries it (measured 10-21)
+	},
+	{
 		id = "natureresist",
 		name = "Nature Resistance",
 		element = 4,
@@ -185,7 +194,9 @@ SP.TrackableTotems = {
 -- Windfury, the same kind of totem, keeps its weapon-enchant check.
 if not SPCompat.FOREVER then
 	for i = #SP.TrackableTotems, 1, -1 do
-		if SP.TrackableTotems[i].id == "flametongue" then table.remove(SP.TrackableTotems, i) end
+		-- (Grounding: WoW: Forever only, as in the party buff list; Anniversary shows its hits already)
+		local id = SP.TrackableTotems[i].id
+		if id == "flametongue" or id == "grounding" then table.remove(SP.TrackableTotems, i) end
 	end
 end
 
@@ -202,6 +213,7 @@ local BUFF_RANKS = {
 	[16191] = { 16191, 17355, 17360, 1325257 },   -- (1325257: rank 4, WoW: Forever)
 	[8185] = { 8185, 10534, 10535 },
 	[8836] = { 8836, 10626, 25360 },
+	[8178] = { 8178 },
 	[10596] = { 10596, 10598, 10599 },
 	[15108] = { 15108, 15109, 15110 },
 	[8515] = { 8515, 10609, 10612 },
@@ -312,6 +324,7 @@ SP.TrackableTotemShortNames = {
 	graceofair = "GoA",
 	wrathofair = "WoA",
 	tranquilair = "Tranq",
+	grounding = "Ground",
 	natureresist = "NaRes",
 	windwall = "Wind",
 }
@@ -462,6 +475,102 @@ function SP:SPRangeOwnTotemInRange(totemData)
 	if not SPCompat.TotemNameMatches(name, totemData.spellID, totemData.fallbackName) then return nil end
 	return self:TotemDropInRange(totemData.element)
 end
+
+-- ============================================================================
+-- In a fight on WoW: Forever, drawn by the game (10-21)
+-- ============================================================================
+-- Buffs cannot be read in a fight there, and dungeons and raids give out no positions: a button
+-- kept what it showed before the pull. The game still draws the buff on you, so over each icon sits
+-- an engine aura slot for its buff (every rank, from any shaman: the overlay is about you having it),
+-- its child the totem's picture in full color. In a fight the icon takes its Out of Range look
+-- underneath, and the game covers it in full color while the buff is on you, in dungeons too. The
+-- status, its border, text and effects keep their own answer (your own totem's drop spot, else the
+-- last one): the game only draws while the buff is there. Built out of combat (a fight's start is
+-- the last moment), lit by alpha.
+local spEnginePending = false
+local function SPRangeEngineAvailable()
+	return SPCompat.secretsRegime == true and C_AddOns ~= nil and C_AddOns.LoadAddOn ~= nil
+end
+function SP:SPRangeEngineBuild(btn)
+	if btn.spEngine or not SPRangeEngineAvailable() then return end
+	local totem = btn.totemData
+	local list = totem and totem.buffSpellIDs
+	if not list or totem.detection == "weapon" then return end
+	if InCombatLockdown() then spEnginePending = true return end
+	pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer")
+	local ok, c = pcall(CreateFrame, "AuraContainer", nil, btn, "CustomAuraContainerTemplate")
+	if not ok or not c then return end
+	local icon = btn.icon
+	c:SetAllPoints(icon)
+	c:SetFrameLevel(btn:GetFrameLevel() + 1)   -- right above the icon, under its glows and texts
+	local ids = {}
+	for _, id in ipairs(list) do ids[id] = true end
+	local file = self:TrackableTotemIcon(totem)
+	local a, b, cc, d, e, f, g, h = icon:GetTexCoord()
+	local okAdd, err = pcall(c.AddAuraSlot, c, "sprange_" .. tostring(totem.id), "HELPFUL", {
+		candidateFilters = { includeSpellIDs = ids },
+		initializeFrame = function(button)
+			if button.SetMouseClickEnabled then pcall(button.SetMouseClickEnabled, button, false) end
+			if button.SetMouseMotionEnabled then pcall(button.SetMouseMotionEnabled, button, false) end
+			button:ClearAllPoints()
+			button:SetAllPoints(c)
+			pcall(button.SetFrameLevel, button, c:GetFrameLevel())
+			local t = button:CreateTexture(nil, "ARTWORK")
+			t:SetAllPoints(button)
+			if file then t:SetTexture(file) end
+			if h then t:SetTexCoord(a, b, cc, d, e, f, g, h) end
+		end,
+	})
+	if not okAdd then
+		c:Hide()
+		if SPCompat.Trace then SPCompat.Trace("SPRANGE AddAuraSlot %s failed: %s", tostring(totem.id), tostring(err)) end
+		return
+	end
+	pcall(c.SetUnit, c, "player")
+	pcall(c.SetEnabled, c, false)
+	c:SetAlpha(0)
+	btn.spEngine = c
+	self:SPRangeEngineRoom(btn)
+end
+-- the button's own frames right above the icon go one level up (the game's picture between)
+function SP:SPRangeEngineRoom(btn)
+	local c = btn.spEngine
+	if not c then return end
+	local lvl = btn:GetFrameLevel() + 1
+	for _, ch in ipairs({ btn:GetChildren() }) do
+		if ch ~= c and not (ch.IsForbidden and ch:IsForbidden()) and ch:GetFrameLevel() <= lvl then ch:SetFrameLevel(lvl + 1) end
+	end
+end
+-- on: in a fight, the icon takes its Out of Range look and the game covers it while the buff is on you
+function SP:SPRangeEngineApply(btn, on)
+	local c = btn.spEngine
+	if not c then return end
+	on = on and true or false
+	if on and btn.status == "inrange" then
+		local look = self:SPRangeIconOpt(btn.totemData.id, "oorLook")
+		btn.rangeOverlay:SetShown(look == "red")
+		btn.icon:SetDesaturated(look == "red" or look == "gray")
+		btn.icon:SetAlpha((look == "dim" and 0.4) or (look == "none" and 1) or 0.6)
+	end
+	if btn.spEngineOn ~= on then
+		pcall(c.SetEnabled, c, on)
+		if on then pcall(c.UpdateAllAuras, c) end
+		c:SetAlpha(on and 1 or 0)
+		btn.spEngineOn = on
+	end
+end
+local spEngineEvents = CreateFrame("Frame")
+spEngineEvents:RegisterEvent("PLAYER_REGEN_DISABLED")   -- (before the lockdown)
+spEngineEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+spEngineEvents:SetScript("OnEvent", function(_, event)
+	local frame = SP.spRangeFrame
+	if not (frame and frame.totemButtons) then return end
+	if event == "PLAYER_REGEN_ENABLED" and not spEnginePending then return end
+	spEnginePending = false
+	for _, btn in pairs(frame.totemButtons) do
+		if btn.spEngine then SP:SPRangeEngineRoom(btn) else SP:SPRangeEngineBuild(btn) end
+	end
+end)
 
 -- Theme looks (Appearance > Themes, ShamanPowerTheme.lua), spot mod.range-colors:
 -- the overlay panel's background and border. On Standard every read is nil and
@@ -865,6 +974,7 @@ function SP:CreateSPRangeTotemButton(parent, totemData, index)
 	end)
 
 	btn.totemData = totemData
+	SP:SPRangeEngineBuild(btn)   -- (WoW: Forever: the game's own answer in a fight, below)
 	return btn
 end
 
@@ -1031,6 +1141,7 @@ function SP:UpdateSPRangeStatus()
 		end
 
 		btn.inRange = playerHasBuff
+		local blind = totemData.detection ~= "weapon" and SPCompat and SPCompat.AurasUnreadable and SPCompat.AurasUnreadable()
 
 		if playerHasBuff then
 			btn.status = "inrange"
@@ -1040,6 +1151,7 @@ function SP:UpdateSPRangeStatus()
 			btn.status = "missing"      -- no one has the buff: the totem is not down
 		end
 		self:SPRangePaint(btn, btn.status)   -- (3.0.9.2: each icon's own look for it)
+		if btn.spEngine then self:SPRangeEngineApply(btn, blind) end   -- (10-21: in a fight, the game's answer for the icon)
 	end
 	-- Show a Tracked Totem's Icon: a status change may hide or bring back a button
 	if frame.trackedList then   -- (each icon its own show rule, 3.0.9.2)

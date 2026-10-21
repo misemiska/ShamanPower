@@ -8,6 +8,19 @@ local _, ns = ...
 -- line at the bottom of the version's Patch Notes (never on the card).
 ns.PATCH_NOTES = {
 	{
+		v = "3.0.9.4",
+		date = "in progress",
+		headline = "Out of range in fights, dungeons and raids too",
+		new = {
+			{ h = "Out of Range in Every Fight", icon = "Interface\\Icons\\Spell_Nature_StoneSkinTotem", client = "forever",
+			  b = "In a fight a totem's button now grays out when you leave its range and comes back in color when you return, in dungeons and raids as well, for every totem whose buff lands on you. Before, it kept what it showed when the fight started. The Totem Range Tracker's icons do the same.",
+			  path = "Settings > Bars > Totem Bar > Bar", open = { "buttons", "auto_button" } },
+			{ h = "Grounding Totem", icon = "Interface\\Icons\\Spell_Nature_GroundingTotem", client = "forever",
+			  b = "Tracked like the other buff totems: its Out of Range look on the Totem Bar, the Totem Range Tracker, party dots and counters, Party Coverage, the Party Strip and its minimap ring.",
+			  path = "Settings > Group Tools > Totem Range Tracker", open = { "fluffy", "sprange_section" } },
+		},
+	},
+	{
 		v = "3.0.9.3",
 		date = "2026-10-20",
 		headline = "Number Sizes: every cooldown number and time left, sized in one place",
