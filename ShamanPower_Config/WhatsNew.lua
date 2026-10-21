@@ -16,6 +16,7 @@ if not SP then return end
 local NOTES = { version = (ns.PATCH_NOTES and ns.PATCH_NOTES[1] and ns.PATCH_NOTES[1].v) or "3.0.0" }
 
 local DISCORD_INVITE = "https://discord.gg/eCtNeBqE8U"
+local PATREON = "https://www.patreon.com/cw/ShamanPower"
 
 -- The gold banner's title (ui-style-guide 2.3 A) in Fira Sans SemiBold, the
 -- wordmark's weight, gold with its outline as before. The game's font where Fira
@@ -25,13 +26,15 @@ local function BaseVersion(v)
 	return v and (v:gsub("%-.*$", "")) or nil
 end
 
--- "3.0.4" -> 3000004 (test builds by the part before the dash); nil if unreadable
+-- "3.0.4" -> 3000004000, "3.0.9.4" -> 3000009004 (test builds by the part before the dash); nil if
+-- unreadable. The fourth part counts: read as three, every 3.0.9.x was "3.0.9" and a player updating
+-- from 3.0.9.1 never got 3.0.9.2's card.
 local function VerNum(v)
 	v = BaseVersion(v)
 	if not v then return nil end
-	local a, b, c = v:match("^(%d+)%.(%d+)%.?(%d*)")   -- (never "v and v:match": "and" keeps only the first capture)
+	local a, b, c, d = v:match("^(%d+)%.(%d+)%.?(%d*)%.?(%d*)")   -- (never "v and v:match": "and" keeps only the first capture)
 	if not a then return nil end
-	return tonumber(a) * 1000000 + tonumber(b) * 1000 + (tonumber(c) or 0)
+	return ((tonumber(a) * 1000 + tonumber(b)) * 1000 + (tonumber(c) or 0)) * 1000 + (tonumber(d) or 0)
 end
 -- the card's versions: newer than `since` and not newer than the running one
 -- (since = nil: all of them), each with its card items for this game; newest first
@@ -47,9 +50,31 @@ local function CardSets(since, preview)
 			local items = {}
 			for _, it in ipairs(ver.new or {}) do
 				local gameOK = it.client == nil or ((it.client == "forever") == forever)
-				if it.card and gameOK and (not it.when or it.when()) then items[#items + 1] = it end
+				-- cardClient: on the card for one game only, in both games' Patch Notes
+				local cardOK = it.cardClient == nil or ((it.cardClient == "forever") == forever)
+				if it.card and gameOK and cardOK and (not it.when or it.when()) then items[#items + 1] = it end
 			end
 			if #items > 0 then out[#out + 1] = { ver = ver, items = items } end
+		end
+	end
+	-- The newest version the card may show always leads it, even with nothing marked for the
+	-- card (owner, 2026-10-21: 3.0.9.3 had none, and the card opened as 3.0.9.2's): then its new
+	-- items for this game stand in. On request (since = nil) always; at login only when the card
+	-- shows anyway, so a release with no card items for this game still stays quiet there.
+	if #out > 0 or not s then
+		for _, ver in ipairs(ns.PATCH_NOTES or {}) do
+			local n = VerNum(ver.v)
+			if n and (not s or n > s) and (not s or preview or not cur or n <= cur) then
+				if not (out[1] and out[1].ver == ver) then
+					local items = {}
+					for _, it in ipairs(ver.new or {}) do
+						local gameOK = it.client == nil or ((it.client == "forever") == forever)
+						if gameOK and (not it.when or it.when()) then items[#items + 1] = it end
+					end
+					table.insert(out, 1, { ver = ver, items = items })
+				end
+				break
+			end
 		end
 	end
 	return out
@@ -507,6 +532,30 @@ local function BuildDialog(since, preview)
 		local t = strip:CreateFontString(nil, "OVERLAY"); t:SetFontObject(Core.fonts.row)
 		t:SetPoint("LEFT", logo, "RIGHT", 10, 0); t:SetPoint("RIGHT", copy, "LEFT", -10, 0); t:SetJustifyH("LEFT")
 		t:SetText("|cff8C9EFFJoin the ShamanPower Discord|r - help, bug reports and early test builds")
+		y = y + 40 + 12
+	end
+	-- Patreon strip, the Discord strip's twin in Patreon's coral: the mark, one line, Copy Link
+	do
+		local strip = CreateFrame("Frame", nil, content)
+		strip:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y); strip:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y)
+		strip:SetHeight(40)
+		local bg = strip:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(strip); bg:SetColorTexture(1, 1, 1, 1)
+		Core:Gradient(bg, "HORIZONTAL", 1, 0.259, 0.302, 0.20, 1, 0.259, 0.302, 0.04)
+		local logo = strip:CreateTexture(nil, "ARTWORK"); logo:SetSize(22, 22)
+		logo:SetPoint("LEFT", strip, "LEFT", 10, 0); logo:SetTexture("Interface\\AddOns\\ShamanPower\\Media\\Textures\\SP_Link_Patreon")
+		local copy = Core:MakeButton(strip, "Copy Link", 100, true)
+		copy:SetPoint("RIGHT", strip, "RIGHT", -6, 0)
+		copy:SetScript("OnClick", function()
+			SP:ShowSPDialog({
+				key = "patreonLink",
+				title = "Support ShamanPower on Patreon",
+				text = "The link is selected - press |cffFFD100Ctrl+C|r to copy it, then paste it into your browser.",
+				editText = PATREON,
+			})
+		end)
+		local t = strip:CreateFontString(nil, "OVERLAY"); t:SetFontObject(Core.fonts.row)
+		t:SetPoint("LEFT", strip, "LEFT", 44, 0); t:SetPoint("RIGHT", copy, "LEFT", -10, 0); t:SetJustifyH("LEFT")
+		t:SetText("|cffFF7A82Every totem counts:|r support ShamanPower on Patreon")
 		y = y + 40 + 12
 	end
 	-- the Also line: each version's smaller things, newest first

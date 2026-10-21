@@ -4,7 +4,8 @@ local _, ns = ...
 -- words, the settings page it lives on), changes / fixes = one line each.
 -- client = "forever" / "anniversary" marks what only one game has; card = true puts an
 -- item on the What's New card (s = its one-line short row for players updating from far
--- back); look = true is the card's NEW box; also = the card's Also line; thanks = a
+-- back); cardClient = "forever" / "anniversary" puts it on one game's card only (both games'
+-- Patch Notes still list it); look = true is the card's NEW box; also = the card's Also line; thanks = a
 -- line at the bottom of the version's Patch Notes (never on the card).
 ns.PATCH_NOTES = {
 	{
@@ -14,13 +15,16 @@ ns.PATCH_NOTES = {
 		new = {
 			{ h = "Out of Range in Every Fight", icon = "Interface\\Icons\\Spell_Nature_StoneSkinTotem", client = "forever",
 			  b = "In a fight a totem's button now grays out when you leave its range and comes back in color when you return, in dungeons and raids as well, for every totem whose buff lands on you. Before, it kept what it showed when the fight started. The Totem Range Tracker's icons do the same.",
-			  path = "Settings > Bars > Totem Bar > Bar", open = { "buttons", "auto_button" } },
+			  path = "Settings > Bars > Totem Bar > Bar", open = { "buttons", "auto_button" },
+			  card = true, s = "Totem Bar and Totem Range Tracker: out of range in fights, dungeons and raids too." },
 			{ h = "Grounding Totem", icon = "Interface\\Icons\\Spell_Nature_GroundingTotem", client = "forever",
 			  b = "Tracked like the other buff totems: its Out of Range look on the Totem Bar, the Totem Range Tracker, party dots and counters, Party Coverage, the Party Strip and its minimap ring.",
-			  path = "Settings > Group Tools > Totem Range Tracker", open = { "fluffy", "sprange_section" } },
+			  path = "Settings > Group Tools > Totem Range Tracker", open = { "fluffy", "sprange_section" },
+			  card = true, s = "Grounding Totem: tracked like the other buff totems." },
 			{ h = "Supporters", icon = "Interface\\Icons\\INV_Misc_Gift_01",
-			  b = "The people who support ShamanPower on Patreon: Earthen Ring first, their names in gold, then every supporter. The Support on Patreon button there, and the new Patreon button at the bottom of the settings window, copy the link. ShamanPower stays free for everyone.",
-			  path = "Settings > General > Supporters", open = { "settings", "settings_supporters" } },
+			  b = "The people who support ShamanPower on Patreon: Earthen Ring first, their names in gold, then every supporter. The Support on Patreon button there, and the new Patreon button at the bottom of the settings window, copy the link.",
+			  path = "Settings > General > Supporters", open = { "settings", "settings_supporters" },
+			  card = true, cardClient = "forever", s = "Supporters: the people who support ShamanPower on Patreon." },
 		},
 		changes = {
 			"After updating, fully close and restart the game once: 3.0.9.4 adds a new file that a /reload does not load.",
